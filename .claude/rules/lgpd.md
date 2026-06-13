@@ -33,7 +33,11 @@
 
 7. **Dado de menor exige aceite do responsável.** O fluxo de matrícula captura consentimento parental explícito (o responsável aceita pelo aluno). Nunca um aluno menor consente sozinho.
 
-8. **Retenção e exclusão (preparar, não implementar agora).** O schema deve permitir, no futuro, anonimização/exclusão a pedido do titular (direito do art. 18). NÃO usar deletes físicos que quebrem integridade fiscal — usar soft-delete/anonimização. Marcar com TODO onde aplicável. Implementação completa = pós-MVP.
+8. **Direito do titular: atendimento MANUAL no MVP (permitido por lei).** A LGPD (art. 18/19) **não obriga** portal self-service — exige um **canal** e um **prazo**. No MVP, o titular exerce os direitos (acesso, correção, exclusão) por canal manual: **suporte@impactxlab.com** ou WhatsApp da IX. Isso atende a obrigação legal.
+   - **Prazo legal: 15 dias** para resposta completa (ou imediato no formato simplificado). Isso é obrigação, não opcional — quando alguém pedir, responde no prazo. Sem custo ao titular.
+   - O texto da Política de Privacidade e dos termos deve **divulgar esse canal**.
+   - O **schema** deve permitir anonimização/exclusão no futuro: NÃO usar delete físico que quebre integridade fiscal — usar soft-delete/anonimização. Marcar com TODO.
+   - **Portal self-service automatizado = pós-MVP** (entra quando o volume de pedidos justificar). Manual cobre a lei até lá.
 
 9. **Transferência só para operar.** PII só vai para terceiros que são sub-operadores necessários (Asaas para cobrança, NF). Nunca para fins de marketing/venda. A própria Asaas é referenciada como infraestrutura, não exposta ao usuário.
 
@@ -42,7 +46,7 @@
 ## O que é pós-MVP (não bloqueia validar PMF, mas é obrigação)
 
 - Matriz completa de base legal por finalidade
-- Portal de direitos do titular (acesso, correção, portabilidade, esquecimento)
+- Portal de direitos do titular **self-service** (acesso, correção, portabilidade, esquecimento) — no MVP isso é manual via suporte@impactxlab.com / WhatsApp, dentro da lei (ver regra 8). Automatizar quando o volume justificar.
 - Log de auditoria de acesso a PII
 - Criptografia de PII em repouso além do padrão do Supabase
 - DPA formal (contrato de operador) Escola↔IX revisado por advogado
