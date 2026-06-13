@@ -57,15 +57,18 @@ As três personas abaixo são todas da Fase 1. O que as une: **o decisor compra 
 - **Sem sistema** — planilha, boleto manual, WhatsApp. Nunca comprou nada.
 - **Insatisfeito** — já paga Sponte/ERP e quer trocar: caro pra estrutura dele, complexo, ou não resolveu a inadimplência.
 
-**O que o estressa:**
+**O que o estressa (em ordem de intensidade — corrigido 13/jun/2026):**
+- **A margem espremida pela franqueadora.** Ele cresce a unidade, mas a rede leva ~40% do faturamento. Conseguir pagar as contas com o que sobra é a dor **primária**. ⚠️ Validar em campo, mas é o sinal mais forte que temos.
 - A incerteza do caixa — não saber quanto entra no mês.
-- Descobrir a inadimplência acumulada quando já está grande.
+- Inadimplência e atrasos — dor **secundária e latente**: real e recorrente, ele procura solução, mas tolera (as opções são caras/complexas demais pra escola até ~150 alunos). Não é o que o faz agir agora.
 - Depender de planilha ou de alguém pra saber a saúde da própria escola.
 - Passar imagem amadora pros pais (cobrança pelo WhatsApp pessoal).
 
-**O que ele quer:** saber a qualquer hora quanto vai entrar, sem abrir planilha; que a cobrança aconteça sem ele; parecer um negócio sério; crescer sem mais trabalho.
+**O que ele quer:** que sobre mais no fim do mês (margem já é apertada); saber a qualquer hora quanto vai entrar, sem abrir planilha; que a cobrança aconteça sem ele; parecer um negócio sério; crescer sem mais trabalho.
 
-**Frase:** *"Eu fico sabendo que alguém não pagou quando o mês já fechou."*
+**Frase:** *"A franquia já leva quase metade. Eu preciso é não deixar escapar o que sobra."*
+
+> **Implicação de GTM:** o gancho de venda lidera com **margem/economia** ("não perca mais pra inadimplência e atraso, sua margem já é apertada"), NÃO com "resolvo sua inadimplência" (dor latente = gancho fraco). E o discurso nunca pode soar como "drible a franquia" — a IX precisa do apoio do dono da rede no médio/longo prazo (ver ICP-FASEADO).
 
 ---
 
@@ -167,7 +170,7 @@ Nenhuma entrevista real foi feita. As personas são **hipóteses bem ancoradas e
 
 | Hipótese | Por que importa |
 |----------|-----------------|
-| A dor de inadimplência é urgente (não latente) | Define se o GTM resolve ou precisa criar urgência |
+| ✅ ~~A dor de inadimplência é urgente~~ → **resolvida 13/jun: a dor primária é MARGEM; inadimplência é latente** | GTM lidera com margem, não com inadimplência (ver Persona 1 e H1) |
 | Em que porte surge a "Ana" separada do dono | Define quem é o usuário primário do produto |
 | A secretária influencia ou veta a compra | Define se ela entra no funil |
 | Há mercado real de troca (já tem sistema, quer trocar) | Define se o ICP é maior que só greenfield |

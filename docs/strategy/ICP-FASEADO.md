@@ -13,6 +13,11 @@ O que define se uma escola é nosso ICP **agora** não é quantos alunos ela tem
 
 Tamanho é sintoma. Autonomia de compra é a causa. Uma microfranquia Kumon de 125 alunos e uma escola independente de 400 alunos podem ser ambos ICP se o dono decide sozinho. Cultura Inglesa de 1.600 alunos não é ICP **agora** — não porque é grande, mas porque a decisão de sistema passa pela rede.
 
+> ### ⚠️ Restrição estratégica (adicionada 13/jun/2026): não antagonizar a franqueadora
+> A autonomia de compra do franqueado é o **canal de entrada** — ele decide sozinho, ciclo curto. Mas o discurso de venda **nunca pode soar como "passe por cima / drible a franquia"**. A IX precisa do **apoio do dono da rede no médio/longo prazo** (a Fase 3 depende de parceria B2B2C com franqueadoras). A franqueadora é aliado potencial, não alvo a contornar.
+>
+> Isso convive com a dor primária do ICP, que é **margem** (a rede leva ~40% do faturamento — ver 00-PERSONAS, Persona 1): vendemos "não deixe escapar o que sobra", **não** "fuja da franquia". O stakeholder franqueadora entra explicitamente no GTM-PLAN.
+
 ---
 
 ## Os três critérios que qualificam um ICP

@@ -20,7 +20,7 @@ Cada hipótese tem: o que assumimos, como testar, critério de sucesso e o que m
 
 ### H1 — A dor de inadimplência é urgente o suficiente para gerar ação imediata
 **O que assumimos:** franqueados e donos de escola estão ativamente incomodados com inadimplência todo mês — não apenas "seria bom resolver um dia".  
-**Status:** 🔴 Crítica — não validada com externos  
+**Status:** ⚠️ PARCIALMENTE RESOLVIDA (Rafa, 13/jun/2026) — **a premissa estava ERRADA.** A dor primária é **MARGEM** (a franqueadora leva ~40% do faturamento), não inadimplência. Inadimplência/atrasos são dor **secundária e latente**: real, muitos procuram solução, mas tolerável e mal-servida pra escola até ~150 alunos. **Ainda falta campo** pra dimensionar, mas o GTM já deve liderar com margem. Ver 00-PERSONAS (Persona 1).  
 **Como testar:** 10 entrevistas com donos de franquias fora da rede Kumon. Pergunta-chave: "Quanto você deixou de receber nos últimos 3 meses por inadimplência? O que você faz hoje quando alguém não paga?"  
 **Critério de sucesso:** ≥7/10 relatam inadimplência como problema ativo (não latente) e descrevem processo manual de cobrança  
 **Se for falsa:** a dor é latente, não urgente — o GTM precisa criar senso de urgência em vez de apenas resolver o problema
@@ -67,7 +67,7 @@ Cada hipótese tem: o que assumimos, como testar, critério de sucesso e o que m
 
 ### H6 — WTP é R$ 400–600/mês para franqueados com 50–200 alunos
 **O que assumimos:** o único dado de WTP que temos (Pimenta, R$ 400–500) generaliza para o mercado. Pimenta é sócio comercial — há viés.  
-**Status:** 🔴 Crítica — dado interno, não validado externamente  
+**Status:** ⚠️ HIPÓTESE DE TRABALHO DEFINIDA (Rafa, 13/jun/2026), validar nas 1ªs vendas — plano até 200 alunos = **R$ 400/mês** (mensalidade fixa IX→escola). Benchmarks reais: Sponte (c/ parceria) R$600/80 alunos; Orienthe (ruim) R$250/140 alunos; Isaac ~R$900. Rafa fará **pesquisa de concorrentes 1-a-1** pra calibrar. NÃO escala por aluno/matéria — fixo. Ver PRICING-STRATEGY.  
 **Como testar:** 3–5 entrevistas com franqueados externos (não Kumon Camargos, não conhecidos de Pimenta). Usar âncora competitiva: "Você sabe que o Isaac cobra ~R$ 900/mês? O que você pagaria por uma solução mais simples e fixo?"  
 **Critério de sucesso:** ≥3/5 aceitam faixa R$ 349–449 sem objeção de preço como barreira principal  
 **Se for falsa:** WTP real pode ser R$ 200–300 — precisa revisar planos ou focar em escolas maiores (200+ alunos)
@@ -94,7 +94,7 @@ Cada hipótese tem: o que assumimos, como testar, critério de sucesso e o que m
 
 ### H9 — Cobrança por aluno ativo é a métrica certa (vs. por matéria)
 **O que assumimos:** aluno é a unidade de cobrança correta para o ICP, inclusive Kumon (que internamente cobra por matéria).  
-**Status:** 🔴 Crítica — decisão arquitetural pendente  
+**Status:** ✅ RESOLVIDA (Rafa, 13/jun/2026) — **a unidade de cobrança é a MATÉRIA**, não o aluno. Modelo: Guardian → N Students → cada Student matriculado em N Subjects (matérias), cada matrícula-em-matéria tem preço próprio = unidade cobrável. A fatura do responsável soma as matrículas-em-matéria de todos os filhos. **Isto vale só para escola→pai.** IX→escola é mensalidade fixa + taxas (não escala por matéria). **Impacto no schema:** `Subject` é entidade de 1ª classe; `Enrollment = Student × Subject × preço`. Ver Tarefa 1.1 do PLANO-TECNICO (schema precisa ser ampliado).  
 **Como testar:** perguntar diretamente ao Pimenta e a 3 outros franqueados Kumon: "Você prefere pagar por aluno ou por matéria? Por quê?" e entender como eles comunicam o preço internamente.  
 **Critério de sucesso:** ≥60% preferem ou aceitam faturamento por aluno ativo  
 **Se for falsa:** precisa criar faixa por matéria — impacto direto no modelo de dados e na tabela de preços
@@ -123,7 +123,7 @@ Cada hipótese tem: o que assumimos, como testar, critério de sucesso e o que m
 
 ### H12 — Clickwrap (aceite eletrônico simples) é legalmente defensável no contexto B2C escolar
 **O que assumimos:** o aceite via checkbox no link de matrícula é válido juridicamente contra o CDC e o Código Civil.  
-**Status:** 🔴 Crítica — risco jurídico  
+**Status:** ✅ DECIDIDO PARA O MVP (Rafa, 13/jun/2026) — **clickwrap basta pro MVP** (checkbox + IP + timestamp + versão do termo). Vale pros dois aceites (escola→IX no onboarding, responsável→escola na matrícula). Parecer jurídico formal = pós-MVP (risco aceitável pra validar). Confirma o que o PLANO-TECNICO já assume.  
 **Como testar:** consultar advogado especializado em direito do consumidor e contratos eletrônicos. Custo: ~R$ 500–1.500 por parecer.  
 **Critério de sucesso:** parecer jurídico confirma validade do clickwrap com os campos de IP + timestamp + versão do termo  
 **Se for falsa:** precisa de assinatura eletrônica (DocuSign, Autentique) — aumenta fricção no onboarding do responsável
@@ -161,7 +161,7 @@ Cada hipótese tem: o que assumimos, como testar, critério de sucesso e o que m
 
 ### H16 — Demo de 20 min por Zoom converte ≥30% em contrato
 **O que assumimos:** uma demo de 20 minutos é suficiente para o decisor entender o valor e assinar.  
-**Status:** 🔴 Crítica — sem baseline  
+**Status:** ⚠️ EXPECTATIVA RECALIBRADA (Rafa, 13/jun/2026) — meta realista de conversão é **15–25% (moderada)**, não 30%. Produto novo sem track record → assumir ciclo com **2–3 toques** + follow-up estruturado + prova social (case Kumon Camargos). A demo sozinha não fecha. Medir desde a 1ª. Ver GTM-PLAN.  
 **Como testar:** registrar todas as demos realizadas (data, empresa, porte, resultado) a partir da primeira. Calcular taxa após 10 demos.  
 **Critério de sucesso:** ≥30% das demos resultam em contrato assinado em até 14 dias  
 **Se for falsa:** a demo não converte sozinha — precisa de follow-up estruturado, trial gratuito, ou caso de sucesso do piloto como âncora
