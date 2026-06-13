@@ -4,8 +4,6 @@
  * Derived from @impactxlab/tokens (theme-education). Never hardcode hex in markup.
  * ============================================================================ */
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
-
 :root {
   /* ─── Primitives ─────────────────────────────────────────────────────── */
   --blue-50:  #EAF2FD;

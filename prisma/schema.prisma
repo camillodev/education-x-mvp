@@ -1,0 +1,128 @@
+// Education X — Prisma schema
+// Multi-tenant: every query is filtered by unitId (Clerk session, never HTTP param)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Tenant ───────────────────────────────────────────────────────────────────
+
+model Unit {
+  id        String   @id @default(cuid())
+  name      String
+  cnpj      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Asaas subconta
+  asaasAccountId    String?
+  asaasApiKeyEnc    String?  // encrypted AES-256-GCM
+
+  students    Student[]
+  guardians   Guardian[]
+  enrollments Enrollment[]
+  invoices    Invoice[]
+
+  @@map("units")
+}
+
+// ─── People ───────────────────────────────────────────────────────────────────
+
+model Student {
+  id        String   @id @default(cuid())
+  unitId    String
+  name      String
+  cpf       String?
+  birthDate DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  unit        Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  guardians   Guardian[]   @relation("StudentGuardians")
+  enrollments Enrollment[]
+
+  @@index([unitId])
+  @@map("students")
+}
+
+model Guardian {
+  id        String   @id @default(cuid())
+  unitId    String
+  name      String
+  cpf       String?
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  unit     Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  students Student[] @relation("StudentGuardians")
+  invoices Invoice[]
+
+  @@index([unitId])
+  @@map("guardians")
+}
+
+// ─── Financial ────────────────────────────────────────────────────────────────
+
+model Enrollment {
+  id        String           @id @default(cuid())
+  unitId    String
+  studentId String
+  planName  String
+  amountCents Int            // always cents in-app
+  status    EnrollmentStatus @default(ACTIVE)
+  startDate DateTime
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  unit     Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  student  Student   @relation(fields: [studentId], references: [id])
+  invoices Invoice[]
+
+  @@index([unitId])
+  @@map("enrollments")
+}
+
+model Invoice {
+  id           String        @id @default(cuid())
+  unitId       String
+  enrollmentId String
+  guardianId   String
+  amountCents  Int           // always cents in-app
+  dueDateUtc   DateTime
+  status       InvoiceStatus @default(PENDING)
+  asaasId      String?       // Asaas charge ID (populated on sync)
+  paidAtUtc    DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  unit       Unit       @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
+  guardian   Guardian   @relation(fields: [guardianId], references: [id])
+
+  @@index([unitId])
+  @@index([asaasId])
+  @@map("invoices")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum EnrollmentStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
