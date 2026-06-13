@@ -225,4 +225,4 @@ A relação com a rede Kumon é ativo, não obstáculo. Regras:
 
 ---
 
-*Fontes: HIPOTESES-VALIDACAO.md · 00-PERSONAS.md · ICP-FASEADO.md · GTM-PLAN.md · ROADMAP-IMPLEMENTACAO.md (archive)*
+*Fontes: WIP-HIPOTESES-VALIDACAO.md · WIP-00-PERSONAS.md · ICP-FASEADO.md · WIP-GTM-PLAN.md · ROADMAP-IMPLEMENTACAO.md (archive)*

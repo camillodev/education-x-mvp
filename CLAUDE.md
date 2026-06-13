@@ -38,12 +38,13 @@ Plataforma de gestão financeira escolar (matrícula → cobrança → recebimen
 
 **Referência (consultar quando relevante):**
 - `docs/product/ROADMAP.md` · `docs/product/ESTIMATIVA-bottom-up.md` · `docs/product/DEVOPS.md` · `docs/product/DESCOBERTAS-SETUP.md`
-- `docs/strategy/` — ICP-FASEADO, MARKET-SIZING (negócio, não orienta código)
-- `docs/research/` — PERSONAS, CONFIANCA-PERSONAS, HIPOTESES-VALIDACAO
+- `docs/strategy/` e `docs/research/` — negócio, não orienta código diretamente
 - `docs/api-contracts/` — payloads reais Asaas (descobertos via MCP)
 - `docs/DISCREPANCIAS-roadmap-vs-prototipo.md` — onde roadmap e protótipo divergem
 - `docs/_archive/` — material histórico/não-revisado (não é fonte de verdade)
 - `specs/epicos/README.md` — índice dos 9 fluxos do MVP
+
+> **Convenção `WIP-`:** docs com prefixo `WIP-` NÃO estão prontos/validados — não tratar como verdade. Revisados de fato: `docs/strategy/ICP-FASEADO.md` e `docs/strategy/MARKET-SIZING.md`. Todo o resto de strategy/research é WIP (`WIP-GTM-PLAN`, `WIP-PRICING-STRATEGY`, `WIP-ALFA-BETA-STRATEGY`, `WIP-SUPORTE-WHATSAPP`, `WIP-DECK-DE-VENDAS`, `WIP-00-PERSONAS`, `WIP-HIPOTESES-VALIDACAO`). As 5 hipóteses críticas (H1/H6/H9/H12/H16) foram resolvidas em 13/jun e estão marcadas dentro de `WIP-HIPOTESES-VALIDACAO`.
 
 ## Quando usar cada modelo (orquestrador)
 - **Opus** — arquitetura, schema, auth/tenant, contratos Asaas, review crítico

@@ -87,7 +87,7 @@ Não há como saber até a pesquisa de campo. As personas são **internamente co
 
 ## Veredito de uma linha
 
-> **São hipóteses bem pesquisadas, não personas validadas.** O esqueleto estrutural (quem tem autonomia, quanto cada rede tem de aluno, em que fase atacar) é razoavelmente sólido. A carne (dores, comportamento, disposição a pagar) é inferência minha e pode estar errada. **A única coisa que move a confiança de "baixa" para "validada" são as entrevistas de campo que já estão roteirizadas** (ver 00-PERSONAS.md, seção "Perguntas de Entrevista").
+> **São hipóteses bem pesquisadas, não personas validadas.** O esqueleto estrutural (quem tem autonomia, quanto cada rede tem de aluno, em que fase atacar) é razoavelmente sólido. A carne (dores, comportamento, disposição a pagar) é inferência minha e pode estar errada. **A única coisa que move a confiança de "baixa" para "validada" são as entrevistas de campo que já estão roteirizadas** (ver WIP-00-PERSONAS.md, seção "Perguntas de Entrevista").
 
 ---
 

@@ -245,4 +245,4 @@ Cada hipótese tem: o que assumimos, como testar, critério de sucesso e o que m
 
 ---
 
-*Fontes: GTM-PLAN.md · PRICING-STRATEGY.md · ANALISE-CONCORRENTES.md · MATRIZ-COMPETITIVA.md · visao-produto.md · 00-PERSONAS.md · 02-JORNADAS-USUARIO.md · MARKET-SIZING.md*
+*Fontes: WIP-GTM-PLAN.md · WIP-PRICING-STRATEGY.md · ANALISE-CONCORRENTES.md · MATRIZ-COMPETITIVA.md · visao-produto.md · WIP-00-PERSONAS.md · 02-JORNADAS-USUARIO.md · MARKET-SIZING.md*

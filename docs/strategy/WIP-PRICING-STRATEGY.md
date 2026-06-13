@@ -76,4 +76,4 @@ Nada no pricing ou na comunicação de preço pode soar como "fuja da franquia".
 
 ---
 
-*Fontes de benchmark: dados diretos do Rafa (13/jun/2026) + MARKET-SIZING.md. Validação: HIPOTESES-VALIDACAO.md.*
+*Fontes de benchmark: dados diretos do Rafa (13/jun/2026) + MARKET-SIZING.md. Validação: WIP-HIPOTESES-VALIDACAO.md.*

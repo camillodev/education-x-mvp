@@ -58,7 +58,7 @@ Em vez de tratar "já tem sistema" como objeção, é sinal de qualificação: e
 
 **Por que estes primeiro:**
 - O dono diz "sim" sozinho → ciclo de venda curto, founder-led funciona
-- Dor de inadimplência ativa e mensal
+- Dor de margem ativa (a rede leva ~40%) + inadimplência/atraso como dor secundária recorrente
 - Comunidade de pares (grupos de WhatsApp) → referral orgânico
 
 **Inclui dois perfis de Fase 1 (ambos com autonomia + dor):**
@@ -102,7 +102,7 @@ Sem isso, a Fase 3 não é vendável. Franqueadoras grandes exigem conformidade 
 
 ## Educação básica privada independente (ICP secundário, paralelo à Fase 1)
 
-Escola regular privada não-franqueada, pequeno/médio porte (até ~500 alunos). Esta entra **em paralelo à Fase 1** quando o dono tem autonomia — mas com ciclo de venda mais longo (sem rede de pares para referral). Persona separada (ver 00-PERSONAS.md, Persona 3).
+Escola regular privada não-franqueada, pequeno/médio porte (até ~500 alunos). Esta entra **em paralelo à Fase 1** quando o dono tem autonomia — mas com ciclo de venda mais longo (sem rede de pares para referral). Persona separada (ver WIP-00-PERSONAS.md, Persona 3).
 
 ---
 
