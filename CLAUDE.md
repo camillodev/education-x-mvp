@@ -42,6 +42,7 @@ Plataforma de gestão financeira escolar (matrícula → cobrança → recebimen
 - Quality gate: `pnpm test:run && pnpm typecheck && pnpm lint && pnpm build` + Playwright (375/768/1440).
 
 ## Pendências (antes de codar o que depende) — ver detalhe em `.claude/rules/asaas.md`
-- **Decisão sua:** CONFIRMED vs RECEIVED (qual evento dispara PAID).
-- **Verificar na conta (não assumir):** dunning liberado? · tokenização de cartão? · transfer/antecipação? — checar via MCP/painel sandbox antes de chamar de "pendência".
+- ✅ **Verificado 2026-06-13 na conta sandbox** (`docs/api-contracts/asaas-verificacao-conta.md`): dunning, antecipação e transfer **todos liberados** (HTTP 200). Confirmar o POST de cada na implementação.
+- **Decisão sua (ainda aberta):** CONFIRMED vs RECEIVED (qual evento dispara PAID) — resolver ao implementar o webhook. Recomendação: RECEIVED dispara NF/regularização.
+- **Tokenização de cartão:** verificar no fluxo de cartão (Tarefa 7.2).
 - **Não é Asaas:** inscrição municipal do Kumon Camargos (NFS-e — lado do cliente).
