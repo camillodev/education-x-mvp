@@ -26,9 +26,25 @@ Plataforma de gestão financeira escolar (matrícula → cobrança → recebimen
 - `.claude/rules/asaas.md` — contratos Asaas (sandbox-first, reais na API)
 - `.claude/rules/security.md` — isolamento de tenant, secrets
 - `.claude/rules/lgpd.md` — proteção de dados pessoais (PII)
-- `docs/system-design.md` — arquitetura, camadas, atomic, DataTable, responsividade
+
+## Docs do produto — fonte ÚNICA de verdade (versionada no repo)
+> Migrados do Claude Desktop em 13/jun/2026. O repo é a única fonte; o Desktop tem só um README ponteiro. NUNCA buscar docs de produto fora daqui.
+
+**Leituras obrigatórias antes de codar qualquer tarefa:**
+- `docs/product/PLANO-TECNICO.md` — o quê + ordem das fases/tarefas (fonte do escopo)
+- `docs/product/SYSTEM-DESIGN.md` — arquitetura, camadas, atomic, DataTable, responsividade
 - `docs/decisions/` — ADRs (por que cada decisão de arquitetura foi tomada)
-- `specs/epicos/` — o que cada fluxo faz (EDX-01..09)
+- `specs/prototipo/design-handoff/` — protótipo aprovado (fonte pixel-perfect de layout/fluxo). O HTML standalone é o artefato renderizável aprovado; os `.jsx` soltos são apoio de lógica (podem divergir — o standalone manda).
+
+**Referência (consultar quando relevante):**
+- `docs/product/ROADMAP.md` · `docs/product/ESTIMATIVA-bottom-up.md` · `docs/product/DEVOPS.md` · `docs/product/DESCOBERTAS-SETUP.md`
+- `docs/strategy/` e `docs/research/` — negócio, não orienta código diretamente
+- `docs/api-contracts/` — payloads reais Asaas (descobertos via MCP)
+- `docs/DISCREPANCIAS-roadmap-vs-prototipo.md` — onde roadmap e protótipo divergem
+- `docs/_archive/` — material histórico/não-revisado (não é fonte de verdade)
+- `specs/epicos/README.md` — índice dos 9 fluxos do MVP
+
+> **Convenção `WIP-`:** docs com prefixo `WIP-` NÃO estão prontos/validados — não tratar como verdade. Revisados de fato: `docs/strategy/ICP-FASEADO.md` e `docs/strategy/MARKET-SIZING.md`. Todo o resto de strategy/research é WIP (`WIP-GTM-PLAN`, `WIP-PRICING-STRATEGY`, `WIP-ALFA-BETA-STRATEGY`, `WIP-SUPORTE-WHATSAPP`, `WIP-DECK-DE-VENDAS`, `WIP-00-PERSONAS`, `WIP-HIPOTESES-VALIDACAO`). As 5 hipóteses críticas (H1/H6/H9/H12/H16) foram resolvidas em 13/jun e estão marcadas dentro de `WIP-HIPOTESES-VALIDACAO`.
 
 ## Quando usar cada modelo (orquestrador)
 - **Opus** — arquitetura, schema, auth/tenant, contratos Asaas, review crítico

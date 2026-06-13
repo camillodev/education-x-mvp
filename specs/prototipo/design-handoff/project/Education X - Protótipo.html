@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Education X — Protótipo navegável</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    #root { min-height: 100vh; }
+    table { font-variant-numeric: tabular-nums; }
+  </style>
+  <script>
+    try { document.documentElement.dataset.mode = localStorage.getItem("ex-mode") || "light"; } catch (e) { document.documentElement.dataset.mode = "light"; }
+  </script>
+</head>
+<body>
+  <template id="__bundler_thumbnail" data-bg-color="#0467DB">
+    <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1200" height="800" fill="#0467DB"/>
+      <rect x="470" y="250" width="260" height="260" rx="58" fill="#ffffff"/>
+      <text x="600" y="470" font-family="Inter, system-ui, sans-serif" font-size="200" font-weight="800" fill="#0467DB" text-anchor="middle" letter-spacing="-8">X</text>
+      <text x="600" y="610" font-family="Inter, system-ui, sans-serif" font-size="58" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="-2">Education X</text>
+    </svg>
+  </template>
+  <div id="root"></div>
+  <script type="text/babel" src="app/components.jsx?v=12"></script>
+  <script type="text/babel" src="app/data.js?v=15"></script>
+  <script type="text/babel" src="frames/ios-frame.jsx?v=11"></script>
+  <script type="text/babel" src="app/shell.jsx?v=12"></script>
+  <script type="text/babel" src="app/screens-a.jsx?v=16"></script>
+  <script type="text/babel" src="app/screens-b.jsx?v=12"></script>
+  <script type="text/babel" src="app/screens-c.jsx?v=22"></script>
+  <script type="text/babel" src="app/screens-c2.jsx?v=11"></script>
+  <script type="text/babel" src="app/screens-d.jsx?v=14"></script>
+  <script type="text/babel" src="app/screens-import.jsx?v=11"></script>
+  <script type="text/babel" src="app/screens-fin.jsx?v=14"></script>
+  <script type="text/babel" src="app/screens-c3.jsx?v=17"></script>
+  <script type="text/babel" src="app/screens-e.jsx?v=12"></script>
+  <script type="text/babel" src="app/app.jsx?v=19"></script>
+</body>
+</html>

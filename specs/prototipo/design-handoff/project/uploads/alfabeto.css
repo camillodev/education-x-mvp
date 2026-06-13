@@ -1,0 +1,83 @@
+/* Education DS theme — Alfabeto/SAS verbatim
+ * Tokens semânticos completos por papel × estado.
+ * Trocar este import = trocar o DS inteiro.
+ *
+ * Convenção: --color-{role}-{variant?}-{state?}
+ *   role: primary, secondary, tertiary, danger, neutral
+ *   variant (danger): primary, secondary, tertiary
+ *   state: default (omit), hover, active, disabled
+ *   fg: foreground (texto/icone)
+ *   bd: border
+ */
+
+:root,
+.theme-education {
+  /* ========== Primary (filled) ========== */
+  --color-primary:           #0467DB;
+  --color-primary-hover:     #023A85;
+  --color-primary-active:    #011E47;
+  --color-primary-disabled:  #C9CCCF;
+  --color-primary-fg:        #FFFFFF;
+  --color-primary-soft:      #BFDBFE;
+
+  /* ========== Secondary (outline) ========== */
+  --color-secondary:           #FFFFFF;
+  --color-secondary-hover:     #E6F0FB;
+  --color-secondary-active:    #BFDBFE;
+  --color-secondary-disabled:  #FFFFFF;
+  --color-secondary-fg:        #1E2124;
+  --color-secondary-fg-disabled: #999EA3;
+  --color-secondary-bd:          #0467DB;
+  --color-secondary-bd-active:   #011E47;
+
+  /* ========== Tertiary (ghost on light bg) ========== */
+  --color-tertiary:           transparent;
+  --color-tertiary-hover:     #000000;
+  --color-tertiary-active:    #000000;
+  --color-tertiary-disabled:  transparent;
+  --color-tertiary-fg:           #1E2124;
+  --color-tertiary-fg-hover:     #FFFFFF;
+  --color-tertiary-fg-active:    #FFFFFF;
+  --color-tertiary-fg-disabled:  #C9CCCF;
+
+  /* ========== Tertiary Dark (ghost on dark bg) ========== */
+  --color-tertiary-dark:           transparent;
+  --color-tertiary-dark-hover:     #FFFFFF;
+  --color-tertiary-dark-active:    #FFFFFF;
+  --color-tertiary-dark-disabled:  transparent;
+  --color-tertiary-dark-fg:           #FFFFFF;
+  --color-tertiary-dark-fg-hover:     #000000;
+  --color-tertiary-dark-fg-active:    #000000;
+  --color-tertiary-dark-fg-disabled:  #666666;
+
+  /* ========== Danger Primary (filled red) ========== */
+  --color-danger-primary:           #EB0000;
+  --color-danger-primary-hover:     #BF3434;
+  --color-danger-primary-active:    #802323;
+  --color-danger-primary-disabled:  #C9CCCF;
+  --color-danger-primary-fg:        #FFFFFF;
+
+  /* ========== Danger Secondary (outline red text) ========== */
+  --color-danger-secondary:           #FFFFFF;
+  --color-danger-secondary-hover:     #F7F7F7;
+  --color-danger-secondary-active:    #C9CCCF;
+  --color-danger-secondary-disabled:  #FFFFFF;
+  --color-danger-secondary-fg:           #EB0000;
+  --color-danger-secondary-fg-disabled:  #999EA3;
+  --color-danger-secondary-bd:          #EB0000;
+  --color-danger-secondary-bd-active:   #802323;
+
+  /* ========== Danger Tertiary (ghost red text) ========== */
+  --color-danger-tertiary:           transparent;
+  --color-danger-tertiary-hover:     #000000;
+  --color-danger-tertiary-active:    #000000;
+  --color-danger-tertiary-disabled:  transparent;
+  --color-danger-tertiary-fg:           #EB0000;
+  --color-danger-tertiary-fg-hover:     #FFFFFF;
+  --color-danger-tertiary-fg-active:    #FFFFFF;
+  --color-danger-tertiary-fg-disabled:  #C9CCCF;
+
+  /* ========== Hero / banner gradient (Alfabeto blue) ========== */
+  --color-hero-from: #0467DB;
+  --color-hero-to:   #4B9EF5;
+}
