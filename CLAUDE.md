@@ -41,8 +41,7 @@ Plataforma de gestão financeira escolar (matrícula → cobrança → recebimen
 - Cada tarefa grande = 1 PR com preview. Arquitetura (schema/auth/webhook) = PRs granulares.
 - Quality gate: `pnpm test:run && pnpm typecheck && pnpm lint && pnpm build` + Playwright (375/768/1440).
 
-## Pendências a resolver na Fase 0 (antes de codar o que depende)
-- CONFIRMED vs RECEIVED — qual evento Asaas dispara o estado PAID interno
-- Inscrição municipal do Kumon Camargos (NFS-e)
-- `PAYMENT_DUNNING:WRITE` liberado na conta Asaas?
-- Tokenização de cartão e transfer/antecipação disponíveis na conta?
+## Pendências (antes de codar o que depende) — ver detalhe em `.claude/rules/asaas.md`
+- **Decisão sua:** CONFIRMED vs RECEIVED (qual evento dispara PAID).
+- **Verificar na conta (não assumir):** dunning liberado? · tokenização de cartão? · transfer/antecipação? — checar via MCP/painel sandbox antes de chamar de "pendência".
+- **Não é Asaas:** inscrição municipal do Kumon Camargos (NFS-e — lado do cliente).

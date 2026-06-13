@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "asaas": {
+      "url": "https://docs.asaas.com/mcp",
+      "env": {
+        "ASAAS_ACCESS_TOKEN": "${ASAAS_MASTER_API_KEY}"
+      }
+    }
+  }
+}
