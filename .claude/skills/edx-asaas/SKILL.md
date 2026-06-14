@@ -1,6 +1,6 @@
 ---
 name: edx-asaas
-description: Integração Asaas do Education X — cliente tipado, criação de subconta, cobrança boleto/PIX/cartão, webhook, negativação. Auto-contida no repo (não depende de skill global). Use ao tocar em src/lib/integration/asaas/ ou services de cobrança/pagamento.
+description: Boas práticas de integração Asaas do Education X — saber o payload via MCP antes de codar, sempre logar cobrança pra debug, idempotência, rollback, conversão de valor num lugar só, webhook seguro. Auto-contida no repo. Use ao tocar em src/lib/integration/asaas/ ou services de cobrança/pagamento.
 ---
 
 # Asaas — Education X (auto-contido no repo)
@@ -11,7 +11,7 @@ description: Integração Asaas do Education X — cliente tipado, criação de 
 1. **Cliente tipado sempre.** Toda chamada Asaas passa por `src/lib/integration/asaas/` (interface + `AsaasLiveClient` + `AsaasMockClient`). Nunca `fetch` direto.
 2. **Sandbox primeiro.** Default `https://sandbox.asaas.com/api/v3`. Produção só com confirmação explícita do Rafa, por operação.
 3. **Auth:** header `access_token: {apiKey}` (NÃO Bearer). Nunca logar/commitar o token.
-4. **Valores:** a API Asaas usa **REAIS**; o app usa **centavos**. Conversão centavos→reais acontece SÓ na borda do cliente. Em nenhum outro lugar.
+4. **Valores:** o app é **100% centavos (Int)** — padrão financeiro correto, sem Float em lugar nenhum. A API da Asaas **exige reais** (contrato externo deles, não dá pra mudar). Por isso a conversão centavos→reais existe num **único ponto**: a borda do cliente (`AsaasLiveClient`). Isolar num lugar só é o que protege o app de erro de arredondamento espalhado.
 5. **API key de subconta:** criptografada no banco (AES-256-GCM via `src/lib/crypto.ts`). Ver `.claude/rules/security.md`.
 
 ## Hierarquia de contas
@@ -34,28 +34,35 @@ Fonte: `docs/api-contracts/asaas-verificacao-conta.md`. Todos liberados:
 
 Para testar lógica sem rede: usar `AsaasMockClient`. Contract tests contra sandbox antes de produção.
 
-## Fluxos por tarefa
+## Práticas de integração (sempre — independem da tarefa)
 
-### Onboarding (Tarefa 1.2) — criar subconta
-1. `createSubAccount({ name, email, cpfCnpj, ... })` → recebe `{ id, apiKey, walletId }`
-2. Criptografar `apiKey` (AES-256-GCM) → persistir em `Unit.asaasApiKeyEnc`, `asaasAccountId`, `asaasWalletId`
-3. **Rollback:** se a subconta falhar, deletar a Unit (não deixar órfã). Lançar `AsaasProvisionError`.
+Estas práticas valem pra QUALQUER chamada Asaas. Não são passos de uma tarefa específica.
 
-### Cobrança (Tarefa 3) — boleto/PIX
-1. `findCustomerByCpfCnpj` ou `createCustomer` (responsável) na subconta da Unit
-2. `createPayment({ customer, billingType: 'BOLETO'|'PIX'|'UNDEFINED', value: cents/100, dueDate, fine, interest })`
-   - `value` em REAIS (conversão na borda) · `fine`/`interest` = multa/juros da BillingConfig
-3. Retorna boleto (linha digitável) + PIX (copia-e-cola)
+### 1. Saber o payload ANTES de executar
+- Antes de implementar qualquer operação nova, **descobrir o contrato real**: consultar o MCP de docs da Asaas (`.mcp.json` tem o server `asaas`) OU docs.asaas.com, em **sandbox**.
+- Validar o payload com uma chamada real de sandbox antes de codar o service. Salvar o contrato em `docs/api-contracts/asaas-*.md` pra virar referência.
+- Nunca assumir formato de campo (ex: `value` em reais, `dueDate` ISO `YYYY-MM-DD`) — confirmar na doc/MCP.
 
-### Webhook (Tarefa 3/4) — baixa automática
-- Idempotente: skip de evento duplicado via tabela `WebhookEvent` (dedup por eventId)
-- Token validado no header `X-Asaas-Token` (não em query) — comparar com o token da subconta (timing-safe)
-- **Event bus:** handlers (NFS-e, regularização de negativação) se registram; não editam o core do webhook
-- **CONFIRMED vs RECEIVED** (decisão de design pendente): `PAYMENT_RECEIVED` (dinheiro na conta) dispara NF + regularização; `PAYMENT_CONFIRMED` é só status visual. Confirmar testando pagamento sandbox.
+### 2. Sempre logar cobrança pra debug futuro
+- Toda operação que cria/altera dinheiro (payment, dunning, transfer) registra um log estruturado: operação, `externalReference`, `unitId`, resultado (id Asaas ou erro), timestamp. **Nunca** logar o token/apiKey.
+- Esse log é o que permite reconstruir "por que essa cobrança falhou" semanas depois. Sem ele, debug de produção financeira é cego.
 
-### Negativação (Tarefa 5)
-- `createDunning` (incluir inadimplente) · `removeDunning` (regularizar em até 24h após pagamento)
-- Escola decide caso a caso; regras de notificação prévia geridas pela Asaas
+### 3. Idempotência por construção
+- Toda criação usa `externalReference` (nosso id interno) pra evitar cobrança duplicada se a chamada for repetida.
+- Webhook: dedup de evento por `eventId` (tabela `WebhookEvent`) antes de processar.
+
+### 4. Falha externa → estado consistente (rollback)
+- Operação que toca banco + Asaas: se a Asaas falhar, reverter o lado do banco (não deixar registro órfão). Lançar erro tipado (ex: `AsaasProvisionError`) pra a API mapear o status HTTP certo.
+
+### 5. Conversão de valor num lugar só
+- Centavos→reais SÓ dentro do cliente (`AsaasLiveClient`). Service e API passam centavos. Ver Regra de ouro #4.
+
+### 6. Webhook seguro
+- Token no header `X-Asaas-Token` (não em query), comparado timing-safe com o token da subconta.
+- **Event bus:** handlers (NFS-e, regularização) se registram; não editam o core do webhook.
+- Decisão pendente `PAYMENT_RECEIVED` vs `PAYMENT_CONFIRMED`: RECEIVED (dinheiro na conta) dispara NF + regularização; confirmar testando sandbox.
+
+> Exemplos concretos por operação (subconta, cobrança, dunning) vivem nos services e em `docs/api-contracts/` — esta skill define o COMO geral, não o passo-a-passo de cada tarefa.
 
 ## Como reproduzir uma chamada (sandbox)
 ```bash
