@@ -18,8 +18,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
+        # versão lida do campo "packageManager" do package.json (pnpm@11.2.2)
 
       - uses: actions/setup-node@v4
         with:
@@ -56,8 +55,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
+        # versão lida do campo "packageManager" do package.json (pnpm@11.2.2)
 
       - uses: actions/setup-node@v4
         with:

@@ -2,6 +2,7 @@
   "name": "education-x",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@11.2.2",
   "scripts": {
     "prepare": "bash .claude/hooks/install-hooks.sh",
     "dev": "next dev --turbopack",
