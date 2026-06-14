@@ -12,15 +12,15 @@
 
 ## Pipeline reproduzível (vale para cada Task abaixo)
 
-Cada Task segue o `ix-dev` (7 passos). Designação de agents/skills por etapa:
+Cada Task segue o `.claude/AGENTS.md` (pipeline de 7 passos). Designação de agents/skills por etapa:
 
 | Etapa | Skill/Agent | Modelo |
 |-------|-------------|--------|
-| Contexto | `ix-core` + `ix-backend`/`ix-frontend`/`ix-security` (conforme a Task) | — |
+| Contexto | `.claude/rules/` da Task (`backend`/`frontend`/`security`) + skills `edx-asaas`/`edx-datatable` | — |
 | Docs lib | `mcp__context7__query-docs` (Prisma `$extends`, Clerk 6 `clerkMiddleware`) ⚠️ **confirmar sintaxe na doc oficial — context7 estava com chave inválida em 13/jun** | — |
-| Execução | TDD (RED→GREEN→REFACTOR), `ix-code-guidelines` (500 linhas, DRY) | Sonnet (lógica) / Haiku (boilerplate, columns) |
-| Verificação | `pnpm test:run && typecheck && build` + Playwright 3 breakpoints (UI) + `ix-security` | — |
-| Review | `ix-code-review` + `advisor()` (schema/auth/cripto = crítico) | Opus via advisor |
+| Execução | TDD (RED→GREEN→REFACTOR), `.claude/rules/` (500 linhas, DRY) | Sonnet constrói (lógica/services/UI) · Haiku mecaniza (boilerplate, columns) |
+| Verificação | `pnpm test:run && typecheck && build` + Playwright 3 breakpoints (UI) + `.claude/rules/security.md` | — |
+| Review | `coda-reviewer` (subagent) + `advisor()` (schema/auth/cripto = crítico) | Opus |
 | Ship | branch `feature/`, PR, sem Co-Authored-By | — |
 
 **Ordem das Tasks (dependências):** 1.1 schema+cripto → 1.2 service+subconta → 1.4 auth/tenant (pode paralelizar com 1.3 após 1.1) → 1.3 wizard UI → 1.5 termos.
@@ -58,7 +58,7 @@ docs/legal/termos-uso-ix-escola.md             # Task 1.5
 
 ## Task 1.1 — Schema base + criptografia
 
-**Contexto:** `ix-core` + `ix-backend` + `ix-security`. Modelo de cobrança: ver memória `education-x-modelo-cobranca` (Subject = nome + código NFS-e + preço em centavos).
+**Contexto:** `.claude/rules/backend.md` + `.claude/rules/security.md`. Modelo de cobrança: ver memória `education-x-modelo-cobranca` (Subject = nome + código NFS-e + preço em centavos).
 
 **Files:**
 - Create: `src/lib/crypto.ts`, `src/lib/crypto.test.ts`
@@ -361,7 +361,7 @@ git commit -m "feat(onboarding): schema Unit/BillingConfig/Subject + crypto AES-
 
 ## Task 1.2 — Service de onboarding + criação de subconta Asaas
 
-**Contexto:** `ix-core` + `ix-backend`. Cliente Asaas tipado já existe em `src/lib/integration/asaas/`. Subconta verificada em sandbox (HTTP 200). Valores em reais na borda Asaas.
+**Contexto:** `.claude/rules/backend.md` + skill `edx-asaas`. Cliente Asaas tipado já existe em `src/lib/integration/asaas/`. Subconta verificada em sandbox (HTTP 200). Valores em reais na borda Asaas.
 
 **Files:**
 - Create: `src/lib/db.ts`, `src/lib/services/onboarding.service.ts`, `src/lib/services/__tests__/onboarding.service.test.ts`, `src/app/api/setup/escola/route.ts`
@@ -512,7 +512,7 @@ export async function POST(req: Request) {
 
 ## Task 1.4 — Auth, RBAC e isolamento de tenant 🔴
 
-**Contexto:** `ix-core` + `ix-security`. ADR-0002: isolamento por aplicação via Prisma Client Extension. Clerk 6 `clerkMiddleware`. ⚠️ Confirmar sintaxe `$extends` (Prisma 6) e `clerkMiddleware` (Clerk 6) na doc oficial antes de codar.
+**Contexto:** `.claude/rules/security.md`. ADR-0002: isolamento por aplicação via Prisma Client Extension. Clerk 6 `clerkMiddleware`. ⚠️ Confirmar sintaxe `$extends` (Prisma 6) e `clerkMiddleware` (Clerk 6) na doc oficial antes de codar.
 
 **Files:**
 - Create: `src/middleware.ts`, `src/lib/auth/unit-context.ts`
@@ -640,7 +640,7 @@ export const config = { matcher: ["/((?!_next|.*\\..*).*)", "/(api|trpc)(.*)"] }
 
 ## Task 1.3 — UI do wizard (4 passos) + aceite clickwrap
 
-**Contexto:** `ix-core` + `ix-frontend` + `ix-design-system` + `frontend-design`. Referência pixel-perfect: `specs/prototipo/design-handoff/project/app/screens-a.jsx` (FlowA) — recriar com componentes reutilizáveis, NÃO copiar inline. **Passo 3 (Documentos) expande "códigos de serviço por matéria" em tabela: matéria + código NFS-e + PREÇO** (decisão 13/jun). Valores em reais no frontend, centavos no submit.
+**Contexto:** `.claude/rules/frontend.md` + skill `edx-datatable`. Referência pixel-perfect: `specs/prototipo/design-handoff/project/app/screens-a.jsx` (FlowA) — recriar com componentes reutilizáveis, NÃO copiar inline. **Passo 3 (Documentos) expande "códigos de serviço por matéria" em tabela: matéria + código NFS-e + PREÇO** (decisão 13/jun). Valores em reais no frontend, centavos no submit.
 
 **Files:** (ver File Structure) — átomos shadcn faltantes primeiro (Haiku), depois store/hook (Sonnet), depois os 4 passos (Haiku dumb + Sonnet lógica), depois o shell.
 
@@ -654,14 +654,14 @@ export const config = { matcher: ["/((?!_next|.*\\..*).*)", "/(api|trpc)(.*)"] }
 - [ ] **Step 8: `use-onboarding.ts`** — orquestra store → `POST /api/setup/escola`. Trata 201/400/409/502 (toast).
 - [ ] **Step 9: `OnboardingWizard.tsx` + rota `(app)/onboarding/page.tsx`** — shell com Stepper, monta os 4 passos.
 - [ ] **Step 10: Teste Vitest** — aceite registra IP/versão (mock); onboarding bloqueado sem aceite; subjects persistem com preço.
-- [ ] **Step 11: VERIFICAÇÃO E2E Playwright** (obrigatório, ix-dev Passo 6) — `tests/e2e/onboarding.spec.ts`: percorre os 4 passos nos 3 breakpoints (375/768/1440), console limpo, screenshots `pw-{bp}-onboarding.png`.
+- [ ] **Step 11: VERIFICAÇÃO E2E Playwright** (obrigatório, AGENTS.md Passo 5 (Verificação)) — `tests/e2e/onboarding.spec.ts`: percorre os 4 passos nos 3 breakpoints (375/768/1440), console limpo, screenshots `pw-{bp}-onboarding.png`.
 - [ ] **Step 12: `ix-code-review` + Commit** — `feat(onboarding): wizard 4 passos com matérias+preço, FeeRouter, aceite clickwrap`
 
 ---
 
 ## Task 1.5 — Termos da plataforma + isenção da IX
 
-**Contexto:** `ix-core`. Redigir conteúdo (mecanismo de aceite está em 1.3). Sem advogado agora — versão funcional. Clickwrap basta pro MVP (H12 decidida).
+**Contexto:** `.claude/rules/`. Redigir conteúdo (mecanismo de aceite está em 1.3). Sem advogado agora — versão funcional. Clickwrap basta pro MVP (H12 decidida).
 
 **Files:**
 - Create: `docs/legal/termos-uso-ix-escola.md`, `docs/legal/termos-escola-responsavel.md`, `docs/legal/politica-privacidade.md`

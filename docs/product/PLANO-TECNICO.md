@@ -1,7 +1,7 @@
 # Plano Técnico — Education X (MVP)
 > Versão 1.0 · Junho 2026 · **Documento técnico para o Claude Code implementar.**
 > Para o resumo sem jargão (acompanhamento com coach), ver [ROADMAP.md](ROADMAP.md).
-> Alinhado a: [00-FILOSOFIA.md](../../../Strategy/00-FILOSOFIA.md) · SYSTEM-DESIGN.md · DEVOPS.md · ix-code-guidelines
+> Alinhado a: SYSTEM-DESIGN.md · DEVOPS.md · `.claude/rules/` (regras de código versionadas no repo) · `.claude/AGENTS.md` (pipeline + modelos)
 
 ## Como usar este documento
 
@@ -66,11 +66,11 @@ O calendário é o piso confortável, não o teto. Uma semana mais lenta empurra
 | Repo | Novo em `/Users/rafae/projetos/education-x` | Decisão Rafael |
 | Migra do repo antigo | Só o cliente Asaas (revisado pelo Coda) + tokens Alfabeto | Decisão Rafael |
 | Valores monetários | **centavos (Int)** — nunca Float; conversão reais só na borda Asaas **e no frontend** | SYSTEM-DESIGN.md |
-| Entidades | **Inglês** (`Unit`, `Guardian`, `Student`...) — não `Escola`/`Responsavel` | ix-code-guidelines |
+| Entidades | **Inglês** (`Unit`, `Guardian`, `Student`...) — não `Escola`/`Responsavel` | `.claude/rules/backend.md` |
 | Infra de partida | Vercel Pro + Supabase Pro `sa-east-1` (~$45/mês) | DEVOPS.md |
 | Protótipo visual | [claude.ai/design](https://claude.ai/design/p/60949813-42bb-41e7-963f-c2ccf9859a1d?file=Education+X+-+Prot%C3%B3tipo.html) | — |
 
-### Regras inegociáveis (ix-code-guidelines + D6)
+### Regras inegociáveis (`.claude/rules/` + CLAUDE.md)
 - **TDD**: RED → GREEN → REFACTOR. Teste antes do código.
 - **Cobertura**: 80% global + **90% nos módulos críticos** (`services/invoice/`, `services/negativacao/`)
 - **500 linhas** máx por arquivo; split antes de ultrapassar
