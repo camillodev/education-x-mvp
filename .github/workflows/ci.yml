@@ -70,10 +70,22 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm prisma generate
 
+      - name: Check for E2E specs
+        id: specs
+        run: |
+          if ls tests/e2e/*.spec.ts >/dev/null 2>&1; then
+            echo "has_specs=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_specs=false" >> "$GITHUB_OUTPUT"
+            echo "Nenhum spec E2E ainda (tests/e2e/ vazio) — pulando. Specs entram na Tarefa 1.3."
+          fi
+
       - name: Install Playwright browsers
+        if: steps.specs.outputs.has_specs == 'true'
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run E2E (3 breakpoints)
+        if: steps.specs.outputs.has_specs == 'true'
         run: pnpm test:e2e
         env:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ci-dummy
@@ -83,7 +95,7 @@ jobs:
           # Enquanto não houver, manter os specs e2e em telas públicas (sem login/db).
 
       - name: Upload Playwright report
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.specs.outputs.has_specs == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report

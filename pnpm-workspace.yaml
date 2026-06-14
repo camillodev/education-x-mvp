@@ -1,0 +1,10 @@
+# pnpm 11+ lê esta config (onlyBuiltDependencies migrou do .npmrc/package.json pra cá).
+# Aprova os build scripts das deps nativas — sem isso o CI sai com ERR_PNPM_IGNORED_BUILDS.
+onlyBuiltDependencies:
+  - "@clerk/shared"
+  - "@prisma/client"
+  - "@prisma/engines"
+  - esbuild
+  - prisma
+  - sharp
+  - unrs-resolver
