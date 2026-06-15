@@ -46,46 +46,47 @@ if ! echo "$CHANGED" | grep -qE '^src/app/.*\.(tsx|ts)$|^src/components/|^src/fe
   exit 0
 fi
 
-# Checa 3 markers
-MISSING=()
-for BP in 375 768 1440; do
-  [[ -f "${MARKER_DIR}/claude-pw-${SESSION_ID}-${BP}" ]] || MISSING+=("$BP")
-done
+# Verifica que existe um comentário de validação visual cobrindo o HEAD atual.
+# O comentário é postado por pw-validation-comment.sh e carrega o marcador
+# <!-- PW-VALIDATION:<sha> -->. Durável e auditável (vive no PR), ao contrário
+# de markers em /tmp.
+HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
+MARKER="PW-VALIDATION:${HEAD_SHA}"
 
-if [[ ${#MISSING[@]} -gt 0 ]]; then
+VALIDATED=0
+if gh pr view --json comments >/dev/null 2>&1; then
+  if gh pr view --json comments --jq '.comments[].body' 2>/dev/null | grep -qF "$MARKER"; then
+    VALIDATED=1
+  fi
+fi
+
+if [[ "$VALIDATED" -ne 1 ]]; then
   cat >&2 <<EOF
-🛑 Validação Playwright obrigatória — push/PR bloqueado.
+🛑 Validação visual obrigatória — push/PR bloqueado.
 
-Diff toca UI/rotas (src/app/, src/components/, src/features/) mas faltam screenshots em: ${MISSING[*]}
+Diff toca UI/rotas (src/app/, src/components/, src/features/) mas NÃO há comentário
+de validação Playwright cobrindo o commit atual (${HEAD_SHA:0:7}) no PR.
 
-Antes de "$COMMAND": rodar Playwright nos 3 breakpoints E LER cada screenshot
-(Read na .png — tirar print sem olhar NÃO conta, foi assim que bug visual passou).
+Fluxo correto antes de "$COMMAND":
 
-Telas protegidas (sob /onboarding): suba o dev com bypass:
-  DISABLE_CLERK=true DEV_USER_ROLE=admin_ix npx next dev --port 3001
-Auditoria visual com olhos de verdade: agente edx-ui-reviewer.
+1. Suba o dev (telas protegidas precisam do bypass):
+     DISABLE_CLERK=true DEV_USER_ROLE=admin_ix npx next dev --port 3001
 
-Para cada rota mudada:
+2. Para cada rota mudada, nos 3 breakpoints (375/768/1440):
+     browser_resize → browser_navigate → browser_console_messages (esperar [])
+     → browser_take_screenshot → e LEIA o .png (Read). Print sem olhar não conta.
 
-  1. browser_resize {width: 1440, height: 900}
-     browser_navigate <rota>
-     browser_console_messages {level: 'error'}   # esperar []
-     browser_take_screenshot {filename: 'pw-1440-<slug>.png'}
+3. Poste o veredito no PR (vira registro auditável):
+     echo "<o que você viu: rotas, ✓/✗ por breakpoint, console, achados>" \\
+       | .claude/hooks/pw-validation-comment.sh -
 
-  2. browser_resize {width: 768, height: 1024}
-     browser_navigate <rota>
-     browser_console_messages {level: 'error'}   # esperar []
-     browser_take_screenshot {filename: 'pw-768-<slug>.png'}
+   Isso grava o marcador PW-VALIDATION:<sha-do-HEAD> que este gate procura.
+   Reavalie e reposte a cada novo commit que toque UI.
 
-  3. browser_resize {width: 375, height: 667}
-     browser_navigate <rota>
-     browser_console_messages {level: 'error'}   # esperar []
-     browser_take_screenshot {filename: 'pw-375-<slug>.png'}
+Auditoria com olhos de verdade: agente edx-ui-reviewer.
 
-Bypass (USE COM CUIDADO — só para fix de config/CI sem mudança comportamental):
+Bypass do gate (SÓ fix de config/CI sem mudança visual):
   PLAYWRIGHT_SKIP=1 <comando>
-
-Detalhes: ~/.claude/skills/ix-dev/SKILL.md §6 + AGENTS.md.
 EOF
   exit 2
 fi

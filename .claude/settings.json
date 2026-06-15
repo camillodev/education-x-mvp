@@ -32,17 +32,6 @@
           }
         ]
       }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "mcp__plugin_playwright_playwright__browser_resize|mcp__plugin_playwright_playwright__browser_take_screenshot",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/mark-playwright-ran.sh"
-          }
-        ]
-      }
     ]
   }
 }
