@@ -50,6 +50,17 @@ model Unit {
   franchiseParent String?
   status          UnitStatus @default(PENDING)
 
+  // Responsável da unidade (quem recebe o aceite dos termos por e-mail)
+  responsibleName  String
+  responsibleCpfEnc String // PII — AES-256-GCM
+  responsibleEmail String
+  responsiblePhone String
+
+  // Aceite dos termos via link de confirmação (sem login)
+  confirmationToken          String?   @unique
+  confirmationTokenExpiresAt DateTime?
+  confirmedAt                DateTime?
+
   // Asaas subconta
   asaasAccountId String?
   asaasApiKeyEnc String? // AES-256-GCM: iv:authTag:ciphertext

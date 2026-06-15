@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { DadosState } from '@/hooks/use-onboarding'
-import { isValidCnpj, isValidBrPhone } from '@/lib/validations/br-documents'
+import { isValidCnpj, isValidCpf, isValidBrPhone } from '@/lib/validations/br-documents'
 import { FRANCHISE_NETWORKS } from '@/lib/data/franchise-networks'
 
 interface Props {
@@ -18,6 +18,15 @@ function maskCnpj(value: string): string {
     .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
     .replace(/\.(\d{3})(\d)/, '.$1/$2')
     .replace(/(\d{4})(\d)/, '$1-$2')
+}
+
+function maskCpf(value: string): string {
+  return value
+    .replace(/\D/g, '')
+    .slice(0, 11)
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1-$2')
 }
 
 function maskPhone(value: string): string {
@@ -44,7 +53,16 @@ export function StepDados({ dados, onChange }: Props) {
   const cnpjError = dados.cnpj.length > 0 && !isValidCnpj(dados.cnpj) ? 'CNPJ inválido' : ''
   const emailError = dados.email.length > 0 && !EMAIL_RE.test(dados.email) ? 'E-mail inválido' : ''
   const phoneError = dados.phone.length > 0 && !isValidBrPhone(dados.phone) ? 'Telefone inválido' : ''
+  const respCpfError =
+    dados.responsibleCpf.length > 0 && !isValidCpf(dados.responsibleCpf) ? 'CPF inválido' : ''
+  const respEmailError =
+    dados.responsibleEmail.length > 0 && !EMAIL_RE.test(dados.responsibleEmail) ? 'E-mail inválido' : ''
+  const respPhoneError =
+    dados.responsiblePhone.length > 0 && !isValidBrPhone(dados.responsiblePhone) ? 'Telefone inválido' : ''
   const errorBorder = 'border-red-400 focus:border-red-500 focus:ring-red-500'
+  const inputBase =
+    'mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1'
+  const okBorder = 'border-gray-300 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]'
 
   async function handleCepBlur(cep: string) {
     const digits = cep.replace(/\D/g, '')
@@ -291,6 +309,82 @@ export function StepDados({ dados, onChange }: Props) {
             </p>
           </div>
         )}
+      </div>
+
+      {/* Responsável da unidade */}
+      <div className="border-t border-gray-100 pt-6">
+        <h3 className="text-base font-semibold text-gray-800">Responsável da unidade</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          A pessoa que vai confirmar o cadastro e aceitar os termos. O e-mail abaixo recebe o
+          link de confirmação.
+        </p>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-gray-700" htmlFor="responsibleName">
+              Nome completo *
+            </label>
+            <input
+              id="responsibleName"
+              type="text"
+              value={dados.responsibleName}
+              onChange={(e) => onChange({ responsibleName: e.target.value })}
+              placeholder="Nome do responsável"
+              className={`${inputBase} ${okBorder}`}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700" htmlFor="responsibleCpf">
+              CPF *
+            </label>
+            <input
+              id="responsibleCpf"
+              type="text"
+              value={maskCpf(dados.responsibleCpf)}
+              onChange={(e) => onChange({ responsibleCpf: e.target.value.replace(/\D/g, '') })}
+              placeholder="000.000.000-00"
+              maxLength={14}
+              aria-invalid={!!respCpfError}
+              className={`${inputBase} ${respCpfError ? errorBorder : okBorder}`}
+            />
+            {respCpfError && <p className="mt-1 text-xs text-red-500">{respCpfError}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700" htmlFor="responsiblePhone">
+              Telefone *
+            </label>
+            <input
+              id="responsiblePhone"
+              type="tel"
+              value={maskPhone(dados.responsiblePhone)}
+              onChange={(e) => onChange({ responsiblePhone: e.target.value.replace(/\D/g, '') })}
+              placeholder="(31) 99999-0000"
+              maxLength={15}
+              aria-invalid={!!respPhoneError}
+              className={`${inputBase} ${respPhoneError ? errorBorder : okBorder}`}
+            />
+            {respPhoneError && <p className="mt-1 text-xs text-red-500">{respPhoneError}</p>}
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-gray-700" htmlFor="responsibleEmail">
+              E-mail *{' '}
+              <span className="font-normal text-gray-400">(recebe o link de confirmação)</span>
+            </label>
+            <input
+              id="responsibleEmail"
+              type="email"
+              value={dados.responsibleEmail}
+              onChange={(e) => onChange({ responsibleEmail: e.target.value })}
+              placeholder="responsavel@escola.com"
+              aria-invalid={!!respEmailError}
+              className={`${inputBase} ${respEmailError ? errorBorder : okBorder}`}
+            />
+            {respEmailError && <p className="mt-1 text-xs text-red-500">{respEmailError}</p>}
+          </div>
+        </div>
       </div>
     </div>
   )

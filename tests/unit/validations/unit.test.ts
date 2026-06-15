@@ -15,14 +15,15 @@ const validInput = {
   state: 'MG',
   isFranchise: true,
   franchiseParent: 'Kumon Brasil',
+  responsibleName: 'Maria Pimenta',
+  responsibleCpf: '11144477735',
+  responsibleEmail: 'maria@kumon.com',
+  responsiblePhone: '31988887777',
   billing: {
-    dueDay: 10,
-    closingDay: 5,
+    dueDay: 25,
+    closingDay: 25,
     lateFeePercent: 200,
     monthlyInterestBp: 100,
-    enablesSpc: false,
-    autoBilling: true,
-    acceptsCard: false,
     cardFeePayer: 'RESPONSAVEL' as const,
     negativacaoFeePayer: 'RESPONSAVEL' as const,
     municipalRegistration: '1234567',
@@ -34,7 +35,6 @@ const validInput = {
       priceCents: 35000,
     },
   ],
-  termsVersionId: 'clxxxxxxxxxxxxxxxxxxxxxxxxx',
 }
 
 describe('CreateSchoolSchema', () => {
@@ -136,6 +136,21 @@ describe('CreateSchoolSchema', () => {
 
   it('rejeita sem bairro', () => {
     const result = CreateSchoolSchema.safeParse({ ...validInput, neighborhood: '' })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejeita CPF do responsável inválido', () => {
+    const result = CreateSchoolSchema.safeParse({ ...validInput, responsibleCpf: '11144477700' })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejeita e-mail do responsável inválido', () => {
+    const result = CreateSchoolSchema.safeParse({ ...validInput, responsibleEmail: 'nao-email' })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejeita sem nome do responsável', () => {
+    const result = CreateSchoolSchema.safeParse({ ...validInput, responsibleName: '' })
     expect(result.success).toBe(false)
   })
 })

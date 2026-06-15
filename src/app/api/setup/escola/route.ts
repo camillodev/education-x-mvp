@@ -4,7 +4,6 @@ import { ZodError } from 'zod'
 import {
   createSchool,
   DuplicateCnpjError,
-  TermsVersionNotFoundError,
   AsaasProvisionError,
 } from '@/lib/services/onboarding.service'
 import { CreateSchoolSchema } from '@/lib/validations/unit'
@@ -33,21 +32,16 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Extrair IP do cliente
-  const ip =
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    req.headers.get('x-real-ip') ??
-    '0.0.0.0'
+  // Base URL para montar o link de confirmação enviado por e-mail
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ?? req.nextUrl.origin
 
   try {
-    const unit = await createSchool(parsed.data, ip)
+    const unit = await createSchool(parsed.data, baseUrl)
     return NextResponse.json(unit, { status: 201 })
   } catch (err) {
     if (err instanceof DuplicateCnpjError) {
       return NextResponse.json({ error: err.message }, { status: 409 })
-    }
-    if (err instanceof TermsVersionNotFoundError) {
-      return NextResponse.json({ error: err.message }, { status: 400 })
     }
     if (err instanceof ZodError) {
       return NextResponse.json({ error: 'Dados inválidos', issues: err.flatten() }, { status: 400 })

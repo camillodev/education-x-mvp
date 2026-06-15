@@ -7,7 +7,7 @@ interface Props {
   onChange: (cobranca: Partial<CobrancaState>) => void
 }
 
-function BpToPercent(bp: number): string {
+function bpToPercent(bp: number): string {
   return (bp / 100).toFixed(2)
 }
 
@@ -16,33 +16,27 @@ function percentToBp(percent: string): number {
 }
 
 export function StepCobranca({ cobranca, onChange }: Props) {
+  const inputCls =
+    'mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]'
+
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-gray-800">Configuração de cobrança</h2>
+      <div>
+        <h2 className="text-lg font-semibold text-gray-800">
+          Cobrança aos responsáveis
+        </h2>
+        <p className="mt-1 text-sm text-gray-500">
+          Como a escola cobra as mensalidades dos responsáveis financeiros. Isto não é o
+          pagamento da escola à Impact X.
+        </p>
+      </div>
 
-      {/* Dias */}
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-gray-700" htmlFor="dueDay">
-            Dia de vencimento *
-          </label>
-          <p className="text-xs text-gray-400">Entre 1 e 28</p>
-          <input
-            id="dueDay"
-            type="number"
-            min={1}
-            max={28}
-            value={cobranca.dueDay}
-            onChange={(e) => onChange({ dueDay: parseInt(e.target.value) || 1 })}
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-          />
-        </div>
-
         <div>
           <label className="block text-sm font-medium text-gray-700" htmlFor="closingDay">
             Dia de fechamento *
           </label>
-          <p className="text-xs text-gray-400">Entre 1 e 28</p>
+          <p className="text-xs text-gray-400">Quando a mensalidade é apurada (1 a 28)</p>
           <input
             id="closingDay"
             type="number"
@@ -50,7 +44,23 @@ export function StepCobranca({ cobranca, onChange }: Props) {
             max={28}
             value={cobranca.closingDay}
             onChange={(e) => onChange({ closingDay: parseInt(e.target.value) || 1 })}
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+            className={inputCls}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700" htmlFor="dueDay">
+            Dia de vencimento do boleto *
+          </label>
+          <p className="text-xs text-gray-400">Quando o responsável deve pagar (1 a 28)</p>
+          <input
+            id="dueDay"
+            type="number"
+            min={1}
+            max={28}
+            value={cobranca.dueDay}
+            onChange={(e) => onChange({ dueDay: parseInt(e.target.value) || 1 })}
+            className={inputCls}
           />
         </div>
 
@@ -64,9 +74,9 @@ export function StepCobranca({ cobranca, onChange }: Props) {
             min={0}
             max={5}
             step={0.01}
-            value={BpToPercent(cobranca.lateFeePercent)}
+            value={bpToPercent(cobranca.lateFeePercent)}
             onChange={(e) => onChange({ lateFeePercent: percentToBp(e.target.value) })}
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+            className={inputCls}
           />
         </div>
 
@@ -80,9 +90,9 @@ export function StepCobranca({ cobranca, onChange }: Props) {
             min={0}
             max={3}
             step={0.01}
-            value={BpToPercent(cobranca.monthlyInterestBp)}
+            value={bpToPercent(cobranca.monthlyInterestBp)}
             onChange={(e) => onChange({ monthlyInterestBp: percentToBp(e.target.value) })}
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+            className={inputCls}
           />
         </div>
 
@@ -96,52 +106,22 @@ export function StepCobranca({ cobranca, onChange }: Props) {
             value={cobranca.municipalRegistration}
             onChange={(e) => onChange({ municipalRegistration: e.target.value })}
             placeholder="Número da inscrição municipal para NFS-e"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+            className={inputCls}
           />
         </div>
       </div>
 
-      {/* Toggles */}
-      <div className="space-y-3 border-t border-gray-100 pt-4">
-        <h3 className="text-sm font-medium text-gray-700">Opções</h3>
+      {/* Quem paga as taxas */}
+      <div className="border-t border-gray-100 pt-4">
+        <h3 className="text-sm font-medium text-gray-700">Quem paga as taxas</h3>
+        <p className="mt-0.5 text-xs text-gray-400">
+          Define quem arca com a taxa do cartão e a taxa de negativação.
+        </p>
 
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            checked={cobranca.enablesSpc}
-            onChange={(e) => onChange({ enablesSpc: e.target.checked })}
-            className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)]"
-          />
-          Habilitar negativação no SPC/Serasa
-        </label>
-
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            checked={cobranca.autoBilling}
-            onChange={(e) => onChange({ autoBilling: e.target.checked })}
-            className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)]"
-          />
-          Cobrança automática (gerar boletos automaticamente)
-        </label>
-
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            checked={cobranca.acceptsCard}
-            onChange={(e) => onChange({ acceptsCard: e.target.checked })}
-            className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)]"
-          />
-          Aceitar pagamento por cartão de crédito
-        </label>
-      </div>
-
-      {/* FeePayors */}
-      {cobranca.acceptsCard && (
-        <div className="grid gap-4 sm:grid-cols-2 border-t border-gray-100 pt-4">
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-sm font-medium text-gray-700" htmlFor="cardFeePayer">
-              Quem paga a taxa do cartão?
+              Taxa do cartão
             </label>
             <select
               id="cardFeePayer"
@@ -149,7 +129,7 @@ export function StepCobranca({ cobranca, onChange }: Props) {
               onChange={(e) =>
                 onChange({ cardFeePayer: e.target.value as 'RESPONSAVEL' | 'ESCOLA' })
               }
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+              className={inputCls}
             >
               <option value="RESPONSAVEL">Responsável</option>
               <option value="ESCOLA">Escola</option>
@@ -157,8 +137,11 @@ export function StepCobranca({ cobranca, onChange }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700" htmlFor="negativacaoFeePayer">
-              Quem paga a taxa de negativação?
+            <label
+              className="block text-sm font-medium text-gray-700"
+              htmlFor="negativacaoFeePayer"
+            >
+              Taxa de negativação
             </label>
             <select
               id="negativacaoFeePayer"
@@ -166,14 +149,14 @@ export function StepCobranca({ cobranca, onChange }: Props) {
               onChange={(e) =>
                 onChange({ negativacaoFeePayer: e.target.value as 'RESPONSAVEL' | 'ESCOLA' })
               }
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+              className={inputCls}
             >
               <option value="RESPONSAVEL">Responsável</option>
               <option value="ESCOLA">Escola</option>
             </select>
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

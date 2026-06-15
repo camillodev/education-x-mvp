@@ -20,22 +20,21 @@ const baseState = {
     state: 'MG',
     isFranchise: false,
     franchiseParent: '',
+    responsibleName: 'Maria Pimenta',
+    responsibleCpf: '11144477735',
+    responsibleEmail: 'maria@escola.com',
+    responsiblePhone: '31988887777',
   },
   cobranca: {
-    dueDay: 10,
-    closingDay: 5,
+    dueDay: 25,
+    closingDay: 25,
     lateFeePercent: 200,
     monthlyInterestBp: 100,
-    enablesSpc: false,
-    autoBilling: true,
-    acceptsCard: false,
     cardFeePayer: 'RESPONSAVEL' as const,
     negativacaoFeePayer: 'RESPONSAVEL' as const,
     municipalRegistration: '12345',
   },
   subjects: [{ name: 'Matemática', nfseServiceCode: '8.01', priceCents: 35000 }],
-  termsAccepted: true,
-  termsVersionId: 'clxxxxxxxxxxxxxxxxxx',
   status: 'idle' as const,
 }
 
@@ -97,18 +96,18 @@ describe('canProceedFromStep', () => {
     expect(canProceedFromStep(state, 3)).toBe(false)
   })
 
-  it('step 4 valid when terms accepted and version set', () => {
+  it('step 1 invalid when responsible CPF is invalid', () => {
+    const state = { ...baseState, dados: { ...baseState.dados, responsibleCpf: '11144477700' } }
+    expect(canProceedFromStep(state, 1)).toBe(false)
+  })
+
+  it('step 1 invalid when responsible email is invalid', () => {
+    const state = { ...baseState, dados: { ...baseState.dados, responsibleEmail: 'x' } }
+    expect(canProceedFromStep(state, 1)).toBe(false)
+  })
+
+  it('step 4 (revisão) is always proceedable — aceite é via link depois', () => {
     expect(canProceedFromStep(baseState, 4)).toBe(true)
-  })
-
-  it('step 4 invalid when terms not accepted', () => {
-    const state = { ...baseState, termsAccepted: false }
-    expect(canProceedFromStep(state, 4)).toBe(false)
-  })
-
-  it('step 4 invalid when termsVersionId empty', () => {
-    const state = { ...baseState, termsVersionId: '' }
-    expect(canProceedFromStep(state, 4)).toBe(false)
   })
 })
 
@@ -133,10 +132,6 @@ describe('useOnboarding submit', () => {
     })
     act(() => {
       result.current.addSubject(baseState.subjects[0])
-    })
-    act(() => {
-      result.current.setTermsAccepted(true)
-      result.current.setTermsVersionId('clxxxxxxxxxxxxxxxxxx')
     })
 
     await act(async () => {
@@ -163,10 +158,6 @@ describe('useOnboarding submit', () => {
     act(() => {
       result.current.addSubject(baseState.subjects[0])
     })
-    act(() => {
-      result.current.setTermsAccepted(true)
-      result.current.setTermsVersionId('clxxxxxxxxxxxxxxxxxx')
-    })
 
     await act(async () => {
       await result.current.submit()
@@ -191,10 +182,6 @@ describe('useOnboarding submit', () => {
     })
     act(() => {
       result.current.addSubject(baseState.subjects[0])
-    })
-    act(() => {
-      result.current.setTermsAccepted(true)
-      result.current.setTermsVersionId('clxxxxxxxxxxxxxxxxxx')
     })
 
     await act(async () => {

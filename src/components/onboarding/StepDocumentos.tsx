@@ -53,18 +53,23 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-gray-800">Matérias e documentos</h2>
+      <div>
+        <h2 className="text-lg font-semibold text-gray-800">Matérias oferecidas pela unidade</h2>
+        <p className="mt-1 text-sm text-gray-500">
+          As matérias/cursos que a unidade oferece, com o valor da mensalidade de cada.
+        </p>
+      </div>
 
       {/* Tabela de matérias */}
       <div>
         <h3 className="mb-2 text-sm font-medium text-gray-700">
-          Matérias oferecidas *{' '}
+          Matérias *{' '}
           <span className="font-normal text-gray-400">(pelo menos 1)</span>
         </h3>
 
         {subjects.length > 0 && (
-          <div className="mb-3 overflow-hidden rounded-md border border-gray-200">
-            <table className="w-full text-sm">
+          <div className="mb-3 overflow-x-auto rounded-md border border-gray-200">
+            <table className="w-full min-w-[480px] text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">Matéria</th>

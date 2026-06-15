@@ -18,7 +18,7 @@ const STEPS = [
 const LOADING_STEPS = [
   'Validando CNPJ...',
   'Criando subconta Asaas...',
-  'Aplicando configurações...',
+  'Enviando e-mail de confirmação...',
 ]
 
 export default function OnboardingPage() {
@@ -30,8 +30,6 @@ export default function OnboardingPage() {
     addSubject,
     removeSubject,
     updateSubject,
-    setTermsAccepted,
-    setTermsVersionId,
     submit,
     canProceed,
   } = useOnboarding()
@@ -48,18 +46,6 @@ export default function OnboardingPage() {
     }, 1500)
     return () => clearInterval(interval)
   }, [state.status])
-
-  useEffect(() => {
-    // Fetch and set the active termsVersionId on mount
-    fetch('/api/terms/active')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.id) setTermsVersionId(data.id)
-      })
-      .catch(() => {
-        // termsVersionId stays empty; submit will be blocked until set
-      })
-  }, [setTermsVersionId])
 
   function handleNext() {
     if (canProceed(state.step)) {
@@ -123,15 +109,14 @@ export default function OnboardingPage() {
               <StepRevisao
                 state={state}
                 onEditStep={(s) => goToStep(s)}
-                onAcceptTerms={setTermsAccepted}
                 onSubmit={submit}
                 loadingSteps={activeLoadingSteps}
               />
             )}
           </div>
 
-          {/* Navegação — oculta no passo 4 (StepRevisao tem seu próprio botão) */}
-          {state.step < 4 && state.status !== 'submitting' && (
+          {/* Navegação (oculta durante submitting/success) */}
+          {state.status !== 'submitting' && state.status !== 'success' && (
             <div className="mt-4 flex justify-between">
               <button
                 type="button"
@@ -142,15 +127,17 @@ export default function OnboardingPage() {
                 ← Voltar
               </button>
 
-              <button
-                type="button"
-                onClick={handleNext}
-                disabled={!canProceed(state.step)}
-                className="rounded-md px-6 py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ background: 'var(--color-primary)' }}
-              >
-                Próximo →
-              </button>
+              {state.step < 4 && (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={!canProceed(state.step)}
+                  className="rounded-md px-6 py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ background: 'var(--color-primary)' }}
+                >
+                  Próximo →
+                </button>
+              )}
             </div>
           )}
         </div>

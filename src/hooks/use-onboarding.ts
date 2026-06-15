@@ -2,7 +2,9 @@
 
 import { useReducer, useCallback } from 'react'
 import type { CreateSchoolInput, SubjectInput } from '@/lib/validations/unit'
-import { isValidCnpj, isValidBrPhone } from '@/lib/validations/br-documents'
+import { isValidCnpj, isValidCpf, isValidBrPhone } from '@/lib/validations/br-documents'
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // ─── Estado ──────────────────────────────────────────────────────────────────
 
@@ -20,6 +22,11 @@ export interface DadosState {
   state: string
   isFranchise: boolean
   franchiseParent: string
+  // Responsável da unidade (recebe o e-mail de aceite)
+  responsibleName: string
+  responsibleCpf: string
+  responsibleEmail: string
+  responsiblePhone: string
 }
 
 export interface CobrancaState {
@@ -27,9 +34,6 @@ export interface CobrancaState {
   closingDay: number
   lateFeePercent: number // basis points
   monthlyInterestBp: number // basis points
-  enablesSpc: boolean
-  autoBilling: boolean
-  acceptsCard: boolean
   cardFeePayer: 'RESPONSAVEL' | 'ESCOLA'
   negativacaoFeePayer: 'RESPONSAVEL' | 'ESCOLA'
   municipalRegistration: string
@@ -40,8 +44,6 @@ export interface OnboardingState {
   dados: DadosState
   cobranca: CobrancaState
   subjects: SubjectInput[]
-  termsAccepted: boolean
-  termsVersionId: string
   status: 'idle' | 'submitting' | 'success' | 'error'
   errorMsg?: string
   createdUnitId?: string
@@ -63,22 +65,21 @@ const initialState: OnboardingState = {
     state: '',
     isFranchise: false,
     franchiseParent: '',
+    responsibleName: '',
+    responsibleCpf: '',
+    responsibleEmail: '',
+    responsiblePhone: '',
   },
   cobranca: {
-    dueDay: 10,
-    closingDay: 5,
+    dueDay: 25,
+    closingDay: 25,
     lateFeePercent: 200, // 2%
     monthlyInterestBp: 100, // 1% a.m.
-    enablesSpc: false,
-    autoBilling: true,
-    acceptsCard: false,
     cardFeePayer: 'RESPONSAVEL',
     negativacaoFeePayer: 'RESPONSAVEL',
     municipalRegistration: '',
   },
   subjects: [],
-  termsAccepted: false,
-  termsVersionId: '',
   status: 'idle',
 }
 
@@ -91,8 +92,6 @@ type Action =
   | { type: 'ADD_SUBJECT'; subject: SubjectInput }
   | { type: 'REMOVE_SUBJECT'; index: number }
   | { type: 'UPDATE_SUBJECT'; index: number; subject: Partial<SubjectInput> }
-  | { type: 'SET_TERMS_ACCEPTED'; accepted: boolean }
-  | { type: 'SET_TERMS_VERSION_ID'; id: string }
   | { type: 'SET_STATUS'; status: OnboardingState['status']; errorMsg?: string }
   | { type: 'SET_CREATED_UNIT'; unitId: string }
   | { type: 'RESET' }
@@ -119,10 +118,6 @@ function reducer(state: OnboardingState, action: Action): OnboardingState {
           i === action.index ? { ...s, ...action.subject } : s
         ),
       }
-    case 'SET_TERMS_ACCEPTED':
-      return { ...state, termsAccepted: action.accepted }
-    case 'SET_TERMS_VERSION_ID':
-      return { ...state, termsVersionId: action.id }
     case 'SET_STATUS':
       return { ...state, status: action.status, errorMsg: action.errorMsg }
     case 'SET_CREATED_UNIT':
@@ -143,14 +138,19 @@ export function canProceedFromStep(state: OnboardingState, step: number): boolea
       return (
         d.name.length >= 2 &&
         isValidCnpj(d.cnpj) &&
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email) &&
+        EMAIL_RE.test(d.email) &&
         isValidBrPhone(d.phone) &&
         d.cep.length === 8 &&
         d.address.length >= 5 &&
         d.number.length >= 1 &&
         d.neighborhood.length >= 2 &&
         d.city.length >= 2 &&
-        d.state.length === 2
+        d.state.length === 2 &&
+        // Responsável
+        d.responsibleName.length >= 3 &&
+        isValidCpf(d.responsibleCpf) &&
+        EMAIL_RE.test(d.responsibleEmail) &&
+        isValidBrPhone(d.responsiblePhone)
       )
     }
     case 2: {
@@ -166,7 +166,8 @@ export function canProceedFromStep(state: OnboardingState, step: number): boolea
     case 3:
       return state.subjects.length >= 1
     case 4:
-      return state.termsAccepted && state.termsVersionId.length > 0
+      // Passo de revisão — eu (admin) só envio; a escola aceita depois via link.
+      return true
     default:
       return false
   }
@@ -201,16 +202,8 @@ export function useOnboarding() {
     dispatch({ type: 'UPDATE_SUBJECT', index, subject })
   }, [])
 
-  const setTermsAccepted = useCallback((accepted: boolean) => {
-    dispatch({ type: 'SET_TERMS_ACCEPTED', accepted })
-  }, [])
-
-  const setTermsVersionId = useCallback((id: string) => {
-    dispatch({ type: 'SET_TERMS_VERSION_ID', id })
-  }, [])
-
   const submit = useCallback(async () => {
-    if (!canProceedFromStep(state, 4)) return
+    if (!canProceedFromStep(state, 1) || !canProceedFromStep(state, 3)) return
 
     dispatch({ type: 'SET_STATUS', status: 'submitting' })
 
@@ -228,20 +221,20 @@ export function useOnboarding() {
       state: state.dados.state,
       isFranchise: state.dados.isFranchise,
       franchiseParent: state.dados.franchiseParent || undefined,
+      responsibleName: state.dados.responsibleName,
+      responsibleCpf: state.dados.responsibleCpf.replace(/\D/g, ''),
+      responsibleEmail: state.dados.responsibleEmail,
+      responsiblePhone: state.dados.responsiblePhone.replace(/\D/g, ''),
       billing: {
         dueDay: state.cobranca.dueDay,
         closingDay: state.cobranca.closingDay,
         lateFeePercent: state.cobranca.lateFeePercent,
         monthlyInterestBp: state.cobranca.monthlyInterestBp,
-        enablesSpc: state.cobranca.enablesSpc,
-        autoBilling: state.cobranca.autoBilling,
-        acceptsCard: state.cobranca.acceptsCard,
         cardFeePayer: state.cobranca.cardFeePayer,
         negativacaoFeePayer: state.cobranca.negativacaoFeePayer,
         municipalRegistration: state.cobranca.municipalRegistration,
       },
       subjects: state.subjects,
-      termsVersionId: state.termsVersionId,
     }
 
     try {
@@ -263,7 +256,11 @@ export function useOnboarding() {
       if (res.status === 409) {
         dispatch({ type: 'SET_STATUS', status: 'error', errorMsg: 'CNPJ já cadastrado' })
       } else if (res.status === 502) {
-        dispatch({ type: 'SET_STATUS', status: 'error', errorMsg: 'Falha ao criar subconta Asaas. Tente novamente.' })
+        dispatch({
+          type: 'SET_STATUS',
+          status: 'error',
+          errorMsg: 'Falha ao criar subconta Asaas. Tente novamente.',
+        })
       } else {
         dispatch({
           type: 'SET_STATUS',
@@ -288,8 +285,6 @@ export function useOnboarding() {
     addSubject,
     removeSubject,
     updateSubject,
-    setTermsAccepted,
-    setTermsVersionId,
     submit,
     reset,
     canProceed: (step: number) => canProceedFromStep(state, step),

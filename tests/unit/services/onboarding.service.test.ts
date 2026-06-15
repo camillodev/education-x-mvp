@@ -11,25 +11,21 @@ vi.mock('../../../src/lib/db', () => {
   }
   const mockBillingConfig = { create: vi.fn() }
   const mockSubject = { createMany: vi.fn() }
-  const mockTermsVersion = { findUnique: vi.fn() }
+  const mockTermsVersion = { findUnique: vi.fn(), findMany: vi.fn() }
   const mockTermsAcceptance = { create: vi.fn() }
+
+  const tx = {
+    unit: mockUnit,
+    billingConfig: mockBillingConfig,
+    subject: mockSubject,
+    termsVersion: mockTermsVersion,
+    termsAcceptance: mockTermsAcceptance,
+  }
 
   return {
     prisma: {
-      unit: mockUnit,
-      billingConfig: mockBillingConfig,
-      subject: mockSubject,
-      termsVersion: mockTermsVersion,
-      termsAcceptance: mockTermsAcceptance,
-      $transaction: vi.fn((fn: (tx: unknown) => Promise<unknown>) =>
-        fn({
-          unit: mockUnit,
-          billingConfig: mockBillingConfig,
-          subject: mockSubject,
-          termsVersion: mockTermsVersion,
-          termsAcceptance: mockTermsAcceptance,
-        })
-      ),
+      ...tx,
+      $transaction: vi.fn((fn: (t: unknown) => Promise<unknown>) => fn(tx)),
     },
   }
 })
@@ -40,9 +36,21 @@ vi.mock('../../../src/lib/integration/asaas/client', () => ({
   getMasterAsaasClient: () => mockAsaasClient,
 }))
 
+// Mock email (não enviar de verdade nos testes)
+const sendConfirmationEmail = vi.fn()
+vi.mock('../../../src/lib/email/confirmation-email', () => ({
+  sendConfirmationEmail: (...args: unknown[]) => sendConfirmationEmail(...args),
+}))
+
 import { prisma } from '../../../src/lib/db'
-import { createSchool } from '../../../src/lib/services/onboarding.service'
-import { DuplicateCnpjError, TermsVersionNotFoundError } from '../../../src/lib/services/onboarding.service'
+import {
+  createSchool,
+  confirmSchool,
+  DuplicateCnpjError,
+  InvalidConfirmationTokenError,
+  AlreadyConfirmedError,
+  NoTermsVersionError,
+} from '../../../src/lib/services/onboarding.service'
 
 const baseInput = {
   name: 'Kumon Camargos',
@@ -57,22 +65,30 @@ const baseInput = {
   state: 'MG',
   isFranchise: true,
   franchiseParent: 'Kumon Brasil',
+  responsibleName: 'Maria Pimenta',
+  responsibleCpf: '11144477735',
+  responsibleEmail: 'maria@kumon.com',
+  responsiblePhone: '31988887777',
   billing: {
-    dueDay: 10,
-    closingDay: 5,
+    dueDay: 25,
+    closingDay: 25,
     lateFeePercent: 200,
     monthlyInterestBp: 100,
-    enablesSpc: false,
-    autoBilling: true,
-    acceptsCard: false,
     cardFeePayer: 'RESPONSAVEL' as const,
     negativacaoFeePayer: 'RESPONSAVEL' as const,
     municipalRegistration: '1234567',
   },
-  subjects: [
-    { name: 'Matemática', nfseServiceCode: '8.01', priceCents: 35000 },
-  ],
-  termsVersionId: 'clxxxxxxxxxxxxxxxxxxxxxxxxx',
+  subjects: [{ name: 'Matemática', nfseServiceCode: '8.01', priceCents: 35000 }],
+}
+
+const BASE_URL = 'https://app.educationx.com'
+
+type MockPrisma = {
+  unit: { create: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> }
+  billingConfig: { create: ReturnType<typeof vi.fn> }
+  subject: { createMany: ReturnType<typeof vi.fn> }
+  termsVersion: { findUnique: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> }
+  termsAcceptance: { create: ReturnType<typeof vi.fn> }
 }
 
 beforeEach(() => {
@@ -81,113 +97,169 @@ beforeEach(() => {
   process.env.ENCRYPTION_KEY = 'a'.repeat(64)
   process.env.ASAAS_MODE = 'mock'
 
-  // Setup mocks padrão
-  const mockPrisma = prisma as unknown as {
-    unit: { create: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> }
-    billingConfig: { create: ReturnType<typeof vi.fn> }
-    subject: { createMany: ReturnType<typeof vi.fn> }
-    termsVersion: { findUnique: ReturnType<typeof vi.fn> }
-    termsAcceptance: { create: ReturnType<typeof vi.fn> }
-  }
-
-  mockPrisma.unit.findUnique.mockResolvedValue(null) // CNPJ não duplicado
-  mockPrisma.unit.create.mockResolvedValue({ id: 'unit-id-1', ...baseInput })
-  mockPrisma.unit.update.mockResolvedValue({ id: 'unit-id-1' })
-  mockPrisma.billingConfig.create.mockResolvedValue({ id: 'billing-id-1' })
-  mockPrisma.subject.createMany.mockResolvedValue({ count: 1 })
-  mockPrisma.termsVersion.findUnique.mockResolvedValue({ id: baseInput.termsVersionId, kind: 'IX_ESCOLA', version: '1.0' })
-  mockPrisma.termsAcceptance.create.mockResolvedValue({ id: 'acceptance-id-1' })
+  const mp = prisma as unknown as MockPrisma
+  mp.unit.findUnique.mockResolvedValue(null)
+  mp.unit.create.mockResolvedValue({ id: 'unit-id-1', name: baseInput.name })
+  mp.unit.update.mockResolvedValue({ id: 'unit-id-1' })
+  mp.billingConfig.create.mockResolvedValue({ id: 'billing-id-1' })
+  mp.subject.createMany.mockResolvedValue({ count: 1 })
+  mp.termsVersion.findMany.mockResolvedValue([
+    { id: 'tv-1', kind: 'IX_ESCOLA', version: '1.0' },
+  ])
+  mp.termsAcceptance.create.mockResolvedValue({ id: 'acc-1' })
 })
 
 describe('createSchool', () => {
-  it('cria Unit + BillingConfig + Subjects em transação', async () => {
-    const mockPrisma = prisma as unknown as {
-      unit: { create: ReturnType<typeof vi.fn> }
-      billingConfig: { create: ReturnType<typeof vi.fn> }
-      subject: { createMany: ReturnType<typeof vi.fn> }
-    }
+  it('cria Unit + BillingConfig + Subjects e status PENDING', async () => {
+    const mp = prisma as unknown as MockPrisma
+    await createSchool(baseInput, BASE_URL)
 
-    await createSchool(baseInput, '127.0.0.1')
-
-    expect(mockPrisma.unit.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ cnpj: '11222333000181', name: 'Kumon Camargos' }),
-      })
-    )
-    expect(mockPrisma.billingConfig.create).toHaveBeenCalled()
-    expect(mockPrisma.subject.createMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.arrayContaining([
-          expect.objectContaining({ name: 'Matemática', priceCents: 35000 }),
-        ]),
-      })
-    )
-  })
-
-  it('chama createSubAccount no Asaas e persiste asaasAccountId', async () => {
-    const mockPrisma = prisma as unknown as {
-      unit: { update: ReturnType<typeof vi.fn> }
-    }
-
-    await createSchool(baseInput, '127.0.0.1')
-
-    // Verifica que unit.update foi chamado com asaasAccountId definido
-    const updateCall = mockPrisma.unit.update.mock.calls[0][0]
-    expect(updateCall.data.asaasAccountId).toBeDefined()
-    expect(typeof updateCall.data.asaasAccountId).toBe('string')
-    expect(updateCall.data.status).toBe('ACTIVE')
-  })
-
-  it('criptografa asaasApiKey antes de salvar (update com *Enc)', async () => {
-    const mockPrisma = prisma as unknown as {
-      unit: { update: ReturnType<typeof vi.fn> }
-    }
-
-    await createSchool(baseInput, '127.0.0.1')
-
-    const updateCall = mockPrisma.unit.update.mock.calls[0][0]
-    const enc = updateCall.data.asaasApiKeyEnc
-    expect(enc).toBeDefined()
-    expect(typeof enc).toBe('string')
-    // Verifica formato iv:authTag:ciphertext
-    expect(enc.split(':').length).toBe(3)
-    // Decrypt deve retornar a apiKey original (formato mock: "mock-api-key-{cpfCnpj}")
-    const decrypted = await decrypt(enc)
-    expect(decrypted).toContain('11222333000181')
-  })
-
-  it('registra TermsAcceptance com ip e timestamp', async () => {
-    const mockPrisma = prisma as unknown as {
-      termsAcceptance: { create: ReturnType<typeof vi.fn> }
-    }
-
-    await createSchool(baseInput, '192.168.1.100')
-
-    expect(mockPrisma.termsAcceptance.create).toHaveBeenCalledWith(
+    expect(mp.unit.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          ip: '192.168.1.100',
-          termsVersionId: baseInput.termsVersionId,
+          cnpj: '11222333000181',
+          name: 'Kumon Camargos',
+          responsibleEmail: 'maria@kumon.com',
+          status: 'PENDING',
         }),
       })
     )
+    expect(mp.billingConfig.create).toHaveBeenCalled()
+    expect(mp.subject.createMany).toHaveBeenCalled()
+  })
+
+  it('criptografa o CPF do responsável (não persiste plaintext)', async () => {
+    const mp = prisma as unknown as MockPrisma
+    await createSchool(baseInput, BASE_URL)
+
+    const createCall = mp.unit.create.mock.calls[0][0]
+    const enc = createCall.data.responsibleCpfEnc
+    expect(enc).toBeDefined()
+    expect(enc).not.toContain('11144477735')
+    expect(await decrypt(enc)).toBe('11144477735')
+  })
+
+  it('gera token de confirmação e mantém status PENDING após Asaas', async () => {
+    const mp = prisma as unknown as MockPrisma
+    await createSchool(baseInput, BASE_URL)
+
+    const createCall = mp.unit.create.mock.calls[0][0]
+    expect(createCall.data.confirmationToken).toBeDefined()
+    expect(createCall.data.confirmationTokenExpiresAt).toBeInstanceOf(Date)
+
+    // update da subconta NÃO ativa a unidade (status fica PENDING até o aceite)
+    const updateCall = mp.unit.update.mock.calls[0][0]
+    expect(updateCall.data.asaasAccountId).toBeDefined()
+    expect(updateCall.data.status).toBeUndefined()
+  })
+
+  it('envia e-mail de confirmação com link contendo o token', async () => {
+    await createSchool(baseInput, BASE_URL)
+
+    expect(sendConfirmationEmail).toHaveBeenCalledOnce()
+    const arg = sendConfirmationEmail.mock.calls[0][0]
+    expect(arg.to).toBe('maria@kumon.com')
+    expect(arg.confirmUrl).toMatch(/^https:\/\/app\.educationx\.com\/confirmar\//)
+  })
+
+  it('NÃO registra TermsAcceptance no cadastro (só no aceite)', async () => {
+    const mp = prisma as unknown as MockPrisma
+    await createSchool(baseInput, BASE_URL)
+    expect(mp.termsAcceptance.create).not.toHaveBeenCalled()
   })
 
   it('lança DuplicateCnpjError quando CNPJ já existe', async () => {
-    const mockPrisma = prisma as unknown as {
-      unit: { findUnique: ReturnType<typeof vi.fn> }
-    }
-    mockPrisma.unit.findUnique.mockResolvedValue({ id: 'existing-unit' })
+    const mp = prisma as unknown as MockPrisma
+    mp.unit.findUnique.mockResolvedValue({ id: 'existing' })
+    await expect(createSchool(baseInput, BASE_URL)).rejects.toThrow(DuplicateCnpjError)
+  })
+})
 
-    await expect(createSchool(baseInput, '127.0.0.1')).rejects.toThrow(DuplicateCnpjError)
+describe('confirmSchool', () => {
+  it('ativa a unidade e registra TermsAcceptance ao confirmar token válido', async () => {
+    const mp = prisma as unknown as MockPrisma
+    mp.unit.findUnique.mockResolvedValue({
+      id: 'unit-id-1',
+      confirmationToken: 'tok-1',
+      confirmationTokenExpiresAt: new Date(Date.now() + 1000 * 60),
+      confirmedAt: null,
+    })
+
+    await confirmSchool('tok-1', '127.0.0.1')
+
+    expect(mp.termsAcceptance.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ ip: '127.0.0.1' }) })
+    )
+    expect(mp.unit.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'ACTIVE', confirmationToken: null }),
+      })
+    )
   })
 
-  it('lança TermsVersionNotFoundError quando termsVersionId inválido', async () => {
-    const mockPrisma = prisma as unknown as {
-      termsVersion: { findUnique: ReturnType<typeof vi.fn> }
-    }
-    mockPrisma.termsVersion.findUnique.mockResolvedValue(null)
+  it('lança InvalidConfirmationTokenError para token inexistente', async () => {
+    const mp = prisma as unknown as MockPrisma
+    mp.unit.findUnique.mockResolvedValue(null)
+    await expect(confirmSchool('bad', '127.0.0.1')).rejects.toThrow(InvalidConfirmationTokenError)
+  })
 
-    await expect(createSchool(baseInput, '127.0.0.1')).rejects.toThrow(TermsVersionNotFoundError)
+  it('lança InvalidConfirmationTokenError para token expirado', async () => {
+    const mp = prisma as unknown as MockPrisma
+    mp.unit.findUnique.mockResolvedValue({
+      id: 'unit-id-1',
+      confirmationToken: 'tok-1',
+      confirmationTokenExpiresAt: new Date(Date.now() - 1000),
+      confirmedAt: null,
+    })
+    await expect(confirmSchool('tok-1', '127.0.0.1')).rejects.toThrow(InvalidConfirmationTokenError)
+  })
+
+  it('lança AlreadyConfirmedError quando já confirmado', async () => {
+    const mp = prisma as unknown as MockPrisma
+    mp.unit.findUnique.mockResolvedValue({
+      id: 'unit-id-1',
+      confirmationToken: 'tok-1',
+      confirmationTokenExpiresAt: new Date(Date.now() + 1000 * 60),
+      confirmedAt: new Date(),
+    })
+    await expect(confirmSchool('tok-1', '127.0.0.1')).rejects.toThrow(AlreadyConfirmedError)
+  })
+
+  it('NÃO ativa a unidade se não houver versão de termos (lança NoTermsVersionError)', async () => {
+    const mp = prisma as unknown as MockPrisma
+    mp.unit.findUnique.mockResolvedValue({
+      id: 'unit-id-1',
+      confirmationToken: 'tok-1',
+      confirmationTokenExpiresAt: new Date(Date.now() + 1000 * 60),
+      confirmedAt: null,
+    })
+    mp.termsVersion.findMany.mockResolvedValue([]) // seed não rodou
+
+    await expect(confirmSchool('tok-1', '127.0.0.1')).rejects.toThrow(NoTermsVersionError)
+    expect(mp.unit.update).not.toHaveBeenCalled()
+  })
+
+  it('registra aceite só da versão mais recente por kind', async () => {
+    const mp = prisma as unknown as MockPrisma
+    mp.unit.findUnique.mockResolvedValue({
+      id: 'unit-id-1',
+      confirmationToken: 'tok-1',
+      confirmationTokenExpiresAt: new Date(Date.now() + 1000 * 60),
+      confirmedAt: null,
+    })
+    // 2 versões do mesmo kind — só a mais recente (primeira, pois orderBy desc) conta
+    mp.termsVersion.findMany.mockResolvedValue([
+      { id: 'tv-new', kind: 'IX_ESCOLA', version: '2.0' },
+      { id: 'tv-old', kind: 'IX_ESCOLA', version: '1.0' },
+      { id: 'tv-priv', kind: 'PRIVACY', version: '1.0' },
+    ])
+
+    await confirmSchool('tok-1', '127.0.0.1')
+
+    expect(mp.termsAcceptance.create).toHaveBeenCalledTimes(2)
+    const acceptedIds = mp.termsAcceptance.create.mock.calls.map((c) => c[0].data.termsVersionId)
+    expect(acceptedIds).toContain('tv-new')
+    expect(acceptedIds).toContain('tv-priv')
+    expect(acceptedIds).not.toContain('tv-old')
   })
 })

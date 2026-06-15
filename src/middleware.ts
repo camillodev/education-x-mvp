@@ -7,6 +7,8 @@ const isPublicRoute = createRouteMatcher([
   '/matricula(.*)',            // link de matrícula pública (responsável)
   '/api/webhooks/asaas(.*)',  // webhook Asaas (auth por token secreto no handler)
   '/termos(.*)',              // visualização pública dos termos
+  '/confirmar(.*)',           // aceite dos termos via link (token prova o destinatário)
+  '/api/confirmar(.*)',       // POST do aceite (público, valida token)
 ])
 
 export default clerkMiddleware(async (auth, req) => {

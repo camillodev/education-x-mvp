@@ -28,6 +28,27 @@ export function isValidCnpj(cnpj: string): boolean {
   return d2 === Number(cnpj[13])
 }
 
+/**
+ * Validates a CPF by its two check digits.
+ * Expects 11 digits, punctuation already stripped.
+ */
+export function isValidCpf(cpf: string): boolean {
+  if (!/^\d{11}$/.test(cpf)) return false
+  if (/^(\d)\1{10}$/.test(cpf)) return false
+
+  const calcDigit = (length: number): number => {
+    let sum = 0
+    for (let i = 0; i < length; i++) {
+      sum += Number(cpf[i]) * (length + 1 - i)
+    }
+    const rest = (sum * 10) % 11
+    return rest === 10 ? 0 : rest
+  }
+
+  if (calcDigit(9) !== Number(cpf[9])) return false
+  return calcDigit(10) === Number(cpf[10])
+}
+
 // Valid Brazilian area codes (DDD). Source: Anatel plan.
 const VALID_DDDS = new Set([
   11, 12, 13, 14, 15, 16, 17, 18, 19,

@@ -5,7 +5,6 @@ import type { OnboardingState } from '@/hooks/use-onboarding'
 interface Props {
   state: OnboardingState
   onEditStep: (step: 1 | 2 | 3) => void
-  onAcceptTerms: (accepted: boolean) => void
   onSubmit: () => void
   loadingSteps?: string[]
 }
@@ -17,7 +16,7 @@ function formatBRL(cents: number): string {
   })
 }
 
-export function StepRevisao({ state, onEditStep, onAcceptTerms, onSubmit, loadingSteps }: Props) {
+export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props) {
   const isSubmitting = state.status === 'submitting'
 
   if (state.status === 'success') {
@@ -28,15 +27,17 @@ export function StepRevisao({ state, onEditStep, onAcceptTerms, onSubmit, loadin
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h2 className="text-xl font-semibold text-gray-800">Escola criada com sucesso!</h2>
-        <p className="text-sm text-gray-500">
-          A subconta Asaas foi provisionada e a escola está pronta para receber matrículas.
+        <h2 className="text-xl font-semibold text-gray-800">Escola cadastrada!</h2>
+        <p className="max-w-md text-sm text-gray-500">
+          Enviamos um e-mail para <strong>{state.dados.responsibleEmail}</strong> com o link de
+          confirmação. A escola fica pendente até o responsável aceitar os termos. Só então a
+          conta é ativada.
         </p>
         <a
-          href="/dashboard"
+          href="/onboarding"
           className="mt-2 rounded-md bg-[var(--color-primary)] px-6 py-2 text-sm font-medium text-white hover:opacity-90"
         >
-          Ir para o dashboard
+          Cadastrar outra escola
         </a>
       </div>
     )
@@ -59,7 +60,13 @@ export function StepRevisao({ state, onEditStep, onAcceptTerms, onSubmit, loadin
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-gray-800">Revisão e confirmação</h2>
+      <div>
+        <h2 className="text-lg font-semibold text-gray-800">Revisão e envio</h2>
+        <p className="mt-1 text-sm text-gray-500">
+          Confira os dados. Ao enviar, a escola é criada como pendente e o responsável recebe um
+          e-mail para confirmar e aceitar os termos.
+        </p>
+      </div>
 
       {/* Bloco: Dados */}
       <div className="rounded-md border border-gray-200 p-4">
@@ -82,14 +89,6 @@ export function StepRevisao({ state, onEditStep, onAcceptTerms, onSubmit, loadin
             <dt className="text-gray-400">CNPJ</dt>
             <dd className="font-medium">{state.dados.cnpj || '—'}</dd>
           </div>
-          <div>
-            <dt className="text-gray-400">E-mail</dt>
-            <dd className="font-medium">{state.dados.email || '—'}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-400">Telefone</dt>
-            <dd className="font-medium">{state.dados.phone || '—'}</dd>
-          </div>
           <div className="sm:col-span-2">
             <dt className="text-gray-400">Endereço</dt>
             <dd className="font-medium">
@@ -98,13 +97,19 @@ export function StepRevisao({ state, onEditStep, onAcceptTerms, onSubmit, loadin
               {state.dados.neighborhood} · {state.dados.city} — {state.dados.state}
             </dd>
           </div>
+          <div className="sm:col-span-2">
+            <dt className="text-gray-400">Responsável</dt>
+            <dd className="font-medium">
+              {state.dados.responsibleName} · {state.dados.responsibleEmail}
+            </dd>
+          </div>
         </dl>
       </div>
 
       {/* Bloco: Cobrança */}
       <div className="rounded-md border border-gray-200 p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-medium text-gray-700">Configuração de cobrança</h3>
+          <h3 className="text-sm font-medium text-gray-700">Cobrança aos responsáveis</h3>
           <button
             type="button"
             onClick={() => onEditStep(2)}
@@ -115,12 +120,12 @@ export function StepRevisao({ state, onEditStep, onAcceptTerms, onSubmit, loadin
         </div>
         <dl className="grid gap-1 text-sm sm:grid-cols-2">
           <div>
-            <dt className="text-gray-400">Vencimento</dt>
-            <dd className="font-medium">Dia {state.cobranca.dueDay}</dd>
-          </div>
-          <div>
             <dt className="text-gray-400">Fechamento</dt>
             <dd className="font-medium">Dia {state.cobranca.closingDay}</dd>
+          </div>
+          <div>
+            <dt className="text-gray-400">Vencimento</dt>
+            <dd className="font-medium">Dia {state.cobranca.dueDay}</dd>
           </div>
           <div>
             <dt className="text-gray-400">Multa</dt>
@@ -131,12 +136,16 @@ export function StepRevisao({ state, onEditStep, onAcceptTerms, onSubmit, loadin
             <dd className="font-medium">{(state.cobranca.monthlyInterestBp / 100).toFixed(2)}% a.m.</dd>
           </div>
           <div>
-            <dt className="text-gray-400">Negativação SPC</dt>
-            <dd className="font-medium">{state.cobranca.enablesSpc ? 'Sim' : 'Não'}</dd>
+            <dt className="text-gray-400">Taxa do cartão</dt>
+            <dd className="font-medium">
+              {state.cobranca.cardFeePayer === 'ESCOLA' ? 'Escola' : 'Responsável'}
+            </dd>
           </div>
           <div>
-            <dt className="text-gray-400">Aceita cartão</dt>
-            <dd className="font-medium">{state.cobranca.acceptsCard ? 'Sim' : 'Não'}</dd>
+            <dt className="text-gray-400">Taxa de negativação</dt>
+            <dd className="font-medium">
+              {state.cobranca.negativacaoFeePayer === 'ESCOLA' ? 'Escola' : 'Responsável'}
+            </dd>
           </div>
         </dl>
       </div>
@@ -157,58 +166,15 @@ export function StepRevisao({ state, onEditStep, onAcceptTerms, onSubmit, loadin
         </div>
         <ul className="space-y-1 text-sm">
           {state.subjects.map((s, idx) => (
-            <li key={idx} className="flex items-center justify-between">
-              <span>
+            <li key={idx} className="flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate">
                 {s.name}{' '}
                 <span className="text-gray-400 text-xs">({s.nfseServiceCode})</span>
               </span>
-              <span className="font-medium">{formatBRL(s.priceCents)}</span>
+              <span className="shrink-0 font-medium">{formatBRL(s.priceCents)}</span>
             </li>
           ))}
         </ul>
-      </div>
-
-      {/* Aceite clickwrap */}
-      <div className="rounded-md border border-[var(--color-primary)] bg-blue-50 p-4">
-        <label className="flex items-start gap-3 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            checked={state.termsAccepted}
-            onChange={(e) => onAcceptTerms(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
-            aria-label="Aceitar termos de uso"
-          />
-          <span>
-            Li e aceito os{' '}
-            <a
-              href="/termos/ix_escola"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline text-[var(--color-primary)]"
-            >
-              Termos de Uso IX↔Escola
-            </a>
-            , os{' '}
-            <a
-              href="/termos/escola_responsavel"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline text-[var(--color-primary)]"
-            >
-              Termos Escola↔Responsável
-            </a>{' '}
-            e a{' '}
-            <a
-              href="/termos/privacy"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline text-[var(--color-primary)]"
-            >
-              Política de Privacidade
-            </a>
-            . Entendo que a Impact X é operadora dos dados e que a escola é responsável pelo relacionamento com os responsáveis financeiros.
-          </span>
-        </label>
       </div>
 
       {state.errorMsg && (
@@ -220,11 +186,10 @@ export function StepRevisao({ state, onEditStep, onAcceptTerms, onSubmit, loadin
       <button
         type="button"
         onClick={onSubmit}
-        disabled={!state.termsAccepted || isSubmitting}
+        disabled={isSubmitting}
         className="w-full rounded-md bg-[var(--color-primary)] px-6 py-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
-        aria-disabled={!state.termsAccepted || isSubmitting}
       >
-        {isSubmitting ? 'Criando escola...' : 'Criar escola'}
+        {isSubmitting ? 'Cadastrando...' : 'Cadastrar e enviar confirmação'}
       </button>
     </div>
   )

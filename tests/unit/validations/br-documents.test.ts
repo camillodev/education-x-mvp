@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isValidCnpj, isValidBrPhone } from '../../../src/lib/validations/br-documents'
+import { isValidCnpj, isValidBrPhone, isValidCpf } from '../../../src/lib/validations/br-documents'
 
 describe('isValidCnpj', () => {
   it('aceita CNPJ válido (dígitos verificadores corretos)', () => {
@@ -22,6 +22,29 @@ describe('isValidCnpj', () => {
   it('rejeita CNPJ com pontuação ou letras', () => {
     expect(isValidCnpj('11.222.333/0001-81')).toBe(false)
     expect(isValidCnpj('1122233300018A')).toBe(false)
+  })
+})
+
+describe('isValidCpf', () => {
+  it('aceita CPF válido', () => {
+    expect(isValidCpf('11144477735')).toBe(true)
+  })
+
+  it('rejeita CPF com dígito verificador errado', () => {
+    expect(isValidCpf('11144477700')).toBe(false)
+  })
+
+  it('rejeita sequência de dígitos iguais', () => {
+    expect(isValidCpf('00000000000')).toBe(false)
+    expect(isValidCpf('11111111111')).toBe(false)
+  })
+
+  it('rejeita CPF com menos de 11 dígitos', () => {
+    expect(isValidCpf('1114447773')).toBe(false)
+  })
+
+  it('rejeita CPF com pontuação', () => {
+    expect(isValidCpf('111.444.777-35')).toBe(false)
   })
 })
 
