@@ -28,7 +28,28 @@ export class ForbiddenError extends Error {
  * Throws UnauthorizedError se não autenticado.
  * Throws ForbiddenError se role inválido ou unitId ausente para fran.
  */
+/**
+ * Dev-only auth bypass for local Playwright validation of protected screens.
+ * Active ONLY when DISABLE_CLERK=true AND not in production. Returns a fake
+ * context with the role from DEV_USER_ROLE (default admin_ix).
+ * Hard-gated by NODE_ENV so it can never leak to prod.
+ */
+function devBypassContext(): UnitContext | null {
+  if (process.env.NODE_ENV === 'production') return null
+  if (process.env.DISABLE_CLERK !== 'true') return null
+
+  const role = process.env.DEV_USER_ROLE === 'fran' ? 'fran' : 'admin_ix'
+  return {
+    userId: 'dev-user',
+    unitId: role === 'admin_ix' ? '__admin__' : (process.env.DEV_UNIT_ID ?? 'dev-unit'),
+    role,
+  }
+}
+
 export async function getUnitContext(): Promise<UnitContext> {
+  const bypass = devBypassContext()
+  if (bypass) return bypass
+
   const { userId, sessionClaims } = await auth()
 
   if (!userId) throw new UnauthorizedError()
