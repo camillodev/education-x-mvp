@@ -8,11 +8,13 @@ const baseState = {
   step: 1 as const,
   dados: {
     name: 'Kumon Camargos',
-    cnpj: '12345678000195',
+    cnpj: '11222333000181',
     email: 'contato@escola.com',
     phone: '31999990000',
     cep: '30130000',
-    address: 'Rua das Flores, 123',
+    address: 'Rua das Flores',
+    number: '123',
+    neighborhood: 'Centro',
     complement: '',
     city: 'Belo Horizonte',
     state: 'MG',
@@ -49,6 +51,26 @@ describe('canProceedFromStep', () => {
 
   it('step 1 invalid when cnpj not 14 digits', () => {
     const state = { ...baseState, dados: { ...baseState.dados, cnpj: '1234' } }
+    expect(canProceedFromStep(state, 1)).toBe(false)
+  })
+
+  it('step 1 invalid when cnpj has 14 digits but invalid check digit', () => {
+    const state = { ...baseState, dados: { ...baseState.dados, cnpj: '11222333000199' } }
+    expect(canProceedFromStep(state, 1)).toBe(false)
+  })
+
+  it('step 1 invalid when phone DDD is invalid', () => {
+    const state = { ...baseState, dados: { ...baseState.dados, phone: '20999990000' } }
+    expect(canProceedFromStep(state, 1)).toBe(false)
+  })
+
+  it('step 1 invalid when number is missing', () => {
+    const state = { ...baseState, dados: { ...baseState.dados, number: '' } }
+    expect(canProceedFromStep(state, 1)).toBe(false)
+  })
+
+  it('step 1 invalid when neighborhood is missing', () => {
+    const state = { ...baseState, dados: { ...baseState.dados, neighborhood: '' } }
     expect(canProceedFromStep(state, 1)).toBe(false)
   })
 

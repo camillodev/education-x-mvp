@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import type { DadosState } from '@/hooks/use-onboarding'
+import { isValidCnpj, isValidBrPhone } from '@/lib/validations/br-documents'
+import { FRANCHISE_NETWORKS } from '@/lib/data/franchise-networks'
 
 interface Props {
   dados: DadosState
@@ -33,8 +35,16 @@ function maskCep(value: string): string {
     .replace(/(\d{5})(\d)/, '$1-$2')
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 export function StepDados({ dados, onChange }: Props) {
   const [loadingCep, setLoadingCep] = useState(false)
+
+  // Inline validation — only surfaced after the user typed something.
+  const cnpjError = dados.cnpj.length > 0 && !isValidCnpj(dados.cnpj) ? 'CNPJ inválido' : ''
+  const emailError = dados.email.length > 0 && !EMAIL_RE.test(dados.email) ? 'E-mail inválido' : ''
+  const phoneError = dados.phone.length > 0 && !isValidBrPhone(dados.phone) ? 'Telefone inválido' : ''
+  const errorBorder = 'border-red-400 focus:border-red-500 focus:ring-red-500'
 
   async function handleCepBlur(cep: string) {
     const digits = cep.replace(/\D/g, '')
@@ -47,6 +57,7 @@ export function StepDados({ dados, onChange }: Props) {
       if (!data.erro) {
         onChange({
           address: data.logradouro,
+          neighborhood: data.bairro,
           city: data.localidade,
           state: data.uf,
         })
@@ -88,8 +99,14 @@ export function StepDados({ dados, onChange }: Props) {
             onChange={(e) => onChange({ cnpj: e.target.value.replace(/\D/g, '') })}
             placeholder="00.000.000/0000-00"
             maxLength={18}
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+            aria-invalid={!!cnpjError}
+            className={`mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+              cnpjError
+                ? errorBorder
+                : 'border-gray-300 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]'
+            }`}
           />
+          {cnpjError && <p className="mt-1 text-xs text-red-500">{cnpjError}</p>}
         </div>
 
         <div>
@@ -103,8 +120,14 @@ export function StepDados({ dados, onChange }: Props) {
             onChange={(e) => onChange({ phone: e.target.value.replace(/\D/g, '') })}
             placeholder="(31) 99999-0000"
             maxLength={15}
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+            aria-invalid={!!phoneError}
+            className={`mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+              phoneError
+                ? errorBorder
+                : 'border-gray-300 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]'
+            }`}
           />
+          {phoneError && <p className="mt-1 text-xs text-red-500">{phoneError}</p>}
         </div>
 
         <div className="sm:col-span-2">
@@ -117,8 +140,14 @@ export function StepDados({ dados, onChange }: Props) {
             value={dados.email}
             onChange={(e) => onChange({ email: e.target.value })}
             placeholder="contato@escola.com"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+            aria-invalid={!!emailError}
+            className={`mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+              emailError
+                ? errorBorder
+                : 'border-gray-300 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]'
+            }`}
           />
+          {emailError && <p className="mt-1 text-xs text-red-500">{emailError}</p>}
         </div>
 
         <div>
@@ -142,19 +171,47 @@ export function StepDados({ dados, onChange }: Props) {
 
         <div className="sm:col-span-2">
           <label className="block text-sm font-medium text-gray-700" htmlFor="address">
-            Endereço *
+            Logradouro (rua/avenida) *
           </label>
           <input
             id="address"
             type="text"
             value={dados.address}
             onChange={(e) => onChange({ address: e.target.value })}
-            placeholder="Rua das Flores, 123"
+            placeholder="Rua das Flores"
             className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
           />
         </div>
 
         <div>
+          <label className="block text-sm font-medium text-gray-700" htmlFor="number">
+            Número *
+          </label>
+          <input
+            id="number"
+            type="text"
+            value={dados.number}
+            onChange={(e) => onChange({ number: e.target.value })}
+            placeholder="123"
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700" htmlFor="neighborhood">
+            Bairro *
+          </label>
+          <input
+            id="neighborhood"
+            type="text"
+            value={dados.neighborhood}
+            onChange={(e) => onChange({ neighborhood: e.target.value })}
+            placeholder="Centro"
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+          />
+        </div>
+
+        <div className="sm:col-span-2">
           <label className="block text-sm font-medium text-gray-700" htmlFor="complement">
             Complemento
           </label>
@@ -217,11 +274,21 @@ export function StepDados({ dados, onChange }: Props) {
             <input
               id="franchiseParent"
               type="text"
+              list="franchise-networks"
               value={dados.franchiseParent}
               onChange={(e) => onChange({ franchiseParent: e.target.value })}
-              placeholder="Ex: Kumon Brasil"
+              placeholder="Digite ou selecione (ex: Kumon Brasil)"
+              autoComplete="off"
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
             />
+            <datalist id="franchise-networks">
+              {FRANCHISE_NETWORKS.map((network) => (
+                <option key={network} value={network} />
+              ))}
+            </datalist>
+            <p className="mt-1 text-xs text-gray-400">
+              Selecione uma rede conhecida para evitar agrupamento duplicado. Não está na lista? Digite o nome.
+            </p>
           </div>
         )}
       </div>

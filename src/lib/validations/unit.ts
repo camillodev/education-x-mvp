@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isValidCnpj, isValidBrPhone } from './br-documents'
 
 export const SubjectSchema = z.object({
   name: z.string().min(1, 'Nome da matéria obrigatório'),
@@ -21,11 +22,18 @@ export const BillingConfigSchema = z.object({
 
 export const CreateSchoolSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  cnpj: z.string().regex(/^\d{14}$/, 'CNPJ deve ter exatamente 14 dígitos numéricos'),
+  cnpj: z
+    .string()
+    .regex(/^\d{14}$/, 'CNPJ deve ter exatamente 14 dígitos numéricos')
+    .refine(isValidCnpj, 'CNPJ inválido (dígito verificador não confere)'),
   email: z.string().email('E-mail inválido'),
-  phone: z.string().min(10, 'Telefone inválido'),
+  phone: z
+    .string()
+    .refine(isValidBrPhone, 'Telefone inválido (DDD e formato precisam ser válidos)'),
   cep: z.string().length(8, 'CEP deve ter 8 dígitos'),
   address: z.string().min(5, 'Endereço inválido'),
+  number: z.string().min(1, 'Número obrigatório'),
+  neighborhood: z.string().min(2, 'Bairro inválido'),
   complement: z.string().optional(),
   city: z.string().min(2, 'Cidade inválida'),
   state: z.string().length(2, 'UF deve ter 2 caracteres'),

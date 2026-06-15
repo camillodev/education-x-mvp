@@ -46,11 +46,13 @@ import { DuplicateCnpjError, TermsVersionNotFoundError } from '../../../src/lib/
 
 const baseInput = {
   name: 'Kumon Camargos',
-  cnpj: '12345678000199',
+  cnpj: '11222333000181',
   email: 'contato@kumon.com',
   phone: '31999990000',
   cep: '30350540',
-  address: 'Rua das Flores, 123',
+  address: 'Rua das Flores',
+  number: '123',
+  neighborhood: 'Centro',
   city: 'Belo Horizonte',
   state: 'MG',
   isFranchise: true,
@@ -109,7 +111,7 @@ describe('createSchool', () => {
 
     expect(mockPrisma.unit.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ cnpj: '12345678000199', name: 'Kumon Camargos' }),
+        data: expect.objectContaining({ cnpj: '11222333000181', name: 'Kumon Camargos' }),
       })
     )
     expect(mockPrisma.billingConfig.create).toHaveBeenCalled()
@@ -151,7 +153,7 @@ describe('createSchool', () => {
     expect(enc.split(':').length).toBe(3)
     // Decrypt deve retornar a apiKey original (formato mock: "mock-api-key-{cpfCnpj}")
     const decrypted = await decrypt(enc)
-    expect(decrypted).toContain('12345678000199')
+    expect(decrypted).toContain('11222333000181')
   })
 
   it('registra TermsAcceptance com ip e timestamp', async () => {

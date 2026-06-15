@@ -2,6 +2,7 @@
 
 import { useReducer, useCallback } from 'react'
 import type { CreateSchoolInput, SubjectInput } from '@/lib/validations/unit'
+import { isValidCnpj, isValidBrPhone } from '@/lib/validations/br-documents'
 
 // ─── Estado ──────────────────────────────────────────────────────────────────
 
@@ -12,6 +13,8 @@ export interface DadosState {
   phone: string
   cep: string
   address: string
+  number: string
+  neighborhood: string
   complement: string
   city: string
   state: string
@@ -53,6 +56,8 @@ const initialState: OnboardingState = {
     phone: '',
     cep: '',
     address: '',
+    number: '',
+    neighborhood: '',
     complement: '',
     city: '',
     state: '',
@@ -137,11 +142,13 @@ export function canProceedFromStep(state: OnboardingState, step: number): boolea
       const d = state.dados
       return (
         d.name.length >= 2 &&
-        /^\d{14}$/.test(d.cnpj) &&
-        d.email.includes('@') &&
-        d.phone.length >= 10 &&
+        isValidCnpj(d.cnpj) &&
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email) &&
+        isValidBrPhone(d.phone) &&
         d.cep.length === 8 &&
         d.address.length >= 5 &&
+        d.number.length >= 1 &&
+        d.neighborhood.length >= 2 &&
         d.city.length >= 2 &&
         d.state.length === 2
       )
@@ -214,6 +221,8 @@ export function useOnboarding() {
       phone: state.dados.phone.replace(/\D/g, ''),
       cep: state.dados.cep.replace(/\D/g, ''),
       address: state.dados.address,
+      number: state.dados.number,
+      neighborhood: state.dados.neighborhood,
       complement: state.dados.complement || undefined,
       city: state.dados.city,
       state: state.dados.state,

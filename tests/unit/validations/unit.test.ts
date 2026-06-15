@@ -3,11 +3,13 @@ import { CreateSchoolSchema } from '../../../src/lib/validations/unit'
 
 const validInput = {
   name: 'Kumon Camargos',
-  cnpj: '12345678000199',
+  cnpj: '11222333000181',
   email: 'contato@kumon.com',
   phone: '31999990000',
   cep: '30350540',
-  address: 'Rua das Flores, 123',
+  address: 'Rua das Flores',
+  number: '123',
+  neighborhood: 'Centro',
   complement: 'Sala 2',
   city: 'Belo Horizonte',
   state: 'MG',
@@ -115,5 +117,25 @@ describe('CreateSchoolSchema', () => {
       franchiseParent: undefined,
     })
     expect(result.success).toBe(true)
+  })
+
+  it('rejeita CNPJ com 14 dígitos mas DV inválido', () => {
+    const result = CreateSchoolSchema.safeParse({ ...validInput, cnpj: '11222333000199' })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejeita telefone com DDD inexistente', () => {
+    const result = CreateSchoolSchema.safeParse({ ...validInput, phone: '20999990000' })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejeita sem número do endereço', () => {
+    const result = CreateSchoolSchema.safeParse({ ...validInput, number: '' })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejeita sem bairro', () => {
+    const result = CreateSchoolSchema.safeParse({ ...validInput, neighborhood: '' })
+    expect(result.success).toBe(false)
   })
 })

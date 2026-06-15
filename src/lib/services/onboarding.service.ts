@@ -54,6 +54,8 @@ export async function createSchool(input: CreateSchoolInput, ip: string): Promis
         phone: data.phone,
         cep: data.cep,
         address: data.address,
+        number: data.number,
+        neighborhood: data.neighborhood,
         complement: data.complement,
         city: data.city,
         state: data.state,
@@ -104,8 +106,8 @@ export async function createSchool(input: CreateSchoolInput, ip: string): Promis
       cpfCnpj: data.cnpj,
       mobilePhone: data.phone,
       address: data.address,
-      addressNumber: '',
-      province: data.city,
+      addressNumber: data.number,
+      province: data.neighborhood,
       postalCode: data.cep,
     })
 

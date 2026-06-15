@@ -93,7 +93,9 @@ export function StepRevisao({ state, onEditStep, onAcceptTerms, onSubmit, loadin
           <div className="sm:col-span-2">
             <dt className="text-gray-400">Endereço</dt>
             <dd className="font-medium">
-              {state.dados.address}, {state.dados.city} — {state.dados.state}
+              {state.dados.address}, {state.dados.number}
+              {state.dados.complement ? ` — ${state.dados.complement}` : ''} ·{' '}
+              {state.dados.neighborhood} · {state.dados.city} — {state.dados.state}
             </dd>
           </div>
         </dl>
