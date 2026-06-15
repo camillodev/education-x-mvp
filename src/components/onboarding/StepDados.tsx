@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { DadosState } from '@/hooks/use-onboarding'
 import { isValidCnpj, isValidCpf, isValidBrPhone } from '@/lib/validations/br-documents'
 import { FRANCHISE_NETWORKS } from '@/lib/data/franchise-networks'
+import { Combobox } from '@/components/patterns/Combobox'
 
 interface Props {
   dados: DadosState
@@ -289,23 +290,17 @@ export function StepDados({ dados, onChange }: Props) {
             <label className="block text-sm font-medium text-gray-700" htmlFor="franchiseParent">
               Rede franqueadora
             </label>
-            <input
+            <Combobox
               id="franchiseParent"
-              type="text"
-              list="franchise-networks"
+              options={FRANCHISE_NETWORKS}
               value={dados.franchiseParent}
-              onChange={(e) => onChange({ franchiseParent: e.target.value })}
-              placeholder="Digite ou selecione (ex: Kumon Brasil)"
-              autoComplete="off"
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+              onChange={(v) => onChange({ franchiseParent: v })}
+              placeholder="Selecione a rede"
+              searchPlaceholder="Buscar rede (ex: Kumon Brasil)"
+              allowCustom
             />
-            <datalist id="franchise-networks">
-              {FRANCHISE_NETWORKS.map((network) => (
-                <option key={network} value={network} />
-              ))}
-            </datalist>
             <p className="mt-1 text-xs text-gray-400">
-              Selecione uma rede conhecida para evitar agrupamento duplicado. Não está na lista? Digite o nome.
+              Selecione uma rede conhecida para evitar agrupamento duplicado. Não está na lista? Digite e use o nome.
             </p>
           </div>
         )}
