@@ -203,6 +203,11 @@ O pipeline roda em paralelo onde possível (lint + typecheck simultâneos). O E2
 **Por que GitHub Actions e não só Vercel?**
 Vercel roda build e deploy, mas não testes. O combo GitHub Actions (testes) + Vercel (deploy) é o padrão para Next.js e tem custo zero nos planos free/Pro para repos com < 2.000 minutos de Actions/mês — o que cobre bem o piloto e fase inicial.
 
+### Implementação real (versionada)
+- **CI:** `.github/workflows/ci.yml` — job `quality` (typecheck+lint+test+build) + job `e2e` (Playwright nos 3 breakpoints, depende do quality). **Decisão 14/jun:** e2e roda em TODO PR (não só em main) — pega bug visual antes do merge. Custo aceito (~8-12min/PR).
+- **Preview:** `vercel.json` — framework Next, build com `prisma generate`, região `gru1` (São Paulo). Preview deploy automático por PR (configurado no projeto Vercel).
+- **Pendência de secrets do CI:** e2e que dependem de banco/auth real precisam de `DATABASE_URL` de teste + Clerk test keys nos GitHub Secrets. Enquanto não configurados, manter specs e2e em telas públicas (sem login/db). Ver comentários no `ci.yml`.
+
 ---
 
 ## 7. Backups e Disaster Recovery

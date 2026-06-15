@@ -1,7 +1,9 @@
 # Planejamento da Fase 0 — Setup do Education X
 > Versão 2.0 · 13/jun/2026 · O que montar ANTES de codar, baseado no padrão canônico da Anthropic (não em hipótese).
 > Companheiro: `DESCOBERTAS-SETUP.md` (de onde veio cada decisão + quem seguir).
-> **Objetivo:** projeto auto-contido, versionado, que o Claude (Fable/Opus/Haiku) constrói à noite e o Rafa revisa por PR de manhã — com qualidade e baixa manutenção.
+> **Objetivo:** projeto auto-contido, versionado, que o Claude constrói à noite e o Rafa revisa por PR de manhã — com qualidade e baixa manutenção.
+
+> ⚠️ **CORREÇÃO 14/jun/2026 (supera partes deste doc):** este plano recomendava *reaproveitar* skills globais (`~/.claude/skills/ix-asaas`, `ix-code-guidelines`). Decidimos o oposto por **portabilidade**: tudo vive no repo, zero dependência de `~/.claude` (outro dev/máquina continua só com `git clone`). As skills do projeto (`.claude/skills/edx-asaas`, `edx-datatable`) são auto-contidas, não apontam pro global. O pipeline e os papéis de modelo estão em `.claude/AGENTS.md`. Onde este doc disser "reaproveita ix-*", leia "auto-contido no repo". **Fable indisponível** (14/jun) → Sonnet acumula orquestrador+construtor.
 
 ---
 

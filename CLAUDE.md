@@ -46,10 +46,11 @@ Plataforma de gestão financeira escolar (matrícula → cobrança → recebimen
 
 > **Convenção `WIP-`:** docs com prefixo `WIP-` NÃO estão prontos/validados — não tratar como verdade. Revisados de fato: `docs/strategy/ICP-FASEADO.md` e `docs/strategy/MARKET-SIZING.md`. Todo o resto de strategy/research é WIP (`WIP-GTM-PLAN`, `WIP-PRICING-STRATEGY`, `WIP-ALFA-BETA-STRATEGY`, `WIP-SUPORTE-WHATSAPP`, `WIP-DECK-DE-VENDAS`, `WIP-00-PERSONAS`, `WIP-HIPOTESES-VALIDACAO`). As 5 hipóteses críticas (H1/H6/H9/H12/H16) foram resolvidas em 13/jun e estão marcadas dentro de `WIP-HIPOTESES-VALIDACAO`.
 
-## Quando usar cada modelo (orquestrador)
-- **Opus** — arquitetura, schema, auth/tenant, contratos Asaas, review crítico
-- **Fable** — massa do código: telas, services testáveis, CRUD, DataTable
-- **Haiku** — componentes dumb, columns, boilerplate
+## Quando usar cada modelo (papéis — detalhe em `.claude/AGENTS.md`)
+- **Sonnet** — orquestrador + construtor: coordena o pipeline E constrói a massa (telas, services, CRUD). *(Fable indisponível 14/jun — Sonnet acumula construção; ver AGENTS.md.)*
+- **Haiku** — mecânico: componentes dumb, columns, boilerplate de teste.
+- **Opus** — arquiteto/revisor: schema, auth/tenant, cripto, contratos Asaas, review crítico (via `advisor()` + subagent `coda-reviewer`). Só onde o custo do erro justifica.
+- **Pipeline completo de execução de tarefa:** `.claude/AGENTS.md` (auto-contido, não depende de skills globais).
 
 ## Workflow
 - Antes de propor config/sintaxe de lib externa: consultar `context7` (docs live; o cutoff do modelo pode estar defasado).

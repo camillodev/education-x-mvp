@@ -38,4 +38,4 @@ Descobrir os payloads reais via **MCP** (`.mcp.json` do projeto tem o server `as
 - Token no header `X-Asaas-Token` (não em query string).
 - **Event bus**: handlers se registram (NFS-e, regularização); não editam o core do webhook.
 
-Operações detalhadas: skill global `~/.claude/skills/ix-asaas`.
+Operações detalhadas: skill do projeto `.claude/skills/edx-asaas/SKILL.md` (auto-contida no repo) + contratos em `docs/api-contracts/asaas-*.md`.
