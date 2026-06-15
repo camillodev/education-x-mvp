@@ -42,6 +42,12 @@ vi.mock('../../../src/lib/email/confirmation-email', () => ({
   sendConfirmationEmail: (...args: unknown[]) => sendConfirmationEmail(...args),
 }))
 
+// Mock convite Clerk
+const inviteUnitResponsible = vi.fn()
+vi.mock('../../../src/lib/auth/invite', () => ({
+  inviteUnitResponsible: (...args: unknown[]) => inviteUnitResponsible(...args),
+}))
+
 import { prisma } from '../../../src/lib/db'
 import {
   createSchool,
@@ -180,6 +186,7 @@ describe('confirmSchool', () => {
     const mp = prisma as unknown as MockPrisma
     mp.unit.findUnique.mockResolvedValue({
       id: 'unit-id-1',
+      responsibleEmail: 'maria@kumon.com',
       confirmationToken: 'tok-1',
       confirmationTokenExpiresAt: new Date(Date.now() + 1000 * 60),
       confirmedAt: null,
@@ -195,6 +202,10 @@ describe('confirmSchool', () => {
         data: expect.objectContaining({ status: 'ACTIVE', confirmationToken: null }),
       })
     )
+    // Convite Clerk disparado pro responsável, escopado na unidade
+    expect(inviteUnitResponsible).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'maria@kumon.com', unitId: 'unit-id-1' })
+    )
   })
 
   it('lança InvalidConfirmationTokenError para token inexistente', async () => {
@@ -207,6 +218,7 @@ describe('confirmSchool', () => {
     const mp = prisma as unknown as MockPrisma
     mp.unit.findUnique.mockResolvedValue({
       id: 'unit-id-1',
+      responsibleEmail: 'maria@kumon.com',
       confirmationToken: 'tok-1',
       confirmationTokenExpiresAt: new Date(Date.now() - 1000),
       confirmedAt: null,
@@ -218,6 +230,7 @@ describe('confirmSchool', () => {
     const mp = prisma as unknown as MockPrisma
     mp.unit.findUnique.mockResolvedValue({
       id: 'unit-id-1',
+      responsibleEmail: 'maria@kumon.com',
       confirmationToken: 'tok-1',
       confirmationTokenExpiresAt: new Date(Date.now() + 1000 * 60),
       confirmedAt: new Date(),
@@ -229,6 +242,7 @@ describe('confirmSchool', () => {
     const mp = prisma as unknown as MockPrisma
     mp.unit.findUnique.mockResolvedValue({
       id: 'unit-id-1',
+      responsibleEmail: 'maria@kumon.com',
       confirmationToken: 'tok-1',
       confirmationTokenExpiresAt: new Date(Date.now() + 1000 * 60),
       confirmedAt: null,
@@ -243,6 +257,7 @@ describe('confirmSchool', () => {
     const mp = prisma as unknown as MockPrisma
     mp.unit.findUnique.mockResolvedValue({
       id: 'unit-id-1',
+      responsibleEmail: 'maria@kumon.com',
       confirmationToken: 'tok-1',
       confirmationTokenExpiresAt: new Date(Date.now() + 1000 * 60),
       confirmedAt: null,

@@ -4,6 +4,7 @@ import { encrypt } from '../crypto'
 import { prisma } from '../db'
 import { CreateSchoolSchema, type CreateSchoolInput } from '../validations/unit'
 import { sendConfirmationEmail } from '../email/confirmation-email'
+import { inviteUnitResponsible } from '../auth/invite'
 import type { Unit } from '@prisma/client'
 
 // ─── Erros do domínio ────────────────────────────────────────────────────────
@@ -191,7 +192,7 @@ export async function confirmSchool(token: string, ip: string): Promise<Unit> {
   // Nunca ativar sem registrar aceite — é a prova legal (LGPD) que justifica o fluxo.
   if (termsToAccept.length === 0) throw new NoTermsVersionError()
 
-  return prisma.$transaction(async (tx) => {
+  const activated = await prisma.$transaction(async (tx) => {
     for (const tv of termsToAccept) {
       await tx.termsAcceptance.create({
         data: { unitId: unit.id, termsVersionId: tv.id, ip, acceptedAt: new Date() },
@@ -207,4 +208,9 @@ export async function confirmSchool(token: string, ip: string): Promise<Unit> {
       },
     })
   })
+
+  // Convidar o responsável a acessar a plataforma (Clerk). Não bloqueia o aceite.
+  await inviteUnitResponsible({ email: unit.responsibleEmail, unitId: unit.id })
+
+  return activated
 }
