@@ -27,6 +27,7 @@ playwright-report/
 test-results/
 .playwright-mcp/
 pw-*.png
+onboarding-*.png
 
 # prisma
 prisma/*.db

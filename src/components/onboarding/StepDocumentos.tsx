@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Trash2, Plus } from 'lucide-react'
 import type { SubjectInput } from '@/lib/validations/unit'
+import { formatBRL } from '@/lib/format'
 
 interface Props {
   subjects: SubjectInput[]
@@ -15,13 +16,6 @@ const emptySubject: SubjectInput = {
   name: '',
   nfseServiceCode: '',
   priceCents: 0,
-}
-
-function formatBRL(cents: number): string {
-  return (cents / 100).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
 }
 
 function parseBRL(value: string): number {
@@ -67,9 +61,10 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
           <span className="font-normal text-gray-400">(pelo menos 1)</span>
         </h3>
 
+        {/* Desktop: tabela */}
         {subjects.length > 0 && (
-          <div className="mb-3 overflow-x-auto rounded-md border border-gray-200">
-            <table className="w-full min-w-[480px] text-sm">
+          <div className="mb-3 hidden rounded-md border border-gray-200 sm:block">
+            <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">Matéria</th>
@@ -102,11 +97,12 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
                     <td className="px-3 py-2 text-right">
                       <input
                         type="text"
+                        inputMode="decimal"
                         value={formatBRL(subject.priceCents)}
                         onChange={(e) =>
                           onUpdateSubject(idx, { priceCents: parseBRL(e.target.value) })
                         }
-                        className="w-24 bg-transparent text-right text-sm focus:outline-none"
+                        className="w-28 bg-transparent text-right text-sm focus:outline-none"
                         aria-label={`Preço da matéria ${idx + 1}`}
                       />
                     </td>
@@ -124,6 +120,49 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Mobile: cards */}
+        {subjects.length > 0 && (
+          <div className="mb-3 space-y-3 sm:hidden">
+            {subjects.map((subject, idx) => (
+              <div key={idx} className="relative rounded-md border border-gray-200 p-3">
+                <button
+                  type="button"
+                  onClick={() => onRemoveSubject(idx)}
+                  className="absolute right-2 top-2 text-gray-400 hover:text-red-500"
+                  aria-label={`Remover matéria ${subject.name}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <label className="block text-xs text-gray-400">Matéria</label>
+                <input
+                  type="text"
+                  value={subject.name}
+                  onChange={(e) => onUpdateSubject(idx, { name: e.target.value })}
+                  className="mb-2 w-full border-b border-gray-200 pb-1 pr-6 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+                  aria-label={`Nome da matéria ${idx + 1}`}
+                />
+                <label className="block text-xs text-gray-400">Código NFS-e</label>
+                <input
+                  type="text"
+                  value={subject.nfseServiceCode}
+                  onChange={(e) => onUpdateSubject(idx, { nfseServiceCode: e.target.value })}
+                  className="mb-2 w-full border-b border-gray-200 pb-1 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+                  aria-label={`Código NFS-e da matéria ${idx + 1}`}
+                />
+                <label className="block text-xs text-gray-400">Preço (R$)</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={formatBRL(subject.priceCents)}
+                  onChange={(e) => onUpdateSubject(idx, { priceCents: parseBRL(e.target.value) })}
+                  className="w-full border-b border-gray-200 pb-1 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+                  aria-label={`Preço da matéria ${idx + 1}`}
+                />
+              </div>
+            ))}
           </div>
         )}
 
@@ -149,6 +188,7 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
             <div className="flex gap-2">
               <input
                 type="text"
+                inputMode="decimal"
                 placeholder="R$ 0,00"
                 value={newSubject.priceCents > 0 ? formatBRL(newSubject.priceCents) : ''}
                 onChange={(e) =>

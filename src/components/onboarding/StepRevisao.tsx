@@ -1,19 +1,13 @@
 'use client'
 
 import type { OnboardingState } from '@/hooks/use-onboarding'
+import { formatBRL, maskCnpj } from '@/lib/format'
 
 interface Props {
   state: OnboardingState
   onEditStep: (step: 1 | 2 | 3) => void
   onSubmit: () => void
   loadingSteps?: string[]
-}
-
-function formatBRL(cents: number): string {
-  return (cents / 100).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  })
 }
 
 export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props) {
@@ -45,7 +39,7 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
 
   if (isSubmitting && loadingSteps) {
     return (
-      <div className="flex flex-col items-center gap-6 py-8">
+      <div role="status" aria-live="polite" className="flex flex-col items-center gap-6 py-8">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-primary)] border-t-transparent" />
         <div className="space-y-2 text-center">
           {loadingSteps.map((step, idx) => (
@@ -87,7 +81,7 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
           </div>
           <div>
             <dt className="text-gray-400">CNPJ</dt>
-            <dd className="font-medium">{state.dados.cnpj || '—'}</dd>
+            <dd className="font-medium">{state.dados.cnpj ? maskCnpj(state.dados.cnpj) : '—'}</dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-gray-400">Endereço</dt>

@@ -74,12 +74,14 @@ export function StepDados({ dados, onChange }: Props) {
       const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
       const data = await res.json()
       if (!data.erro) {
-        onChange({
-          address: data.logradouro,
-          neighborhood: data.bairro,
-          city: data.localidade,
-          state: data.uf,
-        })
+        // Preenche só o que o ViaCEP retornou (campos vazios não apagam o que já existe).
+        // Sobrescreve de forma atômica — nunca concatena com o valor anterior.
+        const patch: Partial<DadosState> = {}
+        if (data.logradouro) patch.address = data.logradouro
+        if (data.bairro) patch.neighborhood = data.bairro
+        if (data.localidade) patch.city = data.localidade
+        if (data.uf) patch.state = data.uf
+        onChange(patch)
       }
     } catch {
       // silencia erro de ViaCEP — usuário preenche manualmente
@@ -103,6 +105,8 @@ export function StepDados({ dados, onChange }: Props) {
             value={dados.name}
             onChange={(e) => onChange({ name: e.target.value })}
             placeholder="Ex: Kumon Camargos"
+            aria-required="true"
+            autoComplete="organization"
             className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
           />
         </div>
@@ -119,13 +123,16 @@ export function StepDados({ dados, onChange }: Props) {
             placeholder="00.000.000/0000-00"
             maxLength={18}
             aria-invalid={!!cnpjError}
+            aria-required="true"
+            inputMode="numeric"
+            aria-describedby={cnpjError ? 'cnpj-error' : undefined}
             className={`mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
               cnpjError
                 ? errorBorder
                 : 'border-gray-300 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]'
             }`}
           />
-          {cnpjError && <p className="mt-1 text-xs text-red-500">{cnpjError}</p>}
+          {cnpjError && <p id="cnpj-error" className="mt-1 text-xs text-red-500">{cnpjError}</p>}
         </div>
 
         <div>
@@ -140,13 +147,16 @@ export function StepDados({ dados, onChange }: Props) {
             placeholder="(31) 99999-0000"
             maxLength={15}
             aria-invalid={!!phoneError}
+            aria-required="true"
+            inputMode="tel"
+            aria-describedby={phoneError ? 'phone-error' : undefined}
             className={`mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
               phoneError
                 ? errorBorder
                 : 'border-gray-300 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]'
             }`}
           />
-          {phoneError && <p className="mt-1 text-xs text-red-500">{phoneError}</p>}
+          {phoneError && <p id="phone-error" className="mt-1 text-xs text-red-500">{phoneError}</p>}
         </div>
 
         <div className="sm:col-span-2">
@@ -160,13 +170,16 @@ export function StepDados({ dados, onChange }: Props) {
             onChange={(e) => onChange({ email: e.target.value })}
             placeholder="contato@escola.com"
             aria-invalid={!!emailError}
+            aria-required="true"
+            autoComplete="email"
+            aria-describedby={emailError ? 'email-error' : undefined}
             className={`mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
               emailError
                 ? errorBorder
                 : 'border-gray-300 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]'
             }`}
           />
-          {emailError && <p className="mt-1 text-xs text-red-500">{emailError}</p>}
+          {emailError && <p id="email-error" className="mt-1 text-xs text-red-500">{emailError}</p>}
         </div>
 
         <div>
@@ -181,10 +194,12 @@ export function StepDados({ dados, onChange }: Props) {
             onBlur={(e) => handleCepBlur(e.target.value)}
             placeholder="00000-000"
             maxLength={9}
+            aria-required="true"
+            inputMode="numeric"
             className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
           />
           {loadingCep && (
-            <p className="mt-1 text-xs text-gray-400">Buscando endereço...</p>
+            <p role="status" aria-live="polite" className="mt-1 text-xs text-gray-400">Buscando endereço...</p>
           )}
         </div>
 
@@ -198,6 +213,8 @@ export function StepDados({ dados, onChange }: Props) {
             value={dados.address}
             onChange={(e) => onChange({ address: e.target.value })}
             placeholder="Rua das Flores"
+            aria-required="true"
+            autoComplete="address-line1"
             className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
           />
         </div>
@@ -212,6 +229,8 @@ export function StepDados({ dados, onChange }: Props) {
             value={dados.number}
             onChange={(e) => onChange({ number: e.target.value })}
             placeholder="123"
+            aria-required="true"
+            inputMode="numeric"
             className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
           />
         </div>
@@ -226,6 +245,7 @@ export function StepDados({ dados, onChange }: Props) {
             value={dados.neighborhood}
             onChange={(e) => onChange({ neighborhood: e.target.value })}
             placeholder="Centro"
+            aria-required="true"
             className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
           />
         </div>
@@ -254,6 +274,8 @@ export function StepDados({ dados, onChange }: Props) {
             value={dados.city}
             onChange={(e) => onChange({ city: e.target.value })}
             placeholder="Belo Horizonte"
+            aria-required="true"
+            autoComplete="address-level2"
             className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
           />
         </div>
@@ -269,6 +291,8 @@ export function StepDados({ dados, onChange }: Props) {
             onChange={(e) => onChange({ state: e.target.value.toUpperCase().slice(0, 2) })}
             placeholder="MG"
             maxLength={2}
+            aria-required="true"
+            autoComplete="address-level1"
             className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
           />
         </div>
@@ -325,6 +349,8 @@ export function StepDados({ dados, onChange }: Props) {
               value={dados.responsibleName}
               onChange={(e) => onChange({ responsibleName: e.target.value })}
               placeholder="Nome do responsável"
+              aria-required="true"
+              autoComplete="name"
               className={`${inputBase} ${okBorder}`}
             />
           </div>
@@ -341,9 +367,12 @@ export function StepDados({ dados, onChange }: Props) {
               placeholder="000.000.000-00"
               maxLength={14}
               aria-invalid={!!respCpfError}
+              aria-required="true"
+              inputMode="numeric"
+              aria-describedby={respCpfError ? 'resp-cpf-error' : undefined}
               className={`${inputBase} ${respCpfError ? errorBorder : okBorder}`}
             />
-            {respCpfError && <p className="mt-1 text-xs text-red-500">{respCpfError}</p>}
+            {respCpfError && <p id="resp-cpf-error" className="mt-1 text-xs text-red-500">{respCpfError}</p>}
           </div>
 
           <div>
@@ -358,9 +387,12 @@ export function StepDados({ dados, onChange }: Props) {
               placeholder="(31) 99999-0000"
               maxLength={15}
               aria-invalid={!!respPhoneError}
+              aria-required="true"
+              inputMode="tel"
+              aria-describedby={respPhoneError ? 'resp-phone-error' : undefined}
               className={`${inputBase} ${respPhoneError ? errorBorder : okBorder}`}
             />
-            {respPhoneError && <p className="mt-1 text-xs text-red-500">{respPhoneError}</p>}
+            {respPhoneError && <p id="resp-phone-error" className="mt-1 text-xs text-red-500">{respPhoneError}</p>}
           </div>
 
           <div className="sm:col-span-2">
@@ -375,9 +407,12 @@ export function StepDados({ dados, onChange }: Props) {
               onChange={(e) => onChange({ responsibleEmail: e.target.value })}
               placeholder="responsavel@escola.com"
               aria-invalid={!!respEmailError}
+              aria-required="true"
+              autoComplete="email"
+              aria-describedby={respEmailError ? 'resp-email-error' : undefined}
               className={`${inputBase} ${respEmailError ? errorBorder : okBorder}`}
             />
-            {respEmailError && <p className="mt-1 text-xs text-red-500">{respEmailError}</p>}
+            {respEmailError && <p id="resp-email-error" className="mt-1 text-xs text-red-500">{respEmailError}</p>}
           </div>
         </div>
       </div>
