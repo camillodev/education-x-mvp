@@ -15,10 +15,26 @@ Um bom PR = revisão rápida e segura. Apague as linhas que não se aplicam.
 
 ## 🔍 Como revisar (guia pro Rafa)
 <!-- O caminho mais rápido pra você validar. Diga ONDE olhar primeiro e O QUE testar no preview. -->
-1. **Preview:** <link do deploy de preview>
+1. **Preview:** <link do deploy de preview — a Vercel comenta automático abaixo>
 2. **Fluxo pra testar:** <passo a passo do que clicar/preencher>
-3. **Onde está a lógica crítica:** <arquivo:linha do que mais importa revisar>
-4. **O que NÃO mudou (pra não revisar à toa):** <…>
+3. **O que NÃO mudou (pra não revisar à toa):** <…>
+
+### 🎯 O QUE VOCÊ PRECISA REVISAR (em ordem de prioridade)
+<!--
+Claude preenche esta lista priorizada. Itens marcados (CRÍTICO) são os que, se
+estiverem errados, causam prejuízo financeiro, vazamento de dados ou quebra de
+isolamento entre escolas — revise esses primeiro, com lupa. Os demais são
+importantes mas de risco menor. Cite arquivo:linha em cada um.
+Apague as linhas que não se aplicam a este PR.
+-->
+- [ ] **(CRÍTICO — dinheiro)** Cálculo de valores / conversão centavos↔reais — `arquivo:linha`
+- [ ] **(CRÍTICO — tenant)** Toda query escopada por `unitId` da sessão; escola A não vê dado da B — `arquivo:linha`
+- [ ] **(CRÍTICO — dados/LGPD)** PII criptografada / CPF mascarado / cartão só token / PII fora de log — `arquivo:linha`
+- [ ] **(CRÍTICO — Asaas)** Idempotência + sandbox + sem mover dinheiro real sem confirmação — `arquivo:linha`
+- [ ] **(CRÍTICO — auth)** RBAC correto (admin_ix vs fran); rota pública é mesmo pública — `arquivo:linha`
+- [ ] **(importante)** Lógica de negócio do fluxo principal está correta (não só "passa o teste") — `arquivo:linha`
+- [ ] **(importante)** UX nos 3 breakpoints; estados de erro/loading/vazio — `arquivo:linha`
+- [ ] **(menor)** Nomenclatura, organização, reuso de componente — `arquivo:linha`
 
 ## 📐 Decisões tomadas
 <!-- Escolhas não óbvias + por quê. Se criou um ADR, linka. Se divergiu do protótipo/plano, explica. -->
