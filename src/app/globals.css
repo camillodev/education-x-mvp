@@ -1,3 +1,25 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
 @import "tailwindcss";
 @import "../styles/alfabeto.css";
+
+/*
+ * Mapeia os tokens que os componentes shadcn esperam (bg-popover, bg-accent,
+ * text-muted-foreground, etc.) para os valores do tema Alfabeto.
+ * Sem isto, `bg-popover` resolve para nada → dropdowns/popovers ficam
+ * transparentes. Vale para todos os componentes shadcn do projeto.
+ */
+@theme inline {
+  --color-popover: var(--color-bg);
+  --color-popover-foreground: var(--color-text);
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-text);
+  --color-card: var(--color-bg);
+  --color-card-foreground: var(--color-text);
+  --color-muted: var(--color-surface);
+  --color-muted-foreground: var(--color-text-subtle);
+  --color-accent: var(--color-primary-softer);
+  --color-accent-foreground: var(--color-primary);
+  --color-border: var(--color-border);
+  --color-input: var(--color-border-input);
+  --color-ring: var(--color-primary);
+}
