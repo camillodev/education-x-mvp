@@ -3,6 +3,7 @@ import { getMasterAsaasClient } from '../integration/asaas/client'
 import { encrypt } from '../crypto'
 import { prisma } from '../db'
 import { CreateSchoolSchema, type CreateSchoolInput } from '../validations/unit'
+import { getPlan } from '../data/plans'
 import { sendConfirmationEmail } from '../email/confirmation-email'
 import { inviteUnitResponsible } from '../auth/invite'
 import type { Unit } from '@prisma/client'
@@ -24,6 +25,13 @@ export class AsaasProvisionError extends Error {
   }
 }
 
+export class InvalidPlanError extends Error {
+  constructor() {
+    super('Plano inválido ou desconto maior que o preço')
+    this.name = 'InvalidPlanError'
+  }
+}
+
 // Token de confirmação válido por 7 dias.
 const CONFIRMATION_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -40,6 +48,14 @@ export async function createSchool(
   const existing = await prisma.unit.findUnique({ where: { cnpj: data.cnpj } })
   if (existing) throw new DuplicateCnpjError()
 
+  // 2b. Resolver preço do plano (snapshot) e validar desconto vs preço
+  const plan = getPlan(data.plan.planId)
+  if (!plan) throw new InvalidPlanError()
+  const planPriceCents = plan.priceCents
+  if (data.plan.discountValueCents !== undefined && data.plan.discountValueCents >= planPriceCents) {
+    throw new InvalidPlanError()
+  }
+
   // 3. Criptografar PII do responsável (CPF) + gerar token de confirmação
   const responsibleCpfEnc = await encrypt(data.responsibleCpf)
   const confirmationToken = randomUUID()
@@ -51,6 +67,9 @@ export async function createSchool(
       data: {
         name: data.name,
         cnpj: data.cnpj,
+        legalName: data.legalName ?? null,
+        tradeName: data.tradeName ?? null,
+        cnpjStatus: data.cnpjStatus ?? null,
         email: data.email,
         phone: data.phone,
         cep: data.cep,
@@ -83,6 +102,12 @@ export async function createSchool(
         negativacaoFeePayer: data.billing.negativacaoFeePayer,
         municipalRegistration: data.billing.municipalRegistration,
         // autoBilling/enablesSpc/acceptsCard usam o default do schema (todos ligados no MVP)
+        planId: data.plan.planId,
+        planPriceCents,
+        isBeta: data.plan.isBeta,
+        discountType: data.plan.discountType ?? null,
+        discountValueBp: data.plan.discountValueBp ?? null,
+        discountValueCents: data.plan.discountValueCents ?? null,
       },
     })
 

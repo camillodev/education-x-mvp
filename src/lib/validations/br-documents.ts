@@ -75,3 +75,15 @@ export function isValidBrPhone(phone: string): boolean {
   if (phone.length === 11 && phone[2] !== '9') return false
   return true
 }
+
+/**
+ * Validates a Brazilian MOBILE number (digits only): exactly 11 digits,
+ * valid DDD, and the 9th digit (after DDD) must be 9. Stricter than
+ * isValidBrPhone — landlines (10 digits) are rejected.
+ */
+export function isValidBrMobile(phone: string): boolean {
+  if (!/^\d{11}$/.test(phone)) return false
+  const ddd = Number(phone.slice(0, 2))
+  if (!VALID_DDDS.has(ddd)) return false
+  return phone[2] === '9'
+}

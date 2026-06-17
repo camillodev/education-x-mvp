@@ -48,7 +48,7 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-800">Matérias oferecidas pela unidade</h2>
+        <h2 className="text-lg font-semibold text-[var(--color-primary)]">Matérias oferecidas pela unidade</h2>
         <p className="mt-1 text-sm text-gray-500">
           As matérias/cursos que a unidade oferece, com o valor da mensalidade de cada.
         </p>

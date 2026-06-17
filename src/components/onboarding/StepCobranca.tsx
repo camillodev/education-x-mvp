@@ -17,12 +17,12 @@ function percentToBp(percent: string): number {
 
 export function StepCobranca({ cobranca, onChange }: Props) {
   const inputCls =
-    'mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]'
+    'mt-1 block w-full min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]'
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-800">
+        <h2 className="text-lg font-semibold text-[var(--color-primary)]">
           Cobrança aos responsáveis
         </h2>
         <p className="mt-1 text-sm text-gray-500">
@@ -31,7 +31,7 @@ export function StepCobranca({ cobranca, onChange }: Props) {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 [&>div]:min-w-0">
         <div>
           <label className="block text-sm font-medium text-gray-700" htmlFor="closingDay">
             Dia de fechamento *
@@ -118,7 +118,7 @@ export function StepCobranca({ cobranca, onChange }: Props) {
           Define quem arca com a taxa do cartão e a taxa de negativação.
         </p>
 
-        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 [&>div]:min-w-0">
           <div>
             <label className="block text-sm font-medium text-gray-700" htmlFor="cardFeePayer">
               Taxa do cartão

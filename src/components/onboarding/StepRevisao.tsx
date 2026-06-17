@@ -2,10 +2,12 @@
 
 import type { OnboardingState } from '@/hooks/use-onboarding'
 import { formatBRL, maskCnpj } from '@/lib/format'
+import { getPlan } from '@/lib/data/plans'
+import { computeDiscountedCents } from '@/lib/pricing'
 
 interface Props {
   state: OnboardingState
-  onEditStep: (step: 1 | 2 | 3) => void
+  onEditStep: (step: 1 | 2 | 3 | 4) => void
   onSubmit: () => void
   loadingSteps?: string[]
 }
@@ -55,7 +57,7 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-800">Revisão e envio</h2>
+        <h2 className="text-lg font-semibold text-[var(--color-primary)]">Revisão e envio</h2>
         <p className="mt-1 text-sm text-gray-500">
           Confira os dados. Ao enviar, a escola é criada como pendente e o responsável recebe um
           e-mail para confirmar e aceitar os termos.
@@ -144,6 +146,58 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
         </dl>
       </div>
 
+      {/* Bloco: Plano */}
+      {(() => {
+        const plan = getPlan(state.plano.planId)
+        if (!plan) return null
+        const hasDiscount = state.plano.discountEnabled && state.plano.discountValue.trim() !== ''
+        const { finalCents } = hasDiscount
+          ? computeDiscountedCents(plan.priceCents, state.plano.discountType, state.plano.discountValue)
+          : { finalCents: plan.priceCents }
+        return (
+          <div className="rounded-md border border-gray-200 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-medium text-gray-700">Plano da escola</h3>
+              <button
+                type="button"
+                onClick={() => onEditStep(3)}
+                className="text-xs text-[var(--color-primary)] hover:underline"
+              >
+                Editar
+              </button>
+            </div>
+            <dl className="grid gap-1 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-gray-400">Plano</dt>
+                <dd className="font-medium">
+                  {plan.name}
+                  {state.plano.isBeta && (
+                    <span className="ml-2 rounded bg-[var(--color-primary-softer)] px-1.5 py-0.5 text-xs font-medium text-[var(--color-primary)]">
+                      Beta
+                    </span>
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-400">Valor mensal</dt>
+                <dd className="font-medium">
+                  {hasDiscount ? (
+                    <>
+                      <span className="text-gray-400 line-through">{formatBRL(plan.priceCents)}</span>{' '}
+                      <span className="font-semibold text-[var(--color-primary)]">
+                        {formatBRL(finalCents)}
+                      </span>
+                    </>
+                  ) : (
+                    formatBRL(plan.priceCents)
+                  )}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        )
+      })()}
+
       {/* Bloco: Matérias */}
       <div className="rounded-md border border-gray-200 p-4">
         <div className="mb-3 flex items-center justify-between">
@@ -152,7 +206,7 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
           </h3>
           <button
             type="button"
-            onClick={() => onEditStep(3)}
+            onClick={() => onEditStep(4)}
             className="text-xs text-[var(--color-primary)] hover:underline"
           >
             Editar

@@ -5,15 +5,23 @@ import {
   createSchool,
   DuplicateCnpjError,
   AsaasProvisionError,
+  InvalidPlanError,
 } from '@/lib/services/onboarding.service'
 import { CreateSchoolSchema } from '@/lib/validations/unit'
 
+// Dev-only bypass do RBAC (só fora de produção) — espelha o bypass do front,
+// pra permitir testar o submit completo localmente sem sessão Clerk.
+const devBypass =
+  process.env.NODE_ENV !== 'production' && process.env.DISABLE_CLERK === 'true'
+
 export async function POST(req: NextRequest) {
   // RBAC: apenas admin_ix pode criar escolas
-  const { sessionClaims } = await auth()
-  const meta = sessionClaims?.publicMetadata as { role?: string } | undefined
-  if (meta?.role !== 'admin_ix') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!devBypass) {
+    const { sessionClaims } = await auth()
+    const meta = sessionClaims?.publicMetadata as { role?: string } | undefined
+    if (meta?.role !== 'admin_ix') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
   }
 
   let body: unknown
@@ -45,6 +53,9 @@ export async function POST(req: NextRequest) {
     }
     if (err instanceof ZodError) {
       return NextResponse.json({ error: 'Dados inválidos', issues: err.flatten() }, { status: 400 })
+    }
+    if (err instanceof InvalidPlanError) {
+      return NextResponse.json({ error: err.message }, { status: 400 })
     }
     if (err instanceof AsaasProvisionError) {
       console.error('[POST /api/setup/escola] Asaas error:', err)

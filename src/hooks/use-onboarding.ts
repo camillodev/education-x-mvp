@@ -2,7 +2,9 @@
 
 import { useReducer, useCallback } from 'react'
 import type { CreateSchoolInput, SubjectInput } from '@/lib/validations/unit'
-import { isValidCnpj, isValidCpf, isValidBrPhone } from '@/lib/validations/br-documents'
+import { isValidCnpj, isValidCpf, isValidBrMobile } from '@/lib/validations/br-documents'
+import { getPlan, type SchoolPlanId } from '@/lib/data/plans'
+import { computeDiscountedCents, parsePtBrNumber, type DiscountType } from '@/lib/pricing'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -11,6 +13,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 export interface DadosState {
   name: string
   cnpj: string
+  legalName: string // razão social (BrasilAPI)
+  tradeName: string // nome fantasia
+  cnpjStatus: string // situação cadastral
   email: string
   phone: string
   cep: string
@@ -39,10 +44,21 @@ export interface CobrancaState {
   municipalRegistration: string
 }
 
+export interface PlanoState {
+  planId: SchoolPlanId
+  isBeta: boolean
+  discountEnabled: boolean
+  discountType: DiscountType
+  discountValue: string // raw input (pt-BR)
+}
+
+export type WizardStep = 1 | 2 | 3 | 4 | 5
+
 export interface OnboardingState {
-  step: 1 | 2 | 3 | 4
+  step: WizardStep
   dados: DadosState
   cobranca: CobrancaState
+  plano: PlanoState
   subjects: SubjectInput[]
   status: 'idle' | 'submitting' | 'success' | 'error'
   errorMsg?: string
@@ -54,6 +70,9 @@ const initialState: OnboardingState = {
   dados: {
     name: '',
     cnpj: '',
+    legalName: '',
+    tradeName: '',
+    cnpjStatus: '',
     email: '',
     phone: '',
     cep: '',
@@ -71,13 +90,20 @@ const initialState: OnboardingState = {
     responsiblePhone: '',
   },
   cobranca: {
-    dueDay: 25,
+    dueDay: 10,
     closingDay: 25,
     lateFeePercent: 200, // 2%
     monthlyInterestBp: 100, // 1% a.m.
     cardFeePayer: 'RESPONSAVEL',
     negativacaoFeePayer: 'RESPONSAVEL',
     municipalRegistration: '',
+  },
+  plano: {
+    planId: 'basico',
+    isBeta: false,
+    discountEnabled: false,
+    discountType: 'PERCENT',
+    discountValue: '',
   },
   subjects: [],
   status: 'idle',
@@ -86,9 +112,10 @@ const initialState: OnboardingState = {
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
 type Action =
-  | { type: 'SET_STEP'; step: 1 | 2 | 3 | 4 }
+  | { type: 'SET_STEP'; step: WizardStep }
   | { type: 'SET_DADOS'; dados: Partial<DadosState> }
   | { type: 'SET_COBRANCA'; cobranca: Partial<CobrancaState> }
+  | { type: 'SET_PLANO'; plano: Partial<PlanoState> }
   | { type: 'ADD_SUBJECT'; subject: SubjectInput }
   | { type: 'REMOVE_SUBJECT'; index: number }
   | { type: 'UPDATE_SUBJECT'; index: number; subject: Partial<SubjectInput> }
@@ -104,6 +131,8 @@ function reducer(state: OnboardingState, action: Action): OnboardingState {
       return { ...state, dados: { ...state.dados, ...action.dados } }
     case 'SET_COBRANCA':
       return { ...state, cobranca: { ...state.cobranca, ...action.cobranca } }
+    case 'SET_PLANO':
+      return { ...state, plano: { ...state.plano, ...action.plano } }
     case 'ADD_SUBJECT':
       return { ...state, subjects: [...state.subjects, action.subject] }
     case 'REMOVE_SUBJECT':
@@ -139,7 +168,7 @@ export function canProceedFromStep(state: OnboardingState, step: number): boolea
         d.name.length >= 2 &&
         isValidCnpj(d.cnpj) &&
         EMAIL_RE.test(d.email) &&
-        isValidBrPhone(d.phone) &&
+        isValidBrMobile(d.phone) &&
         d.cep.length === 8 &&
         d.address.length >= 5 &&
         d.number.length >= 1 &&
@@ -150,7 +179,7 @@ export function canProceedFromStep(state: OnboardingState, step: number): boolea
         d.responsibleName.length >= 3 &&
         isValidCpf(d.responsibleCpf) &&
         EMAIL_RE.test(d.responsibleEmail) &&
-        isValidBrPhone(d.responsiblePhone)
+        isValidBrMobile(d.responsiblePhone)
       )
     }
     case 2: {
@@ -163,9 +192,21 @@ export function canProceedFromStep(state: OnboardingState, step: number): boolea
         b.municipalRegistration.length >= 1
       )
     }
-    case 3:
-      return state.subjects.length >= 1
+    case 3: {
+      // Plano da escola. planId sempre tem default; se há desconto, precisa de valor válido ≤ preço.
+      const p = state.plano
+      if (!p.discountEnabled) return true
+      const plan = getPlan(p.planId)
+      if (!plan) return false
+      const n = parsePtBrNumber(p.discountValue)
+      if (n <= 0) return false
+      const { finalCents } = computeDiscountedCents(plan.priceCents, p.discountType, p.discountValue)
+      // Precisa sobrar algo a pagar (desconto não pode zerar) e ser menor que o cheio.
+      return finalCents > 0 && finalCents < plan.priceCents
+    }
     case 4:
+      return state.subjects.length >= 1
+    case 5:
       // Passo de revisão — eu (admin) só envio; a escola aceita depois via link.
       return true
     default:
@@ -178,7 +219,7 @@ export function canProceedFromStep(state: OnboardingState, step: number): boolea
 export function useOnboarding() {
   const [state, dispatch] = useReducer(reducer, initialState)
 
-  const goToStep = useCallback((step: 1 | 2 | 3 | 4) => {
+  const goToStep = useCallback((step: WizardStep) => {
     dispatch({ type: 'SET_STEP', step })
   }, [])
 
@@ -188,6 +229,10 @@ export function useOnboarding() {
 
   const setCobranca = useCallback((cobranca: Partial<CobrancaState>) => {
     dispatch({ type: 'SET_COBRANCA', cobranca })
+  }, [])
+
+  const setPlano = useCallback((plano: Partial<PlanoState>) => {
+    dispatch({ type: 'SET_PLANO', plano })
   }, [])
 
   const addSubject = useCallback((subject: SubjectInput) => {
@@ -203,13 +248,40 @@ export function useOnboarding() {
   }, [])
 
   const submit = useCallback(async () => {
-    if (!canProceedFromStep(state, 1) || !canProceedFromStep(state, 3)) return
+    if (
+      !canProceedFromStep(state, 1) ||
+      !canProceedFromStep(state, 3) ||
+      !canProceedFromStep(state, 4)
+    )
+      return
 
     dispatch({ type: 'SET_STATUS', status: 'submitting' })
+
+    // Converte o desconto do plano para o formato persistido (bp ou cents).
+    const plan = getPlan(state.plano.planId)!
+    const discountValueNum = parsePtBrNumber(state.plano.discountValue)
+    const planPayload = {
+      planId: state.plano.planId,
+      isBeta: state.plano.isBeta,
+      ...(state.plano.discountEnabled && discountValueNum > 0
+        ? state.plano.discountType === 'PERCENT'
+          ? {
+              discountType: 'PERCENT' as const,
+              discountValueBp: Math.round(Math.min(discountValueNum, 100) * 100),
+            }
+          : {
+              discountType: 'FIXED' as const,
+              discountValueCents: Math.min(Math.round(discountValueNum * 100), plan.priceCents),
+            }
+        : {}),
+    }
 
     const payload: CreateSchoolInput = {
       name: state.dados.name,
       cnpj: state.dados.cnpj.replace(/\D/g, ''),
+      legalName: state.dados.legalName || undefined,
+      tradeName: state.dados.tradeName || undefined,
+      cnpjStatus: state.dados.cnpjStatus || undefined,
       email: state.dados.email,
       phone: state.dados.phone.replace(/\D/g, ''),
       cep: state.dados.cep.replace(/\D/g, ''),
@@ -234,6 +306,7 @@ export function useOnboarding() {
         negativacaoFeePayer: state.cobranca.negativacaoFeePayer,
         municipalRegistration: state.cobranca.municipalRegistration,
       },
+      plan: planPayload,
       subjects: state.subjects,
     }
 
@@ -282,6 +355,7 @@ export function useOnboarding() {
     goToStep,
     setDados,
     setCobranca,
+    setPlano,
     addSubject,
     removeSubject,
     updateSubject,

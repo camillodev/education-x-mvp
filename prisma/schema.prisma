@@ -25,6 +25,11 @@ enum FeePayer {
   ESCOLA
 }
 
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
 enum TermsKind {
   IX_ESCOLA
   ESCOLA_RESPONSAVEL
@@ -37,6 +42,10 @@ model Unit {
   id              String     @id @default(cuid())
   name            String
   cnpj            String     @unique
+  // Dados públicos da Receita (BrasilAPI) — guardados para contratos futuros.
+  legalName       String? // razão social
+  tradeName       String? // nome fantasia
+  cnpjStatus      String? // situação cadastral (ATIVA, BAIXADA, etc.)
   email           String
   phone           String
   cep             String
@@ -95,6 +104,14 @@ model BillingConfig {
   municipalRegistration String
   requireSignedContract Boolean @default(false)
   contractFileName      String?
+
+  // Plano da escola (escola → Impact X). Preço em snapshot pra não quebrar se a constante mudar.
+  planId             String       @default("basico")
+  planPriceCents     Int          @default(39900)
+  isBeta             Boolean      @default(false)
+  discountType       DiscountType?
+  discountValueBp    Int? // se PERCENT (200 = 2%)
+  discountValueCents Int? // se FIXED
 
   asaasWebhookTokenEnc String? // AES-256-GCM
 

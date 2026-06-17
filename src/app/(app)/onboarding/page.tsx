@@ -5,12 +5,15 @@ import { useOnboarding } from '@/hooks/use-onboarding'
 import { Stepper } from '@/components/patterns/Stepper'
 import { StepDados } from '@/components/onboarding/StepDados'
 import { StepCobranca } from '@/components/onboarding/StepCobranca'
+import { StepPlano } from '@/components/onboarding/StepPlano'
 import { StepDocumentos } from '@/components/onboarding/StepDocumentos'
 import { StepRevisao } from '@/components/onboarding/StepRevisao'
+import { useToast } from '@/components/ui/toast'
 
 const STEPS = [
   { label: 'Dados da escola' },
   { label: 'Cobrança' },
+  { label: 'Plano' },
   { label: 'Matérias' },
   { label: 'Revisão' },
 ]
@@ -27,6 +30,7 @@ export default function OnboardingPage() {
     goToStep,
     setDados,
     setCobranca,
+    setPlano,
     addSubject,
     removeSubject,
     updateSubject,
@@ -35,6 +39,7 @@ export default function OnboardingPage() {
   } = useOnboarding()
 
   const [loadingStepIdx, setLoadingStepIdx] = useState(0)
+  const { toast } = useToast()
 
   useEffect(() => {
     if (state.status !== 'submitting') {
@@ -47,15 +52,23 @@ export default function OnboardingPage() {
     return () => clearInterval(interval)
   }, [state.status])
 
+  // Erro do submit → toast tratado (a mensagem já vem mapeada do hook).
+  useEffect(() => {
+    if (state.status === 'error' && state.errorMsg) {
+      console.error('[onboarding] submit error:', state.errorMsg)
+      toast(state.errorMsg, 'error')
+    }
+  }, [state.status, state.errorMsg, toast])
+
   function handleNext() {
     if (canProceed(state.step)) {
-      goToStep((state.step + 1) as 1 | 2 | 3 | 4)
+      goToStep((state.step + 1) as 1 | 2 | 3 | 4 | 5)
     }
   }
 
   function handleBack() {
     if (state.step > 1) {
-      goToStep((state.step - 1) as 1 | 2 | 3 | 4)
+      goToStep((state.step - 1) as 1 | 2 | 3 | 4 | 5)
     }
   }
 
@@ -97,6 +110,10 @@ export default function OnboardingPage() {
             )}
 
             {state.step === 3 && (
+              <StepPlano plano={state.plano} onChange={setPlano} />
+            )}
+
+            {state.step === 4 && (
               <StepDocumentos
                 subjects={state.subjects}
                 onAddSubject={addSubject}
@@ -105,7 +122,7 @@ export default function OnboardingPage() {
               />
             )}
 
-            {state.step === 4 && (
+            {state.step === 5 && (
               <StepRevisao
                 state={state}
                 onEditStep={(s) => goToStep(s)}
@@ -127,7 +144,7 @@ export default function OnboardingPage() {
                 ← Voltar
               </button>
 
-              {state.step < 4 && (
+              {state.step < 5 && (
                 <button
                   type="button"
                   onClick={handleNext}

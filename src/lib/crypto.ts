@@ -11,11 +11,21 @@ export class DecryptionError extends Error {
 }
 
 function getKey(): Buffer {
-  const hex = process.env.ENCRYPTION_KEY
-  if (!hex || hex.length !== 64) {
-    throw new Error('ENCRYPTION_KEY ausente ou inválida (deve ter 64 chars hex = 32 bytes)')
+  const raw = process.env.ENCRYPTION_KEY?.trim()
+  if (!raw) {
+    throw new Error('ENCRYPTION_KEY ausente')
   }
-  return Buffer.from(hex, 'hex')
+  // Aceita 64 chars hex OU 44 chars base64 (ambos = 32 bytes para AES-256).
+  if (/^[0-9a-fA-F]{64}$/.test(raw)) {
+    return Buffer.from(raw, 'hex')
+  }
+  const b64 = Buffer.from(raw, 'base64')
+  if (b64.length === 32) {
+    return b64
+  }
+  throw new Error(
+    'ENCRYPTION_KEY inválida: use 64 chars hex (openssl rand -hex 32) ou 44 chars base64 (openssl rand -base64 32)'
+  )
 }
 
 // Formato armazenado: "iv:authTag:ciphertext" (todos hex)

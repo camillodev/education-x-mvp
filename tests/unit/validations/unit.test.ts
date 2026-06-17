@@ -20,13 +20,17 @@ const validInput = {
   responsibleEmail: 'maria@kumon.com',
   responsiblePhone: '31988887777',
   billing: {
-    dueDay: 25,
+    dueDay: 10,
     closingDay: 25,
     lateFeePercent: 200,
     monthlyInterestBp: 100,
     cardFeePayer: 'RESPONSAVEL' as const,
     negativacaoFeePayer: 'RESPONSAVEL' as const,
     municipalRegistration: '1234567',
+  },
+  plan: {
+    planId: 'basico' as const,
+    isBeta: false,
   },
   subjects: [
     {

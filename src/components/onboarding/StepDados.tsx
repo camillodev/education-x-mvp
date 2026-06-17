@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { DadosState } from '@/hooks/use-onboarding'
-import { isValidCnpj, isValidCpf, isValidBrPhone } from '@/lib/validations/br-documents'
+import { isValidCnpj, isValidCpf, isValidBrMobile } from '@/lib/validations/br-documents'
 import { FRANCHISE_NETWORKS } from '@/lib/data/franchise-networks'
 import { Combobox } from '@/components/patterns/Combobox'
+import { lookupCnpj, CnpjNotFoundError } from '@/lib/data/cnpj-lookup'
+import { useToast } from '@/components/ui/toast'
 
 interface Props {
   dados: DadosState
@@ -49,17 +51,78 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function StepDados({ dados, onChange }: Props) {
   const [loadingCep, setLoadingCep] = useState(false)
+  const [loadingCnpj, setLoadingCnpj] = useState(false)
+  const { toast } = useToast()
+
+  // Refs estáveis pra usar dentro do effect sem recriá-lo a cada render.
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+  const toastRef = useRef(toast)
+  toastRef.current = toast
+  const lastLookedUp = useRef<string>('')
+  // Snapshot do estado atual pra o effect ler sem virar dependência.
+  const currentRef = useRef(dados)
+  currentRef.current = dados
+
+  // Autofill de CNPJ via BrasilAPI quando o CNPJ fica válido (14 díg + DV).
+  // Best-effort: erro vai pro console + toast, nunca bloqueia o cadastro.
+  useEffect(() => {
+    const cnpj = dados.cnpj
+    if (!isValidCnpj(cnpj) || lastLookedUp.current === cnpj) return
+    lastLookedUp.current = cnpj
+
+    const controller = new AbortController()
+    setLoadingCnpj(true)
+    lookupCnpj(cnpj, controller.signal)
+      .then((data) => {
+        // Substitui atomicamente; só preenche campos vazios pra não pisar no que o user digitou.
+        const patch: Partial<DadosState> = {
+          legalName: data.legalName,
+          tradeName: data.tradeName,
+          cnpjStatus: data.status,
+        }
+        const cur = currentRef.current
+        if (data.legalName && !cur.name) patch.name = data.tradeName || data.legalName
+        if (data.cep && !cur.cep) patch.cep = data.cep
+        if (data.address && !cur.address) patch.address = data.address
+        if (data.number && !cur.number) patch.number = data.number
+        if (data.neighborhood && !cur.neighborhood) patch.neighborhood = data.neighborhood
+        if (data.city && !cur.city) patch.city = data.city
+        if (data.state && !cur.state) patch.state = data.state
+        onChangeRef.current(patch)
+
+        if (data.status && data.status.toUpperCase() !== 'ATIVA') {
+          toastRef.current(`Atenção: CNPJ com situação "${data.status}".`, 'info')
+        } else {
+          toastRef.current('Dados do CNPJ preenchidos automaticamente.', 'success')
+        }
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return
+        console.error('[cnpj-lookup]', err)
+        if (err instanceof CnpjNotFoundError) {
+          toastRef.current('CNPJ não encontrado na Receita. Confira o número.', 'error')
+        } else {
+          toastRef.current('Não foi possível consultar o CNPJ. Preencha manualmente.', 'error')
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingCnpj(false)
+      })
+
+    return () => controller.abort()
+  }, [dados.cnpj])
 
   // Inline validation — only surfaced after the user typed something.
   const cnpjError = dados.cnpj.length > 0 && !isValidCnpj(dados.cnpj) ? 'CNPJ inválido' : ''
   const emailError = dados.email.length > 0 && !EMAIL_RE.test(dados.email) ? 'E-mail inválido' : ''
-  const phoneError = dados.phone.length > 0 && !isValidBrPhone(dados.phone) ? 'Telefone inválido' : ''
+  const phoneError = dados.phone.length > 0 && !isValidBrMobile(dados.phone) ? 'Celular inválido (DDD + 9 dígitos)' : ''
   const respCpfError =
     dados.responsibleCpf.length > 0 && !isValidCpf(dados.responsibleCpf) ? 'CPF inválido' : ''
   const respEmailError =
     dados.responsibleEmail.length > 0 && !EMAIL_RE.test(dados.responsibleEmail) ? 'E-mail inválido' : ''
   const respPhoneError =
-    dados.responsiblePhone.length > 0 && !isValidBrPhone(dados.responsiblePhone) ? 'Telefone inválido' : ''
+    dados.responsiblePhone.length > 0 && !isValidBrMobile(dados.responsiblePhone) ? 'Celular inválido (DDD + 9 dígitos)' : ''
   const errorBorder = 'border-red-400 focus:border-red-500 focus:ring-red-500'
   const inputBase =
     'mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1'
@@ -92,7 +155,7 @@ export function StepDados({ dados, onChange }: Props) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-800">Dados da escola</h2>
+      <h2 className="text-lg font-semibold text-[var(--color-primary)]">Dados da escola</h2>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
@@ -133,11 +196,16 @@ export function StepDados({ dados, onChange }: Props) {
             }`}
           />
           {cnpjError && <p id="cnpj-error" className="mt-1 text-xs text-red-500">{cnpjError}</p>}
+          {loadingCnpj && (
+            <p role="status" aria-live="polite" className="mt-1 text-xs text-gray-400">
+              Consultando CNPJ...
+            </p>
+          )}
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700" htmlFor="phone">
-            Telefone *
+            Celular *
           </label>
           <input
             id="phone"
@@ -181,6 +249,39 @@ export function StepDados({ dados, onChange }: Props) {
           />
           {emailError && <p id="email-error" className="mt-1 text-xs text-red-500">{emailError}</p>}
         </div>
+
+        {/* Dados da empresa (Receita, via CNPJ) */}
+        {dados.legalName && (
+          <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm sm:col-span-2">
+            <p className="mb-1 text-xs font-medium text-gray-500">Dados da empresa (Receita)</p>
+            <dl className="grid gap-1 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <dt className="text-xs text-gray-400">Razão social</dt>
+                <dd className="font-medium text-gray-700">{dados.legalName}</dd>
+              </div>
+              {dados.tradeName && (
+                <div>
+                  <dt className="text-xs text-gray-400">Nome fantasia</dt>
+                  <dd className="font-medium text-gray-700">{dados.tradeName}</dd>
+                </div>
+              )}
+              {dados.cnpjStatus && (
+                <div>
+                  <dt className="text-xs text-gray-400">Situação cadastral</dt>
+                  <dd
+                    className={`font-medium ${
+                      dados.cnpjStatus.toUpperCase() === 'ATIVA'
+                        ? 'text-green-700'
+                        : 'text-amber-700'
+                    }`}
+                  >
+                    {dados.cnpjStatus}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700" htmlFor="cep">
@@ -332,7 +433,7 @@ export function StepDados({ dados, onChange }: Props) {
 
       {/* Responsável da unidade */}
       <div className="border-t border-gray-100 pt-6">
-        <h3 className="text-base font-semibold text-gray-800">Responsável da unidade</h3>
+        <h3 className="text-base font-semibold text-[var(--color-primary)]">Responsável da unidade</h3>
         <p className="mt-1 text-sm text-gray-500">
           A pessoa que vai confirmar o cadastro e aceitar os termos. O e-mail abaixo recebe o
           link de confirmação.
@@ -377,7 +478,7 @@ export function StepDados({ dados, onChange }: Props) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700" htmlFor="responsiblePhone">
-              Telefone *
+              Celular *
             </label>
             <input
               id="responsiblePhone"

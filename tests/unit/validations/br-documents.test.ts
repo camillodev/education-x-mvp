@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isValidCnpj, isValidBrPhone, isValidCpf } from '../../../src/lib/validations/br-documents'
+import { isValidCnpj, isValidBrPhone, isValidBrMobile, isValidCpf } from '../../../src/lib/validations/br-documents'
 
 describe('isValidCnpj', () => {
   it('aceita CNPJ válido (dígitos verificadores corretos)', () => {
@@ -71,5 +71,27 @@ describe('isValidBrPhone', () => {
 
   it('rejeita telefone com pontuação', () => {
     expect(isValidBrPhone('(31) 99999-0000')).toBe(false)
+  })
+})
+
+describe('isValidBrMobile', () => {
+  it('aceita celular válido (11 dígitos, DDD válido, nono dígito 9)', () => {
+    expect(isValidBrMobile('31999990000')).toBe(true)
+  })
+
+  it('rejeita fixo de 10 dígitos (não é celular)', () => {
+    expect(isValidBrMobile('3133334444')).toBe(false)
+  })
+
+  it('rejeita 11 dígitos sem o nono dígito 9', () => {
+    expect(isValidBrMobile('31888880000')).toBe(false)
+  })
+
+  it('rejeita DDD inexistente', () => {
+    expect(isValidBrMobile('20999990000')).toBe(false)
+  })
+
+  it('rejeita com pontuação', () => {
+    expect(isValidBrMobile('(31) 99999-0000')).toBe(false)
   })
 })

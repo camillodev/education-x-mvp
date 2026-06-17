@@ -44,6 +44,15 @@ describe('encrypt / decrypt', () => {
     await expect(decrypt('invalido')).rejects.toThrow(DecryptionError)
   })
 
+  it('aceita chave em base64 (44 chars = 32 bytes)', async () => {
+    const original = process.env.ENCRYPTION_KEY
+    // 32 bytes em base64
+    process.env.ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64')
+    const stored = await encrypt('com-chave-base64')
+    expect(await decrypt(stored)).toBe('com-chave-base64')
+    process.env.ENCRYPTION_KEY = original
+  })
+
   it('criptografa strings com PII (CPF, email, telefone)', async () => {
     const cpf = '12345678901'
     const email = 'responsavel@email.com'

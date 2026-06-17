@@ -9,6 +9,9 @@ const baseState = {
   dados: {
     name: 'Kumon Camargos',
     cnpj: '11222333000181',
+    legalName: 'Kumon Camargos LTDA',
+    tradeName: 'Kumon Camargos',
+    cnpjStatus: 'ATIVA',
     email: 'contato@escola.com',
     phone: '31999990000',
     cep: '30130000',
@@ -26,13 +29,20 @@ const baseState = {
     responsiblePhone: '31988887777',
   },
   cobranca: {
-    dueDay: 25,
+    dueDay: 10,
     closingDay: 25,
     lateFeePercent: 200,
     monthlyInterestBp: 100,
     cardFeePayer: 'RESPONSAVEL' as const,
     negativacaoFeePayer: 'RESPONSAVEL' as const,
     municipalRegistration: '12345',
+  },
+  plano: {
+    planId: 'basico' as const,
+    isBeta: false,
+    discountEnabled: false,
+    discountType: 'PERCENT' as const,
+    discountValue: '',
   },
   subjects: [{ name: 'Matemática', nfseServiceCode: '8.01', priceCents: 35000 }],
   status: 'idle' as const,
@@ -87,13 +97,41 @@ describe('canProceedFromStep', () => {
     expect(canProceedFromStep(state, 2)).toBe(false)
   })
 
-  it('step 3 valid when at least one subject', () => {
+  it('step 3 (plano) valid by default — planId tem default e sem desconto', () => {
     expect(canProceedFromStep(baseState, 3)).toBe(true)
   })
 
-  it('step 3 invalid when no subjects', () => {
-    const state = { ...baseState, subjects: [] }
+  it('step 3 (plano) invalid quando desconto ligado sem valor', () => {
+    const state = {
+      ...baseState,
+      plano: { ...baseState.plano, discountEnabled: true, discountValue: '' },
+    }
     expect(canProceedFromStep(state, 3)).toBe(false)
+  })
+
+  it('step 3 (plano) valid com desconto percentual válido', () => {
+    const state = {
+      ...baseState,
+      plano: { ...baseState.plano, discountEnabled: true, discountType: 'PERCENT' as const, discountValue: '10' },
+    }
+    expect(canProceedFromStep(state, 3)).toBe(true)
+  })
+
+  it('step 3 (plano) invalid quando desconto >= preço (100%)', () => {
+    const state = {
+      ...baseState,
+      plano: { ...baseState.plano, discountEnabled: true, discountType: 'PERCENT' as const, discountValue: '100' },
+    }
+    expect(canProceedFromStep(state, 3)).toBe(false)
+  })
+
+  it('step 4 valid when at least one subject', () => {
+    expect(canProceedFromStep(baseState, 4)).toBe(true)
+  })
+
+  it('step 4 invalid when no subjects', () => {
+    const state = { ...baseState, subjects: [] }
+    expect(canProceedFromStep(state, 4)).toBe(false)
   })
 
   it('step 1 invalid when responsible CPF is invalid', () => {
@@ -106,8 +144,8 @@ describe('canProceedFromStep', () => {
     expect(canProceedFromStep(state, 1)).toBe(false)
   })
 
-  it('step 4 (revisão) is always proceedable — aceite é via link depois', () => {
-    expect(canProceedFromStep(baseState, 4)).toBe(true)
+  it('step 5 (revisão) is always proceedable — aceite é via link depois', () => {
+    expect(canProceedFromStep(baseState, 5)).toBe(true)
   })
 })
 

@@ -76,13 +76,17 @@ const baseInput = {
   responsibleEmail: 'maria@kumon.com',
   responsiblePhone: '31988887777',
   billing: {
-    dueDay: 25,
+    dueDay: 10,
     closingDay: 25,
     lateFeePercent: 200,
     monthlyInterestBp: 100,
     cardFeePayer: 'RESPONSAVEL' as const,
     negativacaoFeePayer: 'RESPONSAVEL' as const,
     municipalRegistration: '1234567',
+  },
+  plan: {
+    planId: 'crescimento' as const,
+    isBeta: false,
   },
   subjects: [{ name: 'Matemática', nfseServiceCode: '8.01', priceCents: 35000 }],
 }
@@ -132,6 +136,21 @@ describe('createSchool', () => {
     )
     expect(mp.billingConfig.create).toHaveBeenCalled()
     expect(mp.subject.createMany).toHaveBeenCalled()
+  })
+
+  it('persiste o plano no BillingConfig com preço snapshot', async () => {
+    const mp = prisma as unknown as MockPrisma
+    await createSchool(baseInput, BASE_URL)
+
+    expect(mp.billingConfig.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          planId: 'crescimento',
+          planPriceCents: 49900, // snapshot do SCHOOL_PLANS
+          isBeta: false,
+        }),
+      })
+    )
   })
 
   it('criptografa o CPF do responsável (não persiste plaintext)', async () => {

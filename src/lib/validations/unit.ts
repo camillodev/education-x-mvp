@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { isValidCnpj, isValidBrPhone, isValidCpf } from './br-documents'
+import { isValidCnpj, isValidBrMobile, isValidCpf } from './br-documents'
 
 export const SubjectSchema = z.object({
   name: z.string().min(1, 'Nome da matéria obrigatório'),
@@ -19,16 +19,35 @@ export const BillingConfigSchema = z.object({
   municipalRegistration: z.string().min(1, 'Inscrição municipal obrigatória'),
 })
 
+export const PlanSchema = z
+  .object({
+    planId: z.enum(['basico', 'crescimento', 'pro']),
+    isBeta: z.boolean(),
+    discountType: z.enum(['PERCENT', 'FIXED']).optional(),
+    discountValueBp: z.number().int().min(1).max(10000).optional(),
+    discountValueCents: z.number().int().positive().optional(),
+  })
+  .refine(
+    (p) =>
+      p.discountType === undefined ||
+      (p.discountType === 'PERCENT' && p.discountValueBp !== undefined) ||
+      (p.discountType === 'FIXED' && p.discountValueCents !== undefined),
+    { message: 'Desconto incompleto: tipo sem o valor correspondente' }
+  )
+
 export const CreateSchoolSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   cnpj: z
     .string()
     .regex(/^\d{14}$/, 'CNPJ deve ter exatamente 14 dígitos numéricos')
     .refine(isValidCnpj, 'CNPJ inválido (dígito verificador não confere)'),
+  legalName: z.string().optional(),
+  tradeName: z.string().optional(),
+  cnpjStatus: z.string().optional(),
   email: z.string().email('E-mail inválido'),
   phone: z
     .string()
-    .refine(isValidBrPhone, 'Telefone inválido (DDD e formato precisam ser válidos)'),
+    .refine(isValidBrMobile, 'Celular inválido (DDD + 9 dígitos, com o 9)'),
   cep: z.string().length(8, 'CEP deve ter 8 dígitos'),
   address: z.string().min(5, 'Endereço inválido'),
   number: z.string().min(1, 'Número obrigatório'),
@@ -47,8 +66,9 @@ export const CreateSchoolSchema = z.object({
   responsibleEmail: z.string().email('E-mail do responsável inválido'),
   responsiblePhone: z
     .string()
-    .refine(isValidBrPhone, 'Telefone do responsável inválido'),
+    .refine(isValidBrMobile, 'Celular do responsável inválido (DDD + 9 dígitos)'),
   billing: BillingConfigSchema,
+  plan: PlanSchema,
   subjects: z
     .array(SubjectSchema)
     .min(1, 'Pelo menos 1 matéria obrigatória'),
