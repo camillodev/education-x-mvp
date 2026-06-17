@@ -52,7 +52,7 @@ export interface PlanoState {
   discountValue: string // raw input (pt-BR)
 }
 
-export type WizardStep = 1 | 2 | 3 | 4 | 5
+export type WizardStep = 1 | 2 | 3
 
 export interface OnboardingState {
   step: WizardStep
@@ -160,55 +160,63 @@ function reducer(state: OnboardingState, action: Action): OnboardingState {
 
 // ─── Validação por passo ──────────────────────────────────────────────────────
 
+// ── Validações por seção (reutilizadas pelos passos agrupados) ──
+function isDadosValid(state: OnboardingState): boolean {
+  const d = state.dados
+  return (
+    d.name.length >= 2 &&
+    isValidCnpj(d.cnpj) &&
+    EMAIL_RE.test(d.email) &&
+    isValidBrMobile(d.phone) &&
+    d.cep.length === 8 &&
+    d.address.length >= 5 &&
+    d.number.length >= 1 &&
+    d.neighborhood.length >= 2 &&
+    d.city.length >= 2 &&
+    d.state.length === 2 &&
+    // Responsável
+    d.responsibleName.length >= 3 &&
+    isValidCpf(d.responsibleCpf) &&
+    EMAIL_RE.test(d.responsibleEmail) &&
+    isValidBrMobile(d.responsiblePhone)
+  )
+}
+
+function isCobrancaValid(state: OnboardingState): boolean {
+  const b = state.cobranca
+  return (
+    b.dueDay >= 1 &&
+    b.dueDay <= 28 &&
+    b.closingDay >= 1 &&
+    b.closingDay <= 28 &&
+    b.municipalRegistration.length >= 1
+  )
+}
+
+function isPlanoValid(state: OnboardingState): boolean {
+  // planId sempre tem default; se há desconto, precisa de valor válido ≤ preço.
+  const p = state.plano
+  if (!p.discountEnabled) return true
+  const plan = getPlan(p.planId)
+  if (!plan) return false
+  const n = parsePtBrNumber(p.discountValue)
+  if (n <= 0) return false
+  const { finalCents } = computeDiscountedCents(plan.priceCents, p.discountType, p.discountValue)
+  // Precisa sobrar algo a pagar (desconto não pode zerar) e ser menor que o cheio.
+  return finalCents > 0 && finalCents < plan.priceCents
+}
+
 export function canProceedFromStep(state: OnboardingState, step: number): boolean {
   switch (step) {
-    case 1: {
-      const d = state.dados
-      return (
-        d.name.length >= 2 &&
-        isValidCnpj(d.cnpj) &&
-        EMAIL_RE.test(d.email) &&
-        isValidBrMobile(d.phone) &&
-        d.cep.length === 8 &&
-        d.address.length >= 5 &&
-        d.number.length >= 1 &&
-        d.neighborhood.length >= 2 &&
-        d.city.length >= 2 &&
-        d.state.length === 2 &&
-        // Responsável
-        d.responsibleName.length >= 3 &&
-        isValidCpf(d.responsibleCpf) &&
-        EMAIL_RE.test(d.responsibleEmail) &&
-        isValidBrMobile(d.responsiblePhone)
-      )
-    }
-    case 2: {
-      const b = state.cobranca
-      return (
-        b.dueDay >= 1 &&
-        b.dueDay <= 28 &&
-        b.closingDay >= 1 &&
-        b.closingDay <= 28 &&
-        b.municipalRegistration.length >= 1
-      )
-    }
-    case 3: {
-      // Plano da escola. planId sempre tem default; se há desconto, precisa de valor válido ≤ preço.
-      const p = state.plano
-      if (!p.discountEnabled) return true
-      const plan = getPlan(p.planId)
-      if (!plan) return false
-      const n = parsePtBrNumber(p.discountValue)
-      if (n <= 0) return false
-      const { finalCents } = computeDiscountedCents(plan.priceCents, p.discountType, p.discountValue)
-      // Precisa sobrar algo a pagar (desconto não pode zerar) e ser menor que o cheio.
-      return finalCents > 0 && finalCents < plan.priceCents
-    }
-    case 4:
+    // Passo 1 — Dados da escola (identidade, contato, endereço, responsável)
+    case 1:
+      return isDadosValid(state)
+    // Passo 2 — Financeiro (cobrança + plano fundidos no mesmo passo)
+    case 2:
+      return isCobrancaValid(state) && isPlanoValid(state)
+    // Passo 3 — Matérias e revisão (≥1 matéria; revisão não bloqueia)
+    case 3:
       return state.subjects.length >= 1
-    case 5:
-      // Passo de revisão — eu (admin) só envio; a escola aceita depois via link.
-      return true
     default:
       return false
   }
@@ -250,8 +258,8 @@ export function useOnboarding() {
   const submit = useCallback(async () => {
     if (
       !canProceedFromStep(state, 1) ||
-      !canProceedFromStep(state, 3) ||
-      !canProceedFromStep(state, 4)
+      !canProceedFromStep(state, 2) ||
+      !canProceedFromStep(state, 3)
     )
       return
 

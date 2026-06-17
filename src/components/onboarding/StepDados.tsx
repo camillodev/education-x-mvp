@@ -126,7 +126,14 @@ export function StepDados({ dados, onChange }: Props) {
   const errorBorder = 'border-red-400 focus:border-red-500 focus:ring-red-500'
   const inputBase =
     'mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1'
-  const okBorder = 'border-gray-300 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]'
+  const okBorder = 'border-[var(--color-border-input)] focus:border-[var(--color-primary)] focus:ring-[var(--color-primary-ring)]'
+
+  function cnpjStatusBadge(status: string) {
+    const s = status.toUpperCase()
+    if (s === 'ATIVA') return { bg: 'bg-[var(--badge-success-bg)]', text: 'text-[var(--badge-success-fg)]' }
+    if (s === 'BAIXADA' || s === 'INAPTA') return { bg: 'bg-[var(--badge-danger-bg)]', text: 'text-[var(--badge-danger-fg)]' }
+    return { bg: 'bg-[var(--badge-warning-bg)]', text: 'text-[var(--badge-warning-fg)]' }
+  }
 
   async function handleCepBlur(cep: string) {
     const digits = cep.replace(/\D/g, '')
@@ -154,294 +161,302 @@ export function StepDados({ dados, onChange }: Props) {
   }
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-[var(--color-primary)]">Dados da escola</h2>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-gray-700" htmlFor="name">
-            Nome da escola *
-          </label>
-          <input
-            id="name"
-            type="text"
-            value={dados.name}
-            onChange={(e) => onChange({ name: e.target.value })}
-            placeholder="Ex: Kumon Camargos"
-            aria-required="true"
-            autoComplete="organization"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700" htmlFor="cnpj">
-            CNPJ *
-          </label>
-          <input
-            id="cnpj"
-            type="text"
-            value={maskCnpj(dados.cnpj)}
-            onChange={(e) => onChange({ cnpj: e.target.value.replace(/\D/g, '') })}
-            placeholder="00.000.000/0000-00"
-            maxLength={18}
-            aria-invalid={!!cnpjError}
-            aria-required="true"
-            inputMode="numeric"
-            aria-describedby={cnpjError ? 'cnpj-error' : undefined}
-            className={`mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-              cnpjError
-                ? errorBorder
-                : 'border-gray-300 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]'
-            }`}
-          />
-          {cnpjError && <p id="cnpj-error" className="mt-1 text-xs text-red-500">{cnpjError}</p>}
-          {loadingCnpj && (
-            <p role="status" aria-live="polite" className="mt-1 text-xs text-gray-400">
-              Consultando CNPJ...
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700" htmlFor="phone">
-            Celular *
-          </label>
-          <input
-            id="phone"
-            type="tel"
-            value={maskPhone(dados.phone)}
-            onChange={(e) => onChange({ phone: e.target.value.replace(/\D/g, '') })}
-            placeholder="(31) 99999-0000"
-            maxLength={15}
-            aria-invalid={!!phoneError}
-            aria-required="true"
-            inputMode="tel"
-            aria-describedby={phoneError ? 'phone-error' : undefined}
-            className={`mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-              phoneError
-                ? errorBorder
-                : 'border-gray-300 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]'
-            }`}
-          />
-          {phoneError && <p id="phone-error" className="mt-1 text-xs text-red-500">{phoneError}</p>}
-        </div>
-
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-gray-700" htmlFor="email">
-            E-mail *
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={dados.email}
-            onChange={(e) => onChange({ email: e.target.value })}
-            placeholder="contato@escola.com"
-            aria-invalid={!!emailError}
-            aria-required="true"
-            autoComplete="email"
-            aria-describedby={emailError ? 'email-error' : undefined}
-            className={`mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-              emailError
-                ? errorBorder
-                : 'border-gray-300 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]'
-            }`}
-          />
-          {emailError && <p id="email-error" className="mt-1 text-xs text-red-500">{emailError}</p>}
-        </div>
-
-        {/* Dados da empresa (Receita, via CNPJ) */}
-        {dados.legalName && (
-          <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm sm:col-span-2">
-            <p className="mb-1 text-xs font-medium text-gray-500">Dados da empresa (Receita)</p>
-            <dl className="grid gap-1 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <dt className="text-xs text-gray-400">Razão social</dt>
-                <dd className="font-medium text-gray-700">{dados.legalName}</dd>
-              </div>
-              {dados.tradeName && (
-                <div>
-                  <dt className="text-xs text-gray-400">Nome fantasia</dt>
-                  <dd className="font-medium text-gray-700">{dados.tradeName}</dd>
-                </div>
-              )}
-              {dados.cnpjStatus && (
-                <div>
-                  <dt className="text-xs text-gray-400">Situação cadastral</dt>
-                  <dd
-                    className={`font-medium ${
-                      dados.cnpjStatus.toUpperCase() === 'ATIVA'
-                        ? 'text-green-700'
-                        : 'text-amber-700'
-                    }`}
-                  >
-                    {dados.cnpjStatus}
-                  </dd>
-                </div>
-              )}
-            </dl>
-          </div>
-        )}
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700" htmlFor="cep">
-            CEP *
-          </label>
-          <input
-            id="cep"
-            type="text"
-            value={maskCep(dados.cep)}
-            onChange={(e) => onChange({ cep: e.target.value.replace(/\D/g, '') })}
-            onBlur={(e) => handleCepBlur(e.target.value)}
-            placeholder="00000-000"
-            maxLength={9}
-            aria-required="true"
-            inputMode="numeric"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-          />
-          {loadingCep && (
-            <p role="status" aria-live="polite" className="mt-1 text-xs text-gray-400">Buscando endereço...</p>
-          )}
-        </div>
-
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-gray-700" htmlFor="address">
-            Logradouro (rua/avenida) *
-          </label>
-          <input
-            id="address"
-            type="text"
-            value={dados.address}
-            onChange={(e) => onChange({ address: e.target.value })}
-            placeholder="Rua das Flores"
-            aria-required="true"
-            autoComplete="address-line1"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700" htmlFor="number">
-            Número *
-          </label>
-          <input
-            id="number"
-            type="text"
-            value={dados.number}
-            onChange={(e) => onChange({ number: e.target.value })}
-            placeholder="123"
-            aria-required="true"
-            inputMode="numeric"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700" htmlFor="neighborhood">
-            Bairro *
-          </label>
-          <input
-            id="neighborhood"
-            type="text"
-            value={dados.neighborhood}
-            onChange={(e) => onChange({ neighborhood: e.target.value })}
-            placeholder="Centro"
-            aria-required="true"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-          />
-        </div>
-
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-gray-700" htmlFor="complement">
-            Complemento
-          </label>
-          <input
-            id="complement"
-            type="text"
-            value={dados.complement}
-            onChange={(e) => onChange({ complement: e.target.value })}
-            placeholder="Sala 2, Andar 3..."
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700" htmlFor="city">
-            Cidade *
-          </label>
-          <input
-            id="city"
-            type="text"
-            value={dados.city}
-            onChange={(e) => onChange({ city: e.target.value })}
-            placeholder="Belo Horizonte"
-            aria-required="true"
-            autoComplete="address-level2"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700" htmlFor="state">
-            UF *
-          </label>
-          <input
-            id="state"
-            type="text"
-            value={dados.state}
-            onChange={(e) => onChange({ state: e.target.value.toUpperCase().slice(0, 2) })}
-            placeholder="MG"
-            maxLength={2}
-            aria-required="true"
-            autoComplete="address-level1"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-          />
-        </div>
-
-        <div className="sm:col-span-2">
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-            <input
-              type="checkbox"
-              checked={dados.isFranchise}
-              onChange={(e) => onChange({ isFranchise: e.target.checked })}
-              className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
-            />
-            É uma unidade franqueada
-          </label>
-        </div>
-
-        {dados.isFranchise && (
-          <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-gray-700" htmlFor="franchiseParent">
-              Rede franqueadora
-            </label>
-            <Combobox
-              id="franchiseParent"
-              options={FRANCHISE_NETWORKS}
-              value={dados.franchiseParent}
-              onChange={(v) => onChange({ franchiseParent: v })}
-              placeholder="Selecione a rede"
-              searchPlaceholder="Buscar rede (ex: Kumon Brasil)"
-              allowCustom
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              Selecione uma rede conhecida para evitar agrupamento duplicado. Não está na lista? Digite e use o nome.
-            </p>
-          </div>
-        )}
+    <div className="space-y-6">
+      <div>
+        <p className="label">PASSO 1 DE 3</p>
+        <h1 className="text-2xl font-semibold text-[var(--color-text)]">Dados da escola</h1>
+        <p className="mt-1 text-sm text-[var(--color-text-subtle)]">* campo obrigatório</p>
       </div>
 
-      {/* Responsável da unidade */}
-      <div className="border-t border-gray-100 pt-6">
-        <h3 className="text-base font-semibold text-[var(--color-primary)]">Responsável da unidade</h3>
-        <p className="mt-1 text-sm text-gray-500">
-          A pessoa que vai confirmar o cadastro e aceitar os termos. O e-mail abaixo recebe o
-          link de confirmação.
-        </p>
-
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      {/* Card A — Identidade */}
+      <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-white p-6 shadow-[var(--shadow-card)]">
+        <div className="label mb-4">IDENTIDADE</div>
+        <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-gray-700" htmlFor="responsibleName">
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="cnpj">
+              CNPJ *
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="cnpj"
+                type="text"
+                value={maskCnpj(dados.cnpj)}
+                onChange={(e) => onChange({ cnpj: e.target.value.replace(/\D/g, '') })}
+                placeholder="00.000.000/0000-00"
+                maxLength={18}
+                aria-invalid={!!cnpjError}
+                aria-required="true"
+                inputMode="numeric"
+                aria-describedby={cnpjError ? 'cnpj-error' : undefined}
+                className={`${inputBase} flex-1 ${cnpjError ? errorBorder : okBorder}`}
+              />
+              {dados.cnpjStatus && !loadingCnpj && (() => {
+                const badge = cnpjStatusBadge(dados.cnpjStatus)
+                return (
+                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.bg} ${badge.text}`}>
+                    {dados.cnpjStatus}
+                  </span>
+                )
+              })()}
+            </div>
+            {cnpjError && <p id="cnpj-error" className="mt-1 text-xs text-red-500">{cnpjError}</p>}
+            {loadingCnpj && (
+              <p role="status" aria-live="polite" className="mt-1 text-xs text-[var(--color-text-subtle)]">
+                Consultando CNPJ...
+              </p>
+            )}
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="legalName">
+              Razão social
+            </label>
+            <p className="text-xs text-[var(--color-text-subtle)]">Vem do CNPJ — pode ajustar</p>
+            <input
+              id="legalName"
+              type="text"
+              value={dados.legalName}
+              onChange={(e) => onChange({ legalName: e.target.value })}
+              placeholder="Razão social conforme CNPJ"
+              className={`${inputBase} ${okBorder}`}
+            />
+          </div>
+
+          {dados.tradeName !== undefined && (
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="tradeName">
+                Nome fantasia
+              </label>
+              <input
+                id="tradeName"
+                type="text"
+                value={dados.tradeName}
+                onChange={(e) => onChange({ tradeName: e.target.value })}
+                placeholder="Nome fantasia conforme CNPJ"
+                className={`${inputBase} ${okBorder}`}
+              />
+            </div>
+          )}
+
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="name">
+              Apelido (como aparece no sistema) *
+            </label>
+            <input
+              id="name"
+              type="text"
+              value={dados.name}
+              onChange={(e) => onChange({ name: e.target.value })}
+              placeholder="Ex: Kumon Camargos"
+              aria-required="true"
+              autoComplete="organization"
+              className={`${inputBase} ${okBorder}`}
+            />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="email">
+              E-mail *
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={dados.email}
+              onChange={(e) => onChange({ email: e.target.value })}
+              placeholder="contato@escola.com"
+              aria-invalid={!!emailError}
+              aria-required="true"
+              autoComplete="email"
+              aria-describedby={emailError ? 'email-error' : undefined}
+              className={`${inputBase} ${emailError ? errorBorder : okBorder}`}
+            />
+            {emailError && <p id="email-error" className="mt-1 text-xs text-red-500">{emailError}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="phone">
+              Celular *
+            </label>
+            <input
+              id="phone"
+              type="tel"
+              value={maskPhone(dados.phone)}
+              onChange={(e) => onChange({ phone: e.target.value.replace(/\D/g, '') })}
+              placeholder="(31) 99999-0000"
+              maxLength={15}
+              aria-invalid={!!phoneError}
+              aria-required="true"
+              inputMode="tel"
+              aria-describedby={phoneError ? 'phone-error' : undefined}
+              className={`${inputBase} ${phoneError ? errorBorder : okBorder}`}
+            />
+            {phoneError && <p id="phone-error" className="mt-1 text-xs text-red-500">{phoneError}</p>}
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-muted-strong)]">
+              <input
+                type="checkbox"
+                checked={dados.isFranchise}
+                onChange={(e) => onChange({ isFranchise: e.target.checked })}
+                className="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-primary)] focus:ring-[var(--color-primary-ring)]"
+              />
+              É uma unidade franqueada
+            </label>
+          </div>
+
+          {dados.isFranchise && (
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="franchiseParent">
+                Rede franqueadora
+              </label>
+              <Combobox
+                id="franchiseParent"
+                options={FRANCHISE_NETWORKS}
+                value={dados.franchiseParent}
+                onChange={(v) => onChange({ franchiseParent: v })}
+                placeholder="Selecione a rede"
+                searchPlaceholder="Buscar rede (ex: Kumon Brasil)"
+                allowCustom
+              />
+              <p className="mt-1 text-xs text-[var(--color-text-subtle)]">
+                Selecione uma rede conhecida para evitar agrupamento duplicado. Não está na lista? Digite e use o nome.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Card B — Endereço */}
+      <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-white p-6 shadow-[var(--shadow-card)]">
+        <div className="label mb-4">ENDEREÇO</div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="cep">
+              CEP *
+            </label>
+            <input
+              id="cep"
+              type="text"
+              value={maskCep(dados.cep)}
+              onChange={(e) => onChange({ cep: e.target.value.replace(/\D/g, '') })}
+              onBlur={(e) => handleCepBlur(e.target.value)}
+              placeholder="00000-000"
+              maxLength={9}
+              aria-required="true"
+              inputMode="numeric"
+              className={`${inputBase} ${okBorder}`}
+            />
+            {loadingCep && (
+              <p role="status" aria-live="polite" className="mt-1 text-xs text-[var(--color-text-subtle)]">Buscando endereço...</p>
+            )}
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="address">
+              Logradouro *
+            </label>
+            <input
+              id="address"
+              type="text"
+              value={dados.address}
+              onChange={(e) => onChange({ address: e.target.value })}
+              placeholder="Rua das Flores"
+              aria-required="true"
+              autoComplete="address-line1"
+              className={`${inputBase} ${okBorder}`}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="number">
+              Número *
+            </label>
+            <input
+              id="number"
+              type="text"
+              value={dados.number}
+              onChange={(e) => onChange({ number: e.target.value })}
+              placeholder="123"
+              aria-required="true"
+              inputMode="numeric"
+              className={`${inputBase} ${okBorder}`}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="neighborhood">
+              Bairro *
+            </label>
+            <input
+              id="neighborhood"
+              type="text"
+              value={dados.neighborhood}
+              onChange={(e) => onChange({ neighborhood: e.target.value })}
+              placeholder="Centro"
+              aria-required="true"
+              className={`${inputBase} ${okBorder}`}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="city">
+              Cidade *
+            </label>
+            <input
+              id="city"
+              type="text"
+              value={dados.city}
+              onChange={(e) => onChange({ city: e.target.value })}
+              placeholder="Belo Horizonte"
+              aria-required="true"
+              autoComplete="address-level2"
+              className={`${inputBase} ${okBorder}`}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="state">
+              UF *
+            </label>
+            <input
+              id="state"
+              type="text"
+              value={dados.state}
+              onChange={(e) => onChange({ state: e.target.value.toUpperCase().slice(0, 2) })}
+              placeholder="MG"
+              maxLength={2}
+              aria-required="true"
+              autoComplete="address-level1"
+              className={`${inputBase} ${okBorder}`}
+            />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="complement">
+              Complemento <span className="font-normal text-[var(--color-text-subtle)]">(opcional)</span>
+            </label>
+            <input
+              id="complement"
+              type="text"
+              value={dados.complement}
+              onChange={(e) => onChange({ complement: e.target.value })}
+              placeholder="Sala 2, Andar 3..."
+              className={`${inputBase} ${okBorder}`}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Card C — Responsável */}
+      <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-white p-6 shadow-[var(--shadow-card)]">
+        <div className="label mb-1">RESPONSÁVEL DA UNIDADE</div>
+        <p className="mb-4 text-sm text-[var(--color-text-subtle)]">
+          Recebe o link de confirmação e aceita os termos.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="responsibleName">
               Nome completo *
             </label>
             <input
@@ -457,7 +472,7 @@ export function StepDados({ dados, onChange }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700" htmlFor="responsibleCpf">
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="responsibleCpf">
               CPF *
             </label>
             <input
@@ -477,7 +492,7 @@ export function StepDados({ dados, onChange }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700" htmlFor="responsiblePhone">
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="responsiblePhone">
               Celular *
             </label>
             <input
@@ -497,9 +512,8 @@ export function StepDados({ dados, onChange }: Props) {
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-gray-700" htmlFor="responsibleEmail">
-              E-mail *{' '}
-              <span className="font-normal text-gray-400">(recebe o link de confirmação)</span>
+            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="responsibleEmail">
+              E-mail *
             </label>
             <input
               id="responsibleEmail"

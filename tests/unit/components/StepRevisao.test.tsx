@@ -4,7 +4,7 @@ import { StepRevisao } from '@/components/onboarding/StepRevisao'
 import type { OnboardingState } from '@/hooks/use-onboarding'
 
 const baseState: OnboardingState = {
-  step: 4,
+  step: 3,
   dados: {
     name: 'Kumon Camargos',
     cnpj: '11222333000181',

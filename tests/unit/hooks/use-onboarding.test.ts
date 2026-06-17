@@ -97,41 +97,41 @@ describe('canProceedFromStep', () => {
     expect(canProceedFromStep(state, 2)).toBe(false)
   })
 
-  it('step 3 (plano) valid by default — planId tem default e sem desconto', () => {
-    expect(canProceedFromStep(baseState, 3)).toBe(true)
+  it('step 2 (financeiro) valid by default — planId e cobrança têm defaults', () => {
+    expect(canProceedFromStep(baseState, 2)).toBe(true)
   })
 
-  it('step 3 (plano) invalid quando desconto ligado sem valor', () => {
+  it('step 2 (financeiro) invalid quando desconto ligado sem valor', () => {
     const state = {
       ...baseState,
       plano: { ...baseState.plano, discountEnabled: true, discountValue: '' },
     }
-    expect(canProceedFromStep(state, 3)).toBe(false)
+    expect(canProceedFromStep(state, 2)).toBe(false)
   })
 
-  it('step 3 (plano) valid com desconto percentual válido', () => {
+  it('step 2 (financeiro) valid com desconto percentual válido', () => {
     const state = {
       ...baseState,
       plano: { ...baseState.plano, discountEnabled: true, discountType: 'PERCENT' as const, discountValue: '10' },
     }
-    expect(canProceedFromStep(state, 3)).toBe(true)
+    expect(canProceedFromStep(state, 2)).toBe(true)
   })
 
-  it('step 3 (plano) invalid quando desconto >= preço (100%)', () => {
+  it('step 2 (financeiro) invalid quando desconto >= preço (100%)', () => {
     const state = {
       ...baseState,
       plano: { ...baseState.plano, discountEnabled: true, discountType: 'PERCENT' as const, discountValue: '100' },
     }
-    expect(canProceedFromStep(state, 3)).toBe(false)
+    expect(canProceedFromStep(state, 2)).toBe(false)
   })
 
-  it('step 4 valid when at least one subject', () => {
-    expect(canProceedFromStep(baseState, 4)).toBe(true)
+  it('step 3 valid when at least one subject', () => {
+    expect(canProceedFromStep(baseState, 3)).toBe(true)
   })
 
-  it('step 4 invalid when no subjects', () => {
+  it('step 3 invalid when no subjects', () => {
     const state = { ...baseState, subjects: [] }
-    expect(canProceedFromStep(state, 4)).toBe(false)
+    expect(canProceedFromStep(state, 3)).toBe(false)
   })
 
   it('step 1 invalid when responsible CPF is invalid', () => {
@@ -142,10 +142,6 @@ describe('canProceedFromStep', () => {
   it('step 1 invalid when responsible email is invalid', () => {
     const state = { ...baseState, dados: { ...baseState.dados, responsibleEmail: 'x' } }
     expect(canProceedFromStep(state, 1)).toBe(false)
-  })
-
-  it('step 5 (revisão) is always proceedable — aceite é via link depois', () => {
-    expect(canProceedFromStep(baseState, 5)).toBe(true)
   })
 })
 

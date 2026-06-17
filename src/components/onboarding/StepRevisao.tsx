@@ -7,7 +7,7 @@ import { computeDiscountedCents } from '@/lib/pricing'
 
 interface Props {
   state: OnboardingState
-  onEditStep: (step: 1 | 2 | 3 | 4) => void
+  onEditStep: (step: 1 | 2 | 3) => void
   onSubmit: () => void
   loadingSteps?: string[]
 }
@@ -116,7 +116,7 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
         </div>
         <dl className="grid gap-1 text-sm sm:grid-cols-2">
           <div>
-            <dt className="text-gray-400">Fechamento</dt>
+            <dt className="text-gray-400">Fechamento (cobrança + plano)</dt>
             <dd className="font-medium">Dia {state.cobranca.closingDay}</dd>
           </div>
           <div>
@@ -160,7 +160,7 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
               <h3 className="text-sm font-medium text-gray-700">Plano da escola</h3>
               <button
                 type="button"
-                onClick={() => onEditStep(3)}
+                onClick={() => onEditStep(2)}
                 className="text-xs text-[var(--color-primary)] hover:underline"
               >
                 Editar
@@ -206,7 +206,7 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
           </h3>
           <button
             type="button"
-            onClick={() => onEditStep(4)}
+            onClick={() => onEditStep(3)}
             className="text-xs text-[var(--color-primary)] hover:underline"
           >
             Editar
