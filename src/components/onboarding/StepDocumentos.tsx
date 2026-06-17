@@ -61,13 +61,21 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
     setNewSubject({ ...emptySubject })
   }
 
+  // Ao sair do campo mensal, preenche os outros com desconto progressivo
+  // (trimestral -7%, semestral -11%, anual -16%) se ainda estiverem vazios.
   function handleMonthlyBlur(monthly: number) {
     if (monthly > 0) {
       setNewSubject(s => ({
         ...s,
-        quarterlyPriceCents: s.quarterlyPriceCents && s.quarterlyPriceCents > 0 ? s.quarterlyPriceCents : monthly * 3,
-        semiannualPriceCents: s.semiannualPriceCents && s.semiannualPriceCents > 0 ? s.semiannualPriceCents : monthly * 6,
-        annualPriceCents: s.annualPriceCents && s.annualPriceCents > 0 ? s.annualPriceCents : monthly * 12,
+        quarterlyPriceCents: s.quarterlyPriceCents && s.quarterlyPriceCents > 0
+          ? s.quarterlyPriceCents
+          : Math.round(monthly * 0.933),
+        semiannualPriceCents: s.semiannualPriceCents && s.semiannualPriceCents > 0
+          ? s.semiannualPriceCents
+          : Math.round(monthly * 0.889),
+        annualPriceCents: s.annualPriceCents && s.annualPriceCents > 0
+          ? s.annualPriceCents
+          : Math.round(monthly * 0.844),
       }))
     }
   }
@@ -233,7 +241,7 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
             <input
               type="text"
               inputMode="decimal"
-              placeholder="Trimestral (auto)"
+              placeholder="Trimestral (ex: R$ 420)"
               value={newSubject.quarterlyPriceCents && newSubject.quarterlyPriceCents > 0 ? formatBRL(newSubject.quarterlyPriceCents) : ''}
               onChange={(e) =>
                 setNewSubject((s) => ({ ...s, quarterlyPriceCents: parseBRL(e.target.value) || undefined }))
@@ -244,7 +252,7 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
             <input
               type="text"
               inputMode="decimal"
-              placeholder="Semestral (auto)"
+              placeholder="Semestral (ex: R$ 400)"
               value={newSubject.semiannualPriceCents && newSubject.semiannualPriceCents > 0 ? formatBRL(newSubject.semiannualPriceCents) : ''}
               onChange={(e) =>
                 setNewSubject((s) => ({ ...s, semiannualPriceCents: parseBRL(e.target.value) || undefined }))
@@ -255,7 +263,7 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
             <input
               type="text"
               inputMode="decimal"
-              placeholder="Anual (auto)"
+              placeholder="Anual (ex: R$ 380)"
               value={newSubject.annualPriceCents && newSubject.annualPriceCents > 0 ? formatBRL(newSubject.annualPriceCents) : ''}
               onChange={(e) =>
                 setNewSubject((s) => ({ ...s, annualPriceCents: parseBRL(e.target.value) || undefined }))
