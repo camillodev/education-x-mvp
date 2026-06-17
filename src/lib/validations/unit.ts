@@ -5,6 +5,9 @@ export const SubjectSchema = z.object({
   name: z.string().min(1, 'Nome da matéria obrigatório'),
   nfseServiceCode: z.string().min(1, 'Código NFS-e obrigatório'),
   priceCents: z.number().int().positive('Preço deve ser positivo'),
+  quarterlyPriceCents: z.number().int().positive().optional(),
+  semiannualPriceCents: z.number().int().positive().optional(),
+  annualPriceCents: z.number().int().positive().optional(),
 })
 
 export const BillingConfigSchema = z.object({

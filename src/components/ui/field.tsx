@@ -19,7 +19,7 @@ export function Field({ label, htmlFor, error, hint, required, className, childr
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {label && (
-        <label htmlFor={htmlFor} className="text-[13px] font-semibold text-[var(--color-text)]">
+        <label htmlFor={htmlFor} className={cn("text-[13px] font-semibold", error ? "text-[var(--color-danger)]" : "text-[var(--color-text)]")}>
           {label}
           {required && (
             <span className="ml-0.5 text-[var(--color-danger)]" aria-hidden="true">

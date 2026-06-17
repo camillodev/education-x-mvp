@@ -67,7 +67,7 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
       {/* Bloco: Dados */}
       <div className="rounded-md border border-gray-200 p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-medium text-gray-700">Dados da escola</h3>
+          <h3 className="label">Dados da escola</h3>
           <button
             type="button"
             onClick={() => onEditStep(1)}
@@ -105,7 +105,7 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
       {/* Bloco: Cobrança */}
       <div className="rounded-md border border-gray-200 p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-medium text-gray-700">Cobrança aos responsáveis</h3>
+          <h3 className="label">Cobrança aos responsáveis</h3>
           <button
             type="button"
             onClick={() => onEditStep(2)}
@@ -157,7 +157,7 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
         return (
           <div className="rounded-md border border-gray-200 p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-medium text-gray-700">Plano da escola</h3>
+              <h3 className="label">Plano da escola</h3>
               <button
                 type="button"
                 onClick={() => onEditStep(2)}
@@ -201,7 +201,7 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
       {/* Bloco: Matérias */}
       <div className="rounded-md border border-gray-200 p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-medium text-gray-700">
+          <h3 className="label">
             Matérias ({state.subjects.length})
           </h3>
           <button
@@ -214,12 +214,23 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
         </div>
         <ul className="space-y-1 text-sm">
           {state.subjects.map((s, idx) => (
-            <li key={idx} className="flex items-center justify-between gap-2">
+            <li key={idx} className="flex items-start justify-between gap-2">
               <span className="min-w-0 truncate">
                 {s.name}{' '}
                 <span className="text-gray-400 text-xs">({s.nfseServiceCode})</span>
               </span>
-              <span className="shrink-0 font-medium">{formatBRL(s.priceCents)}</span>
+              <span className="shrink-0 text-right">
+                <span className="font-medium">{formatBRL(s.priceCents)}</span>
+                {(s.quarterlyPriceCents || s.semiannualPriceCents || s.annualPriceCents) && (
+                  <span className="block text-xs text-[var(--color-text-subtle)]">
+                    {[
+                      s.quarterlyPriceCents ? `3×: ${formatBRL(s.quarterlyPriceCents)}` : null,
+                      s.semiannualPriceCents ? `6×: ${formatBRL(s.semiannualPriceCents)}` : null,
+                      s.annualPriceCents ? `12×: ${formatBRL(s.annualPriceCents)}` : null,
+                    ].filter(Boolean).join(' · ')}
+                  </span>
+                )}
+              </span>
             </li>
           ))}
         </ul>

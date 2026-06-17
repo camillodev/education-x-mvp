@@ -117,6 +117,9 @@ export async function createSchool(
         name: s.name,
         nfseServiceCode: s.nfseServiceCode,
         priceCents: s.priceCents,
+        quarterlyPriceCents: s.quarterlyPriceCents ?? null,
+        semiannualPriceCents: s.semiannualPriceCents ?? null,
+        annualPriceCents: s.annualPriceCents ?? null,
       })),
     })
 
