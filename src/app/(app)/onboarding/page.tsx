@@ -12,7 +12,8 @@ import { useToast } from '@/components/ui/toast'
 const STEPS = [
   { label: 'Dados da escola', description: 'Identidade, endereço e responsável' },
   { label: 'Financeiro', description: 'Cobrança e plano da escola' },
-  { label: 'Matérias e revisão', description: 'Matérias e envio' },
+  { label: 'Matérias', description: 'Disciplinas oferecidas pela escola' },
+  { label: 'Revisão', description: 'Confirme os dados e envie' },
 ]
 
 const LOADING_STEPS = [
@@ -58,13 +59,13 @@ export default function OnboardingPage() {
 
   function handleNext() {
     if (canProceed(state.step)) {
-      goToStep((state.step + 1) as 1 | 2 | 3)
+      goToStep((state.step + 1) as 1 | 2 | 3 | 4)
     }
   }
 
   function handleBack() {
     if (state.step > 1) {
-      goToStep((state.step - 1) as 1 | 2 | 3)
+      goToStep((state.step - 1) as 1 | 2 | 3 | 4)
     }
   }
 
@@ -121,8 +122,8 @@ export default function OnboardingPage() {
                 {state.step === 3 && (
                   <div className="space-y-6">
                     <div>
-                      <p className="label">PASSO 3 DE 3</p>
-                      <h1 className="text-2xl font-semibold text-[var(--color-text)]">Matérias e revisão</h1>
+                      <p className="label">PASSO 3 DE 4</p>
+                      <h1 className="text-2xl font-semibold text-[var(--color-text)]">Matérias</h1>
                     </div>
                     <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-white p-6 shadow-[var(--shadow-card)]">
                       <div className="label mb-4">MATÉRIAS</div>
@@ -132,6 +133,15 @@ export default function OnboardingPage() {
                         onRemoveSubject={removeSubject}
                         onUpdateSubject={updateSubject}
                       />
+                    </div>
+                  </div>
+                )}
+
+                {state.step === 4 && (
+                  <div className="space-y-6">
+                    <div>
+                      <p className="label">PASSO 4 DE 4</p>
+                      <h1 className="text-2xl font-semibold text-[var(--color-text)]">Revisão e envio</h1>
                     </div>
                     <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-white p-6 shadow-[var(--shadow-card)]">
                       <div className="label mb-4">REVISÃO</div>
@@ -156,7 +166,7 @@ export default function OnboardingPage() {
                     ← Voltar
                   </button>
 
-                  {state.step < 3 && (
+                  {state.step < 4 && (
                     <button
                       type="button"
                       onClick={handleNext}
@@ -198,7 +208,7 @@ export default function OnboardingPage() {
             ← Voltar
           </button>
 
-          {state.step < 3 && (
+          {state.step < 4 && (
             <button
               type="button"
               onClick={handleNext}

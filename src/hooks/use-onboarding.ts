@@ -52,7 +52,7 @@ export interface PlanoState {
   discountValue: string // raw input (pt-BR)
 }
 
-export type WizardStep = 1 | 2 | 3
+export type WizardStep = 1 | 2 | 3 | 4
 
 export interface OnboardingState {
   step: WizardStep
@@ -214,9 +214,12 @@ export function canProceedFromStep(state: OnboardingState, step: number): boolea
     // Passo 2 — Financeiro (cobrança + plano fundidos no mesmo passo)
     case 2:
       return isCobrancaValid(state) && isPlanoValid(state)
-    // Passo 3 — Matérias e revisão (≥1 matéria; revisão não bloqueia)
+    // Passo 3 — Matérias (≥1 matéria)
     case 3:
       return state.subjects.length >= 1
+    // Passo 4 — Revisão (não bloqueia navegação)
+    case 4:
+      return true
     default:
       return false
   }
