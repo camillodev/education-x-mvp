@@ -12,13 +12,19 @@ interface Props {
   onUpdateSubject: (index: number, subject: Partial<SubjectInput>) => void
 }
 
+// Defaults de preço por período conforme política comercial
+const DEFAULT_MONTHLY_CENTS = 45000   // R$ 450,00
+const DEFAULT_QUARTERLY_CENTS = 43000 // R$ 430,00
+const DEFAULT_SEMIANNUAL_CENTS = 40000 // R$ 400,00
+const DEFAULT_ANNUAL_CENTS = 38000    // R$ 380,00
+
 const emptySubject: SubjectInput = {
   name: '',
   nfseServiceCode: '',
-  priceCents: 0,
-  quarterlyPriceCents: undefined,
-  semiannualPriceCents: undefined,
-  annualPriceCents: undefined,
+  priceCents: DEFAULT_MONTHLY_CENTS,
+  quarterlyPriceCents: DEFAULT_QUARTERLY_CENTS,
+  semiannualPriceCents: DEFAULT_SEMIANNUAL_CENTS,
+  annualPriceCents: DEFAULT_ANNUAL_CENTS,
 }
 
 function parseBRL(value: string): number {
@@ -61,24 +67,8 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
     setNewSubject({ ...emptySubject })
   }
 
-  // Ao sair do campo mensal, preenche os outros com desconto progressivo
-  // (trimestral -7%, semestral -11%, anual -16%) se ainda estiverem vazios.
-  function handleMonthlyBlur(monthly: number) {
-    if (monthly > 0) {
-      setNewSubject(s => ({
-        ...s,
-        quarterlyPriceCents: s.quarterlyPriceCents && s.quarterlyPriceCents > 0
-          ? s.quarterlyPriceCents
-          : Math.round(monthly * 0.933),
-        semiannualPriceCents: s.semiannualPriceCents && s.semiannualPriceCents > 0
-          ? s.semiannualPriceCents
-          : Math.round(monthly * 0.889),
-        annualPriceCents: s.annualPriceCents && s.annualPriceCents > 0
-          ? s.annualPriceCents
-          : Math.round(monthly * 0.844),
-      }))
-    }
-  }
+  // Sem auto-fill por cálculo — cada campo tem seu default independente.
+  // O usuário edita livremente; os defaults já vêm preenchidos no emptySubject.
 
   return (
     <div className="space-y-6">
@@ -229,19 +219,18 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
             <input
               type="text"
               inputMode="decimal"
-              placeholder="Mensal (R$ 0,00)"
+              placeholder="Mensal"
               value={newSubject.priceCents > 0 ? formatBRL(newSubject.priceCents) : ''}
               onChange={(e) =>
                 setNewSubject((s) => ({ ...s, priceCents: parseBRL(e.target.value) }))
               }
-              onBlur={(e) => handleMonthlyBlur(parseBRL(e.target.value))}
               className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
               aria-label="Preço mensal da nova matéria"
             />
             <input
               type="text"
               inputMode="decimal"
-              placeholder="Trimestral (ex: R$ 420)"
+              placeholder="Trimestral"
               value={newSubject.quarterlyPriceCents && newSubject.quarterlyPriceCents > 0 ? formatBRL(newSubject.quarterlyPriceCents) : ''}
               onChange={(e) =>
                 setNewSubject((s) => ({ ...s, quarterlyPriceCents: parseBRL(e.target.value) || undefined }))
@@ -252,7 +241,7 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
             <input
               type="text"
               inputMode="decimal"
-              placeholder="Semestral (ex: R$ 400)"
+              placeholder="Semestral"
               value={newSubject.semiannualPriceCents && newSubject.semiannualPriceCents > 0 ? formatBRL(newSubject.semiannualPriceCents) : ''}
               onChange={(e) =>
                 setNewSubject((s) => ({ ...s, semiannualPriceCents: parseBRL(e.target.value) || undefined }))
@@ -263,7 +252,7 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
             <input
               type="text"
               inputMode="decimal"
-              placeholder="Anual (ex: R$ 380)"
+              placeholder="Anual"
               value={newSubject.annualPriceCents && newSubject.annualPriceCents > 0 ? formatBRL(newSubject.annualPriceCents) : ''}
               onChange={(e) =>
                 setNewSubject((s) => ({ ...s, annualPriceCents: parseBRL(e.target.value) || undefined }))

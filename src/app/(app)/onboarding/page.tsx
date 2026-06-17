@@ -89,10 +89,10 @@ export default function OnboardingPage() {
 
       {/* Main */}
       <main className="flex-1 px-4 py-8">
-        <div className="max-w-6xl mx-auto">
+        <div className="mx-auto max-w-5xl">
           {!isSubmittingOrSuccess ? (
-            <div className="lg:grid lg:grid-cols-[280px_1fr] lg:gap-12">
-              {/* Stepper vertical (desktop) / horizontal (mobile) */}
+            <div className="lg:grid lg:grid-cols-[240px_1fr] lg:gap-10">
+              {/* Stepper vertical sticky (desktop) */}
               <aside className="hidden lg:block">
                 <div className="sticky top-8">
                   <Stepper steps={STEPS} current={state.step} orientation="vertical" />
@@ -104,8 +104,8 @@ export default function OnboardingPage() {
                 <Stepper steps={STEPS} current={state.step} orientation="horizontal" />
               </div>
 
-              {/* Conteúdo do passo */}
-              <div className="max-w-4xl">
+              {/* Conteúdo do passo — max-width contido */}
+              <div className="min-w-0 max-w-2xl">
                 {state.step === 1 && (
                   <StepDados dados={state.dados} onChange={setDados} />
                 )}
