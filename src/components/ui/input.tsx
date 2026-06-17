@@ -62,7 +62,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           type={type}
           ref={ref}
           aria-invalid={ariaInvalid ?? error ?? undefined}
-          className={cn(baseInput, "min-w-0 flex-1")}
+          className={cn(baseInput, "min-w-0 flex-1 outline-none")}
           {...props}
         />
         {trailing && <span className="flex shrink-0 items-center">{trailing}</span>}
