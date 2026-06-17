@@ -1,10 +1,14 @@
 'use client'
 
+import { Building2, Mail, Phone } from 'lucide-react'
 import type { DadosState } from '@/hooks/use-onboarding'
 import { FRANCHISE_NETWORKS } from '@/lib/data/franchise-networks'
 import { Combobox } from '@/components/patterns/Combobox'
+import { Field } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { Toggle } from '@/components/ui/toggle'
+import { Badge } from '@/components/ui/badge'
 import { maskCnpj, maskPhone } from './dados-masks'
-import { inputBase, okBorder, errorBorder, cnpjStatusBadge } from './dados-styles'
 
 interface Props {
   dados: DadosState
@@ -13,6 +17,18 @@ interface Props {
   emailError: string
   phoneError: string
   loadingCnpj: boolean
+  /** Quando false, só o campo CNPJ aparece (CNPJ-first). */
+  revealed: boolean
+  /** Revela os campos manualmente (escape do CNPJ-first). */
+  onRevealManual: () => void
+}
+
+/** Mapeia a situação cadastral do CNPJ para a variante do Badge. */
+function statusVariant(status: string): 'success' | 'danger' | 'warning' {
+  const s = status.toUpperCase()
+  if (s === 'ATIVA') return 'success'
+  if (s === 'BAIXADA' || s === 'INAPTA') return 'danger'
+  return 'warning'
 }
 
 export function CardIdentidade({
@@ -22,164 +38,160 @@ export function CardIdentidade({
   emailError,
   phoneError,
   loadingCnpj,
+  revealed,
+  onRevealManual,
 }: Props) {
   return (
     <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-white p-6 shadow-[var(--shadow-card)]">
       <div className="label mb-4">IDENTIDADE</div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="cnpj">
-            CNPJ *
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              id="cnpj"
-              type="text"
-              value={maskCnpj(dados.cnpj)}
-              onChange={(e) => onChange({ cnpj: e.target.value.replace(/\D/g, '') })}
-              placeholder="00.000.000/0000-00"
-              maxLength={18}
-              aria-invalid={!!cnpjError}
-              aria-required="true"
-              inputMode="numeric"
-              aria-describedby={cnpjError ? 'cnpj-error' : undefined}
-              className={`${inputBase} flex-1 ${cnpjError ? errorBorder : okBorder}`}
-            />
-            {dados.cnpjStatus && !loadingCnpj && (() => {
-              const badge = cnpjStatusBadge(dados.cnpjStatus)
-              return (
-                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.bg} ${badge.text}`}>
-                  {dados.cnpjStatus}
-                </span>
-              )
-            })()}
+
+      {/* CNPJ em destaque — sempre visível, é o ponto de partida. */}
+      <Field
+        label="CNPJ"
+        htmlFor="cnpj"
+        required
+        error={cnpjError || undefined}
+        hint={!cnpjError ? 'Usado para criar a subconta de pagamentos — preenche o resto automaticamente' : undefined}
+      >
+        <Input
+          id="cnpj"
+          value={maskCnpj(dados.cnpj)}
+          onChange={(e) => onChange({ cnpj: e.target.value.replace(/\D/g, '') })}
+          placeholder="00.000.000/0000-00"
+          maxLength={18}
+          inputMode="numeric"
+          error={!!cnpjError}
+          aria-required="true"
+          leadingIcon={<Building2 size={18} />}
+          trailing={
+            loadingCnpj ? (
+              <span className="text-xs text-[var(--color-text-subtle)]">Consultando…</span>
+            ) : dados.cnpjStatus ? (
+              <Badge variant={statusVariant(dados.cnpjStatus)} dot>
+                {dados.cnpjStatus}
+              </Badge>
+            ) : null
+          }
+        />
+      </Field>
+
+      {/* Escape manual — só aparece enquanto os campos estão escondidos. */}
+      {!revealed && (
+        <button
+          type="button"
+          onClick={onRevealManual}
+          className="mt-3 text-sm font-medium text-[var(--color-primary)] hover:underline"
+        >
+          Não tenho CNPJ / preencher manualmente
+        </button>
+      )}
+
+      {/* Demais campos — revelados após o lookup ou via escape manual. */}
+      {revealed && (
+        <div className="mt-5 grid animate-[ex-fade-up_.3s_ease] gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Field label="Razão social" htmlFor="legalName" hint="Vem do CNPJ — pode ajustar">
+              <Input
+                id="legalName"
+                value={dados.legalName}
+                onChange={(e) => onChange({ legalName: e.target.value })}
+                placeholder="Razão social conforme CNPJ"
+              />
+            </Field>
           </div>
-          {cnpjError && <p id="cnpj-error" className="mt-1 text-xs text-red-500">{cnpjError}</p>}
-          {loadingCnpj && (
-            <p role="status" aria-live="polite" className="mt-1 text-xs text-[var(--color-text-subtle)]">
-              Consultando CNPJ...
-            </p>
+
+          <div className="sm:col-span-2">
+            <Field label="Nome fantasia" htmlFor="tradeName">
+              <Input
+                id="tradeName"
+                value={dados.tradeName}
+                onChange={(e) => onChange({ tradeName: e.target.value })}
+                placeholder="Nome fantasia conforme CNPJ"
+              />
+            </Field>
+          </div>
+
+          <div className="sm:col-span-2">
+            <Field label="Apelido (como aparece no sistema)" htmlFor="name" required>
+              <Input
+                id="name"
+                value={dados.name}
+                onChange={(e) => onChange({ name: e.target.value })}
+                placeholder="Ex: Kumon Camargos"
+                aria-required="true"
+                autoComplete="organization"
+                leadingIcon={<Building2 size={18} />}
+              />
+            </Field>
+          </div>
+
+          <div className="sm:col-span-2">
+            <Field label="E-mail" htmlFor="email" required error={emailError || undefined}>
+              <Input
+                id="email"
+                type="email"
+                value={dados.email}
+                onChange={(e) => onChange({ email: e.target.value })}
+                placeholder="contato@escola.com"
+                error={!!emailError}
+                aria-required="true"
+                autoComplete="email"
+                leadingIcon={<Mail size={18} />}
+              />
+            </Field>
+          </div>
+
+          <div>
+            <Field label="Celular" htmlFor="phone" required error={phoneError || undefined}>
+              <Input
+                id="phone"
+                type="tel"
+                value={maskPhone(dados.phone)}
+                onChange={(e) => onChange({ phone: e.target.value.replace(/\D/g, '') })}
+                placeholder="(31) 99999-0000"
+                maxLength={15}
+                inputMode="tel"
+                error={!!phoneError}
+                aria-required="true"
+                leadingIcon={<Phone size={18} />}
+              />
+            </Field>
+          </div>
+
+          <div className="sm:col-span-2">
+            <div className="flex items-center justify-between rounded-md border border-[var(--color-border)] px-4 py-3">
+              <span className="text-sm font-medium text-[var(--color-text-muted-strong)]">
+                É uma unidade franqueada
+              </span>
+              <Toggle
+                checked={dados.isFranchise}
+                onChange={(v) => onChange({ isFranchise: v })}
+                aria-label="É uma unidade franqueada"
+              />
+            </div>
+          </div>
+
+          {dados.isFranchise && (
+            <div className="sm:col-span-2">
+              <Field
+                label="Rede franqueadora"
+                htmlFor="franchiseParent"
+                hint="Selecione uma rede conhecida para evitar agrupamento duplicado. Não está na lista? Digite e use o nome."
+              >
+                <Combobox
+                  id="franchiseParent"
+                  options={FRANCHISE_NETWORKS}
+                  value={dados.franchiseParent}
+                  onChange={(v) => onChange({ franchiseParent: v })}
+                  placeholder="Selecione a rede"
+                  searchPlaceholder="Buscar rede (ex: Kumon Brasil)"
+                  allowCustom
+                />
+              </Field>
+            </div>
           )}
         </div>
-
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="legalName">
-            Razão social
-          </label>
-          <p className="text-xs text-[var(--color-text-subtle)]">Vem do CNPJ — pode ajustar</p>
-          <input
-            id="legalName"
-            type="text"
-            value={dados.legalName}
-            onChange={(e) => onChange({ legalName: e.target.value })}
-            placeholder="Razão social conforme CNPJ"
-            className={`${inputBase} ${okBorder}`}
-          />
-        </div>
-
-        {dados.tradeName !== undefined && (
-          <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="tradeName">
-              Nome fantasia
-            </label>
-            <input
-              id="tradeName"
-              type="text"
-              value={dados.tradeName}
-              onChange={(e) => onChange({ tradeName: e.target.value })}
-              placeholder="Nome fantasia conforme CNPJ"
-              className={`${inputBase} ${okBorder}`}
-            />
-          </div>
-        )}
-
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="name">
-            Apelido (como aparece no sistema) *
-          </label>
-          <input
-            id="name"
-            type="text"
-            value={dados.name}
-            onChange={(e) => onChange({ name: e.target.value })}
-            placeholder="Ex: Kumon Camargos"
-            aria-required="true"
-            autoComplete="organization"
-            className={`${inputBase} ${okBorder}`}
-          />
-        </div>
-
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="email">
-            E-mail *
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={dados.email}
-            onChange={(e) => onChange({ email: e.target.value })}
-            placeholder="contato@escola.com"
-            aria-invalid={!!emailError}
-            aria-required="true"
-            autoComplete="email"
-            aria-describedby={emailError ? 'email-error' : undefined}
-            className={`${inputBase} ${emailError ? errorBorder : okBorder}`}
-          />
-          {emailError && <p id="email-error" className="mt-1 text-xs text-red-500">{emailError}</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="phone">
-            Celular *
-          </label>
-          <input
-            id="phone"
-            type="tel"
-            value={maskPhone(dados.phone)}
-            onChange={(e) => onChange({ phone: e.target.value.replace(/\D/g, '') })}
-            placeholder="(31) 99999-0000"
-            maxLength={15}
-            aria-invalid={!!phoneError}
-            aria-required="true"
-            inputMode="tel"
-            aria-describedby={phoneError ? 'phone-error' : undefined}
-            className={`${inputBase} ${phoneError ? errorBorder : okBorder}`}
-          />
-          {phoneError && <p id="phone-error" className="mt-1 text-xs text-red-500">{phoneError}</p>}
-        </div>
-
-        <div className="sm:col-span-2">
-          <label className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-muted-strong)]">
-            <input
-              type="checkbox"
-              checked={dados.isFranchise}
-              onChange={(e) => onChange({ isFranchise: e.target.checked })}
-              className="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-primary)] focus:ring-[var(--color-primary-ring)]"
-            />
-            É uma unidade franqueada
-          </label>
-        </div>
-
-        {dados.isFranchise && (
-          <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="franchiseParent">
-              Rede franqueadora
-            </label>
-            <Combobox
-              id="franchiseParent"
-              options={FRANCHISE_NETWORKS}
-              value={dados.franchiseParent}
-              onChange={(v) => onChange({ franchiseParent: v })}
-              placeholder="Selecione a rede"
-              searchPlaceholder="Buscar rede (ex: Kumon Brasil)"
-              allowCustom
-            />
-            <p className="mt-1 text-xs text-[var(--color-text-subtle)]">
-              Selecione uma rede conhecida para evitar agrupamento duplicado. Não está na lista? Digite e use o nome.
-            </p>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }

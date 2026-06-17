@@ -18,6 +18,11 @@ interface Props {
 export function StepDados({ dados, onChange }: Props) {
   const [loadingCep, setLoadingCep] = useState(false)
   const [loadingCnpj, setLoadingCnpj] = useState(false)
+  // CNPJ-first: começa escondendo os demais campos. Inicia revelado quando
+  // o usuário está editando um draft que já tem identidade preenchida.
+  const [revealed, setRevealed] = useState(
+    () => Boolean(dados.legalName || dados.tradeName || dados.name)
+  )
   const { toast } = useToast()
 
   // Refs estáveis pra usar dentro do effect sem recriá-lo a cada render.
@@ -56,6 +61,8 @@ export function StepDados({ dados, onChange }: Props) {
         if (data.city && !cur.city) patch.city = data.city
         if (data.state && !cur.state) patch.state = data.state
         onChangeRef.current(patch)
+        // Lookup ok = revela os campos preenchidos para revisão.
+        setRevealed(true)
 
         if (data.status && data.status.toUpperCase() !== 'ATIVA') {
           toastRef.current(`Atenção: CNPJ com situação "${data.status}".`, 'info')
@@ -130,22 +137,29 @@ export function StepDados({ dados, onChange }: Props) {
         emailError={emailError}
         phoneError={phoneError}
         loadingCnpj={loadingCnpj}
+        revealed={revealed}
+        onRevealManual={() => setRevealed(true)}
       />
 
-      <CardEndereco
-        dados={dados}
-        onChange={onChange}
-        onCepBlur={handleCepBlur}
-        loadingCep={loadingCep}
-      />
+      {/* Endereço e Responsável só aparecem depois do CNPJ-first revelar. */}
+      {revealed && (
+        <div className="animate-[ex-fade-up_.3s_ease] space-y-6">
+          <CardEndereco
+            dados={dados}
+            onChange={onChange}
+            onCepBlur={handleCepBlur}
+            loadingCep={loadingCep}
+          />
 
-      <CardResponsavel
-        dados={dados}
-        onChange={onChange}
-        respCpfError={respCpfError}
-        respEmailError={respEmailError}
-        respPhoneError={respPhoneError}
-      />
+          <CardResponsavel
+            dados={dados}
+            onChange={onChange}
+            respCpfError={respCpfError}
+            respEmailError={respEmailError}
+            respPhoneError={respPhoneError}
+          />
+        </div>
+      )}
     </div>
   )
 }

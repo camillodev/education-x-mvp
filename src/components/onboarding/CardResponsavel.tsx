@@ -1,8 +1,10 @@
 'use client'
 
+import { Copy, Mail, Phone, User } from 'lucide-react'
 import type { DadosState } from '@/hooks/use-onboarding'
+import { Field } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import { maskCpf, maskPhone } from './dados-masks'
-import { inputBase, okBorder, errorBorder } from './dados-styles'
 
 interface Props {
   dados: DadosState
@@ -19,86 +21,100 @@ export function CardResponsavel({
   respEmailError,
   respPhoneError,
 }: Props) {
+  // Copia o contato da unidade pros campos do responsável.
+  function duplicateUnitContact() {
+    onChange({
+      responsibleEmail: dados.email,
+      responsiblePhone: dados.phone,
+    })
+    document.getElementById('responsibleName')?.focus()
+  }
+
+  // Só faz sentido oferecer a cópia se a unidade já tem algum contato.
+  const canDuplicate = Boolean(dados.email || dados.phone)
+
   return (
     <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-white p-6 shadow-[var(--shadow-card)]">
-      <div className="label mb-1">RESPONSÁVEL DA UNIDADE</div>
-      <p className="mb-4 text-sm text-[var(--color-text-subtle)]">
-        Recebe o link de confirmação e aceita os termos.
-      </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="label mb-1">RESPONSÁVEL DA UNIDADE</div>
+          <p className="mb-4 text-sm text-[var(--color-text-subtle)]">
+            Recebe o link de confirmação e aceita os termos.
+          </p>
+        </div>
+        {canDuplicate && (
+          <button
+            type="button"
+            onClick={duplicateUnitContact}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] transition-colors hover:bg-[var(--color-primary-softer)]"
+          >
+            <Copy size={13} />
+            Usar mesmo contato da unidade
+          </button>
+        )}
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="responsibleName">
-            Nome completo *
-          </label>
-          <input
-            id="responsibleName"
-            type="text"
-            value={dados.responsibleName}
-            onChange={(e) => onChange({ responsibleName: e.target.value })}
-            placeholder="Nome do responsável"
-            aria-required="true"
-            autoComplete="name"
-            className={`${inputBase} ${okBorder}`}
-          />
+          <Field label="Nome completo" htmlFor="responsibleName" required>
+            <Input
+              id="responsibleName"
+              value={dados.responsibleName}
+              onChange={(e) => onChange({ responsibleName: e.target.value })}
+              placeholder="Nome do responsável"
+              aria-required="true"
+              autoComplete="name"
+              leadingIcon={<User size={18} />}
+            />
+          </Field>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="responsibleCpf">
-            CPF *
-          </label>
-          <input
-            id="responsibleCpf"
-            type="text"
-            value={maskCpf(dados.responsibleCpf)}
-            onChange={(e) => onChange({ responsibleCpf: e.target.value.replace(/\D/g, '') })}
-            placeholder="000.000.000-00"
-            maxLength={14}
-            aria-invalid={!!respCpfError}
-            aria-required="true"
-            inputMode="numeric"
-            aria-describedby={respCpfError ? 'resp-cpf-error' : undefined}
-            className={`${inputBase} ${respCpfError ? errorBorder : okBorder}`}
-          />
-          {respCpfError && <p id="resp-cpf-error" className="mt-1 text-xs text-red-500">{respCpfError}</p>}
+          <Field label="CPF" htmlFor="responsibleCpf" required error={respCpfError || undefined}>
+            <Input
+              id="responsibleCpf"
+              value={maskCpf(dados.responsibleCpf)}
+              onChange={(e) => onChange({ responsibleCpf: e.target.value.replace(/\D/g, '') })}
+              placeholder="000.000.000-00"
+              maxLength={14}
+              inputMode="numeric"
+              error={!!respCpfError}
+              aria-required="true"
+            />
+          </Field>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="responsiblePhone">
-            Celular *
-          </label>
-          <input
-            id="responsiblePhone"
-            type="tel"
-            value={maskPhone(dados.responsiblePhone)}
-            onChange={(e) => onChange({ responsiblePhone: e.target.value.replace(/\D/g, '') })}
-            placeholder="(31) 99999-0000"
-            maxLength={15}
-            aria-invalid={!!respPhoneError}
-            aria-required="true"
-            inputMode="tel"
-            aria-describedby={respPhoneError ? 'resp-phone-error' : undefined}
-            className={`${inputBase} ${respPhoneError ? errorBorder : okBorder}`}
-          />
-          {respPhoneError && <p id="resp-phone-error" className="mt-1 text-xs text-red-500">{respPhoneError}</p>}
+          <Field label="Celular" htmlFor="responsiblePhone" required error={respPhoneError || undefined}>
+            <Input
+              id="responsiblePhone"
+              type="tel"
+              value={maskPhone(dados.responsiblePhone)}
+              onChange={(e) => onChange({ responsiblePhone: e.target.value.replace(/\D/g, '') })}
+              placeholder="(31) 99999-0000"
+              maxLength={15}
+              inputMode="tel"
+              error={!!respPhoneError}
+              aria-required="true"
+              leadingIcon={<Phone size={18} />}
+            />
+          </Field>
         </div>
 
         <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-[var(--color-text-muted-strong)]" htmlFor="responsibleEmail">
-            E-mail *
-          </label>
-          <input
-            id="responsibleEmail"
-            type="email"
-            value={dados.responsibleEmail}
-            onChange={(e) => onChange({ responsibleEmail: e.target.value })}
-            placeholder="responsavel@escola.com"
-            aria-invalid={!!respEmailError}
-            aria-required="true"
-            autoComplete="email"
-            aria-describedby={respEmailError ? 'resp-email-error' : undefined}
-            className={`${inputBase} ${respEmailError ? errorBorder : okBorder}`}
-          />
-          {respEmailError && <p id="resp-email-error" className="mt-1 text-xs text-red-500">{respEmailError}</p>}
+          <Field label="E-mail" htmlFor="responsibleEmail" required error={respEmailError || undefined}>
+            <Input
+              id="responsibleEmail"
+              type="email"
+              value={dados.responsibleEmail}
+              onChange={(e) => onChange({ responsibleEmail: e.target.value })}
+              placeholder="responsavel@escola.com"
+              error={!!respEmailError}
+              aria-required="true"
+              autoComplete="email"
+              leadingIcon={<Mail size={18} />}
+            />
+          </Field>
         </div>
       </div>
     </div>

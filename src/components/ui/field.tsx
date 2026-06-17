@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 
 export interface FieldProps {
   label?: string;
+  /** Associates the label with the control via `for`/`id` (a11y). */
+  htmlFor?: string;
   /** Error message; takes precedence over hint and renders in danger color. */
   error?: string;
   /** Helper text shown below the field when there's no error. */
@@ -13,11 +15,11 @@ export interface FieldProps {
   children: React.ReactNode;
 }
 
-export function Field({ label, error, hint, required, className, children }: FieldProps) {
+export function Field({ label, htmlFor, error, hint, required, className, children }: FieldProps) {
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {label && (
-        <label className="text-[13px] font-semibold text-[var(--color-text)]">
+        <label htmlFor={htmlFor} className="text-[13px] font-semibold text-[var(--color-text)]">
           {label}
           {required && (
             <span className="ml-0.5 text-[var(--color-danger)]" aria-hidden="true">
