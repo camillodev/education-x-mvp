@@ -40,7 +40,7 @@ export function DiscountField({
           type="checkbox"
           checked={enabled}
           onChange={(e) => onEnabledChange(e.target.checked)}
-          className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+          className="h-4 w-4 rounded border-[var(--color-border-input)] text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
           aria-label={label}
         />
       </label>
@@ -52,7 +52,7 @@ export function DiscountField({
             <div
               role="radiogroup"
               aria-label="Tipo de desconto"
-              className="flex overflow-hidden rounded-md border border-gray-300"
+              className="flex overflow-hidden rounded-md border border-[var(--color-border-input)]"
             >
               {(['PERCENT', 'FIXED'] as DiscountType[]).map((t) => (
                 <button
@@ -79,7 +79,7 @@ export function DiscountField({
               onChange={(e) => onValueChange(e.target.value)}
               placeholder={type === 'PERCENT' ? '10' : '50,00'}
               aria-label="Valor do desconto"
-              className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+              className="min-w-0 flex-1 rounded-md border border-[var(--color-border-input)] px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
             />
           </div>
 

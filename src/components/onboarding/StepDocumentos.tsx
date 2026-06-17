@@ -167,14 +167,14 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
         )}
 
         {/* Linha de adição */}
-        <div className="rounded-md border border-dashed border-gray-300 p-3">
+        <div className="rounded-md border border-dashed border-[var(--color-border-input)] p-3">
           <div className="grid gap-2 sm:grid-cols-3">
             <input
               type="text"
               placeholder="Nome da matéria"
               value={newSubject.name}
               onChange={(e) => setNewSubject((s) => ({ ...s, name: e.target.value }))}
-              className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+              className="rounded border border-[var(--color-border-input)] px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
               aria-label="Nome da nova matéria"
             />
             <input
@@ -182,7 +182,7 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
               placeholder="Código NFS-e (ex: 8.01)"
               value={newSubject.nfseServiceCode}
               onChange={(e) => setNewSubject((s) => ({ ...s, nfseServiceCode: e.target.value }))}
-              className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+              className="rounded border border-[var(--color-border-input)] px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
               aria-label="Código NFS-e da nova matéria"
             />
             <div className="flex gap-2">
@@ -194,7 +194,7 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
                 onChange={(e) =>
                   setNewSubject((s) => ({ ...s, priceCents: parseBRL(e.target.value) }))
                 }
-                className="flex-1 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+                className="flex-1 rounded border border-[var(--color-border-input)] px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
                 aria-label="Preço da nova matéria"
               />
               <button
