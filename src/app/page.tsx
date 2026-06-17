@@ -1,4 +1,5 @@
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
 
 export default function Home() {
   return (
@@ -9,7 +10,9 @@ export default function Home() {
       <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
         Gestão financeira escolar
       </p>
-      <Button>Começar</Button>
+      <Link href="/onboarding" className={buttonVariants()}>
+        Começar
+      </Link>
     </main>
   );
 }

@@ -1,5 +1,6 @@
 // Education X — Prisma schema
-// Multi-tenant: every query is filtered by unitId (Clerk session, never HTTP param)
+// Multi-tenant: every query must be filtered by unitId (from Clerk session, never HTTP param)
+// Values in cents (Int) throughout the app; convert to reais only at Asaas client boundary
 
 generator client {
   provider = "prisma-client-js"
@@ -11,118 +12,182 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum UnitStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum FeePayer {
+  RESPONSAVEL
+  ESCOLA
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+enum TermsKind {
+  IX_ESCOLA
+  ESCOLA_RESPONSAVEL
+  PRIVACY
+}
+
 // ─── Tenant ───────────────────────────────────────────────────────────────────
 
 model Unit {
-  id        String   @id @default(cuid())
-  name      String
-  cnpj      String   @unique
+  id              String     @id @default(cuid())
+  name            String
+  cnpj            String     @unique
+  // Dados públicos da Receita (BrasilAPI) — guardados para contratos futuros.
+  legalName       String? // razão social
+  tradeName       String? // nome fantasia
+  cnpjStatus      String? // situação cadastral (ATIVA, BAIXADA, etc.)
+  email           String
+  phone           String
+  cep             String
+  address         String
+  number          String
+  neighborhood    String
+  complement      String?
+  city            String
+  state           String
+  isFranchise     Boolean    @default(false)
+  franchiseParent String?
+  status          UnitStatus @default(PENDING)
+
+  // Responsável da unidade (quem recebe o aceite dos termos por e-mail)
+  responsibleName  String
+  responsibleCpfEnc String // PII — AES-256-GCM
+  responsibleEmail String
+  responsiblePhone String
+
+  // Aceite dos termos via link de confirmação (sem login)
+  confirmationToken          String?   @unique
+  confirmationTokenExpiresAt DateTime?
+  confirmedAt                DateTime?
+
+  // Asaas subconta
+  asaasAccountId String?
+  asaasApiKeyEnc String? // AES-256-GCM: iv:authTag:ciphertext
+  asaasWalletId  String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Asaas subconta
-  asaasAccountId    String?
-  asaasApiKeyEnc    String?  // encrypted AES-256-GCM
-
-  students    Student[]
-  guardians   Guardian[]
-  enrollments Enrollment[]
-  invoices    Invoice[]
+  billingConfig    BillingConfig?
+  subjects         Subject[]
+  guardians        Guardian[]
+  termsAcceptances TermsAcceptance[]
 
   @@map("units")
 }
 
-// ─── People ───────────────────────────────────────────────────────────────────
+model BillingConfig {
+  id     String @id @default(cuid())
+  unitId String @unique
 
-model Student {
-  id        String   @id @default(cuid())
-  unitId    String
-  name      String
-  cpf       String?
-  birthDate DateTime?
+  dueDay            Int // 1..28
+  closingDay        Int // 1..28
+  lateFeePercent    Int // basis points (200 = 2%)
+  monthlyInterestBp Int // basis points (100 = 1% a.m.)
+
+  enablesSpc          Boolean  @default(false)
+  autoBilling         Boolean  @default(true)
+  acceptsCard         Boolean  @default(false)
+  cardFeePayer        FeePayer @default(RESPONSAVEL)
+  negativacaoFeePayer FeePayer @default(RESPONSAVEL)
+
+  municipalRegistration String
+  requireSignedContract Boolean @default(false)
+  contractFileName      String?
+
+  // Plano da escola (escola → Impact X). Preço em snapshot pra não quebrar se a constante mudar.
+  planId             String       @default("basico")
+  planPriceCents     Int          @default(39900)
+  isBeta             Boolean      @default(false)
+  discountType       DiscountType?
+  discountValueBp    Int? // se PERCENT (200 = 2%)
+  discountValueCents Int? // se FIXED
+
+  asaasWebhookTokenEnc String? // AES-256-GCM
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  unit        Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  guardians   Guardian[]   @relation("StudentGuardians")
-  enrollments Enrollment[]
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
-  @@index([unitId])
-  @@map("students")
+  @@map("billing_configs")
 }
 
-model Guardian {
-  id        String   @id @default(cuid())
-  unitId    String
-  name      String
-  cpf       String?
-  email     String?
-  phone     String?
+model Subject {
+  id              String  @id @default(cuid())
+  unitId          String
+  name            String
+  nfseServiceCode String
+  priceCents      Int // always in cents
+  isActive        Boolean @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  unit     Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  students Student[] @relation("StudentGuardians")
-  invoices Invoice[]
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@index([unitId])
+  @@map("subjects")
+}
+
+// ─── People ───────────────────────────────────────────────────────────────────
+
+model Guardian {
+  id     String @id @default(cuid())
+  unitId String
+  name   String
+
+  // PII encrypted with AES-256-GCM — never plaintext in DB
+  cpfEnc   String?
+  emailEnc String?
+  phoneEnc String?
+
+  asaasCustomerId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
   @@index([unitId])
   @@map("guardians")
 }
 
-// ─── Financial ────────────────────────────────────────────────────────────────
+// ─── Terms ────────────────────────────────────────────────────────────────────
 
-model Enrollment {
-  id        String           @id @default(cuid())
-  unitId    String
-  studentId String
-  planName  String
-  amountCents Int            // always cents in-app
-  status    EnrollmentStatus @default(ACTIVE)
-  startDate DateTime
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+model TermsVersion {
+  id      String    @id @default(cuid())
+  kind    TermsKind
+  version String // e.g. "1.0"
+  body    String    @db.Text
 
-  unit     Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  student  Student   @relation(fields: [studentId], references: [id])
-  invoices Invoice[]
+  createdAt DateTime @default(now())
+
+  acceptances TermsAcceptance[]
+
+  @@map("terms_versions")
+}
+
+model TermsAcceptance {
+  id             String   @id @default(cuid())
+  unitId         String
+  termsVersionId String
+  ip             String
+  acceptedAt     DateTime @default(now())
+
+  unit         Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  termsVersion TermsVersion @relation(fields: [termsVersionId], references: [id])
 
   @@index([unitId])
-  @@map("enrollments")
-}
-
-model Invoice {
-  id           String        @id @default(cuid())
-  unitId       String
-  enrollmentId String
-  guardianId   String
-  amountCents  Int           // always cents in-app
-  dueDateUtc   DateTime
-  status       InvoiceStatus @default(PENDING)
-  asaasId      String?       // Asaas charge ID (populated on sync)
-  paidAtUtc    DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
-  unit       Unit       @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
-  guardian   Guardian   @relation(fields: [guardianId], references: [id])
-
-  @@index([unitId])
-  @@index([asaasId])
-  @@map("invoices")
-}
-
-// ─── Enums ────────────────────────────────────────────────────────────────────
-
-enum EnrollmentStatus {
-  ACTIVE
-  PAUSED
-  CANCELLED
-}
-
-enum InvoiceStatus {
-  PENDING
-  PAID
-  OVERDUE
-  CANCELLED
+  @@map("terms_acceptances")
 }
