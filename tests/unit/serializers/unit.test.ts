@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toSafeUnit } from '@/lib/serializers/unit'
+import { toSafeUnit, toSafeBillingConfig } from '@/lib/serializers/unit'
 
 describe('toSafeUnit', () => {
   it('remove todos os 6 campos sensíveis', () => {
@@ -77,5 +77,58 @@ describe('toSafeUnit', () => {
     const input = { id: '1', name: 'Escola', city: 'SP' }
     const result = toSafeUnit(input)
     expect(result).toEqual({ id: '1', name: 'Escola', city: 'SP' })
+  })
+})
+
+describe('toSafeBillingConfig', () => {
+  it('remove asaasWebhookTokenEnc do BillingConfig', () => {
+    const input = {
+      id: 'b1',
+      unitId: 'u1',
+      dueDay: 10,
+      closingDay: 5,
+      lateFeePercent: 200,
+      monthlyInterestBp: 100,
+      asaasWebhookTokenEnc: 'SENTINEL_WEBHOOK_TOKEN',
+    }
+    const result = toSafeBillingConfig(input)
+    expect(result).not.toHaveProperty('asaasWebhookTokenEnc')
+    expect(JSON.stringify(result)).not.toContain('SENTINEL_WEBHOOK_TOKEN')
+  })
+
+  it('preserva todos os campos não-sensíveis do BillingConfig', () => {
+    const input = {
+      id: 'b1',
+      unitId: 'u1',
+      dueDay: 10,
+      closingDay: 5,
+      lateFeePercent: 200,
+      monthlyInterestBp: 100,
+      enablesSpc: false,
+      autoBilling: true,
+      acceptsCard: false,
+      cardFeePayer: 'RESPONSAVEL',
+      negativacaoFeePayer: 'ESCOLA',
+      municipalRegistration: '12345',
+      requireSignedContract: false,
+      planId: 'basico',
+      planPriceCents: 39900,
+      isBeta: false,
+      asaasWebhookTokenEnc: 'SENTINEL_WEBHOOK_TOKEN',
+    }
+    const result = toSafeBillingConfig(input)
+    expect(result).toHaveProperty('id', 'b1')
+    expect(result).toHaveProperty('dueDay', 10)
+    expect(result).toHaveProperty('closingDay', 5)
+    expect(result).toHaveProperty('planId', 'basico')
+    expect(result).toHaveProperty('planPriceCents', 39900)
+    expect(result).not.toHaveProperty('asaasWebhookTokenEnc')
+  })
+
+  it('funciona quando asaasWebhookTokenEnc é undefined (campo ausente)', () => {
+    const input = { id: 'b1', dueDay: 10 }
+    const result = toSafeBillingConfig(input)
+    expect(result).toEqual({ id: 'b1', dueDay: 10 })
+    expect(result).not.toHaveProperty('asaasWebhookTokenEnc')
   })
 })

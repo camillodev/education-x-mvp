@@ -4,7 +4,7 @@ import { updateSchool } from '@/lib/services/onboarding.service'
 import { UpdateSchoolSchema } from '@/lib/validations/unit'
 import { handleError } from '@/lib/errors/handle'
 import { guardAdmin } from '@/lib/api/guard'
-import { toSafeUnit } from '@/lib/serializers/unit'
+import { toSafeUnit, toSafeBillingConfig } from '@/lib/serializers/unit'
 
 type RouteCtx = { params: Promise<{ unitId: string }> }
 
@@ -21,7 +21,12 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
     if (!unit) {
       return NextResponse.json({ error: 'Escola não encontrada.', code: 'NOT_FOUND' }, { status: 404 })
     }
-    return NextResponse.json(toSafeUnit(unit as unknown as Record<string, unknown>), { status: 200 })
+    const safe = toSafeUnit(unit as unknown as Record<string, unknown>)
+    const payload =
+      safe.billingConfig != null
+        ? { ...safe, billingConfig: toSafeBillingConfig(safe.billingConfig as Record<string, unknown>) }
+        : safe
+    return NextResponse.json(payload, { status: 200 })
   } catch (err) {
     const h = handleError(err, { route: 'GET /api/escolas/[unitId]', unitId })
     return NextResponse.json({ error: h.message, code: h.code }, { status: h.status })

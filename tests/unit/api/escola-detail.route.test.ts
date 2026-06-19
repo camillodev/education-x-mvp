@@ -51,6 +51,27 @@ it('GET 401 quando sessão expirada', async () => {
   expect(body.code).toBe('UNAUTHORIZED')
 })
 
+it('GET 200 não vaza asaasWebhookTokenEnc aninhado em billingConfig', async () => {
+  findUnique.mockResolvedValue({
+    id: '1',
+    name: 'Escola Teste',
+    billingConfig: {
+      id: 'b1',
+      dueDay: 10,
+      asaasWebhookTokenEnc: 'SENTINEL_WEBHOOK_TOKEN',
+    },
+    subjects: [],
+  })
+  const res = await GET(new NextRequest('http://x'), ctx('1'))
+  const body = await res.json()
+  expect(res.status).toBe(200)
+  expect(JSON.stringify(body)).not.toContain('SENTINEL_WEBHOOK_TOKEN')
+  expect(body.billingConfig).not.toHaveProperty('asaasWebhookTokenEnc')
+  // Campos não-sensíveis do billingConfig são preservados
+  expect(body.billingConfig).toHaveProperty('id', 'b1')
+  expect(body.billingConfig).toHaveProperty('dueDay', 10)
+})
+
 it('GET 200 não vaza nenhum dos 6 campos sensíveis', async () => {
   findUnique.mockResolvedValue({
     id: '1',
@@ -83,6 +104,15 @@ it('GET 200 não vaza nenhum dos 6 campos sensíveis', async () => {
   // Relações preservadas
   expect(body).toHaveProperty('billingConfig')
   expect(body).toHaveProperty('subjects')
+})
+
+it('PATCH 403 para não-admin', async () => {
+  requireAdmin.mockRejectedValue(new ForbiddenError())
+  const req = new NextRequest('http://x', { method: 'PATCH', body: JSON.stringify(minimalValidBody()) })
+  const res = await PATCH(req, ctx('1'))
+  expect(res.status).toBe(403)
+  const body = await res.json()
+  expect(body.code).toBe('FORBIDDEN')
 })
 
 it('PATCH 404 quando updateSchool lança UnitNotFoundError', async () => {
