@@ -88,7 +88,7 @@ const baseInput = {
     planId: 'crescimento' as const,
     isBeta: false,
   },
-  subjects: [{ name: 'Matemática', nfseServiceCode: '8.01', priceCents: 35000 }],
+  subjects: [{ name: 'Matemática', nfseServiceCode: '8.01', priceCents: 35000, annualPriceCents: 30000 }],
 }
 
 const BASE_URL = 'https://app.educationx.com'

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Trash2, Plus } from 'lucide-react'
 import type { SubjectInput } from '@/lib/validations/unit'
 import { formatBRL } from '@/lib/format'
+import { planDiscountPercent } from '@/lib/pricing'
 
 interface Props {
   subjects: SubjectInput[]
@@ -32,15 +33,29 @@ function parseBRL(value: string): number {
   return parseInt(numeric || '0', 10)
 }
 
+// Exibe os planos de fidelidade com valor/mês e % de desconto vs. mensal.
+// O valor de cada plano é SEMPRE mensal — o período indica fidelidade, não multiplicação.
 function PriceTiers({ subject }: { subject: SubjectInput }) {
-  const parts: string[] = []
-  if (subject.quarterlyPriceCents) parts.push(`3×: ${formatBRL(subject.quarterlyPriceCents)}`)
-  if (subject.semiannualPriceCents) parts.push(`6×: ${formatBRL(subject.semiannualPriceCents)}`)
-  if (subject.annualPriceCents) parts.push(`12×: ${formatBRL(subject.annualPriceCents)}`)
-  if (parts.length === 0) return null
+  const monthly = subject.priceCents
+
+  const plans: { label: string; cents: number }[] = [
+    { label: 'Mensal', cents: monthly },
+  ]
+  if (subject.quarterlyPriceCents) plans.push({ label: 'Trimestral', cents: subject.quarterlyPriceCents })
+  if (subject.semiannualPriceCents) plans.push({ label: 'Semestral', cents: subject.semiannualPriceCents })
+  if (subject.annualPriceCents) plans.push({ label: 'Anual', cents: subject.annualPriceCents })
+
   return (
     <span className="block text-xs text-[var(--color-text-subtle)]">
-      {parts.join(' · ')}
+      {plans.map((p, i) => {
+        const pct = planDiscountPercent(monthly, p.cents)
+        return (
+          <span key={p.label}>
+            {i > 0 && ' · '}
+            {p.label} {formatBRL(p.cents)}/mês{pct > 0 ? ` −${pct}%` : ''}
+          </span>
+        )
+      })}
     </span>
   )
 }
@@ -60,6 +75,10 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
     }
     if (newSubject.priceCents <= 0) {
       setAddError('Preço deve ser maior que zero')
+      return
+    }
+    if (!newSubject.annualPriceCents || newSubject.annualPriceCents <= 0) {
+      setAddError('Plano anual obrigatório')
       return
     }
     setAddError('')
@@ -214,52 +233,67 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
               aria-label="Código NFS-e da nova matéria"
             />
           </div>
-          {/* Linha 2: Preços + botão */}
+          {/* Linha 2: Preços por plano (valor/mês) + botão */}
+          <p className="text-xs text-gray-400 -mb-1">Valor mensal cobrado em cada plano de fidelidade:</p>
           <div className="flex flex-wrap gap-2">
-            <input
-              type="text"
-              inputMode="decimal"
-              placeholder="Mensal"
-              value={newSubject.priceCents > 0 ? formatBRL(newSubject.priceCents) : ''}
-              onChange={(e) =>
-                setNewSubject((s) => ({ ...s, priceCents: parseBRL(e.target.value) }))
-              }
-              className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
-              aria-label="Preço mensal da nova matéria"
-            />
-            <input
-              type="text"
-              inputMode="decimal"
-              placeholder="Trimestral"
-              value={newSubject.quarterlyPriceCents && newSubject.quarterlyPriceCents > 0 ? formatBRL(newSubject.quarterlyPriceCents) : ''}
-              onChange={(e) =>
-                setNewSubject((s) => ({ ...s, quarterlyPriceCents: parseBRL(e.target.value) || undefined }))
-              }
-              className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
-              aria-label="Preço trimestral da nova matéria"
-            />
-            <input
-              type="text"
-              inputMode="decimal"
-              placeholder="Semestral"
-              value={newSubject.semiannualPriceCents && newSubject.semiannualPriceCents > 0 ? formatBRL(newSubject.semiannualPriceCents) : ''}
-              onChange={(e) =>
-                setNewSubject((s) => ({ ...s, semiannualPriceCents: parseBRL(e.target.value) || undefined }))
-              }
-              className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
-              aria-label="Preço semestral da nova matéria"
-            />
-            <input
-              type="text"
-              inputMode="decimal"
-              placeholder="Anual"
-              value={newSubject.annualPriceCents && newSubject.annualPriceCents > 0 ? formatBRL(newSubject.annualPriceCents) : ''}
-              onChange={(e) =>
-                setNewSubject((s) => ({ ...s, annualPriceCents: parseBRL(e.target.value) || undefined }))
-              }
-              className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
-              aria-label="Preço anual da nova matéria"
-            />
+            <div className="flex flex-col gap-0.5">
+              <label className="text-xs text-gray-400">Mensal (valor/mês)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="R$ 0,00"
+                value={newSubject.priceCents > 0 ? formatBRL(newSubject.priceCents) : ''}
+                onChange={(e) =>
+                  setNewSubject((s) => ({ ...s, priceCents: parseBRL(e.target.value) }))
+                }
+                className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+                aria-label="Preço mensal da nova matéria"
+              />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <label className="text-xs text-gray-400">Trimestral (valor/mês)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="R$ 0,00"
+                value={newSubject.quarterlyPriceCents && newSubject.quarterlyPriceCents > 0 ? formatBRL(newSubject.quarterlyPriceCents) : ''}
+                onChange={(e) =>
+                  setNewSubject((s) => ({ ...s, quarterlyPriceCents: parseBRL(e.target.value) || undefined }))
+                }
+                className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+                aria-label="Preço trimestral da nova matéria"
+              />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <label className="text-xs text-gray-400">Semestral (valor/mês)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="R$ 0,00"
+                value={newSubject.semiannualPriceCents && newSubject.semiannualPriceCents > 0 ? formatBRL(newSubject.semiannualPriceCents) : ''}
+                onChange={(e) =>
+                  setNewSubject((s) => ({ ...s, semiannualPriceCents: parseBRL(e.target.value) || undefined }))
+                }
+                className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+                aria-label="Preço semestral da nova matéria"
+              />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <label className="text-xs text-gray-400">
+                Anual (valor/mês) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="Anual *"
+                value={newSubject.annualPriceCents && newSubject.annualPriceCents > 0 ? formatBRL(newSubject.annualPriceCents) : ''}
+                onChange={(e) =>
+                  setNewSubject((s) => ({ ...s, annualPriceCents: parseBRL(e.target.value) }))
+                }
+                className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+                aria-label="Preço anual da nova matéria"
+              />
+            </div>
             <button
               type="button"
               onClick={handleAddSubject}

@@ -37,6 +37,7 @@ const validInput = {
       name: 'Matemática',
       nfseServiceCode: '8.01',
       priceCents: 35000,
+      annualPriceCents: 30000,
     },
   ],
 }
@@ -102,6 +103,22 @@ describe('CreateSchoolSchema', () => {
       subjects: [{ name: 'Matemática', nfseServiceCode: '8.01', priceCents: -100 }],
     })
     expect(result.success).toBe(false)
+  })
+
+  it('rejeita subject sem plano anual (annualPriceCents obrigatório)', () => {
+    const result = CreateSchoolSchema.safeParse({
+      ...validInput,
+      subjects: [{ name: 'Matemática', nfseServiceCode: '8.01', priceCents: 35000 }],
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('aceita subject só com mensal + anual (trimestral/semestral opcionais)', () => {
+    const result = CreateSchoolSchema.safeParse({
+      ...validInput,
+      subjects: [{ name: 'Matemática', nfseServiceCode: '8.01', priceCents: 35000, annualPriceCents: 30000 }],
+    })
+    expect(result.success).toBe(true)
   })
 
   it('rejeita email inválido', () => {

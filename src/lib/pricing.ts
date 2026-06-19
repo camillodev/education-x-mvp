@@ -45,3 +45,14 @@ export function computeDiscountedCents(
   discountCents = Math.min(discountCents, baseCents) // nunca passa do preço
   return { discountCents, finalCents: baseCents - discountCents }
 }
+
+/**
+ * Retorna o percentual de desconto (inteiro, arredondado) de um plano de fidelidade
+ * em relação ao valor mensal base.
+ * Ex: mensal 45000, trimestral 43000 → 4 (%)
+ * Retorna 0 se base <= 0 ou tier >= base (sem desconto ou preço maior).
+ */
+export function planDiscountPercent(monthlyCents: number, tierMonthlyCents: number): number {
+  if (monthlyCents <= 0 || tierMonthlyCents >= monthlyCents) return 0
+  return Math.round(((monthlyCents - tierMonthlyCents) / monthlyCents) * 100)
+}
