@@ -1,36 +1,76 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "permissions": {
-    "defaultMode": "plan",
-    "deny": [
-      "Read(.env)",
-      "Read(.env.local)",
-      "Read(.env.*)"
-    ],
-    "allow": [
-      "Bash(~/scripts/list-env-keys.sh:*)",
-      "Bash(bash ~/scripts/list-env-keys.sh:*)"
-    ]
+  "model": "sonnet",
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true
   },
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/block-secrets.sh"
-          }
-        ]
+        "name": "dangerous-command-blocker",
+        "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/dangerous-command-blocker.sh",
+        "matcher": "Bash",
+        "description": "Blocks rm -rf /, git push --force, git reset --hard, SQL DROP commands"
       },
       {
+        "name": "lint-gate-before-commit",
+        "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/lint-gate-before-commit.sh",
         "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/playwright-required.sh"
-          }
-        ]
+        "description": "Runs npm run lint before git commit if script exists"
+      },
+      {
+        "name": "secret-scanner",
+        "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/secret-scanner.sh",
+        "matcher": ["Edit", "Write", "MultiEdit"],
+        "description": "Scans for hardcoded API keys, passwords, AWS/Azure credentials"
+      },
+      {
+        "name": "critical-file-protection",
+        "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/critical-file-protection.sh",
+        "matcher": "Edit",
+        "description": "Warns before editing auth, payment, migration, or workflow files"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "name": "format-on-save",
+        "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/format-on-save.sh",
+        "matcher": ["Edit", "Write", "MultiEdit"],
+        "description": "Runs prettier or biome formatter on saved files"
+      },
+      {
+        "name": "typecheck-on-edit",
+        "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/typecheck-on-edit.sh",
+        "matcher": ["Edit", "Write", "MultiEdit"],
+        "description": "Runs TypeScript type check on .ts/.tsx files (informative only)"
+      },
+      {
+        "name": "test-runner-on-change",
+        "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/test-runner-on-change.sh",
+        "matcher": ["Edit", "Write", "MultiEdit"],
+        "description": "Runs npm test suite after file changes (informative only)"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "name": "skill-activation",
+        "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/skill-activation.sh",
+        "description": "Reminds to use superpowers skill before coding on feature/bug/fix/refactor"
+      }
+    ],
+    "Stop": [
+      {
+        "name": "e2e-quality-gate",
+        "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/e2e-quality-gate.sh",
+        "description": "Runs E2E tests before declaring feature complete"
+      }
+    ],
+    "SessionStart": [
+      {
+        "name": "dependency-audit",
+        "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/dependency-audit.sh",
+        "description": "Checks npm dependencies for high-severity vulnerabilities at session start"
       }
     ]
   }
