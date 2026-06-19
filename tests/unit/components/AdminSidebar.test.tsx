@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import { vi } from 'vitest'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/escolas' }))

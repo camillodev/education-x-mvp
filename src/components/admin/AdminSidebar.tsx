@@ -5,7 +5,9 @@ import { usePathname } from 'next/navigation'
 import { School } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const NAV = [{ href: '/escolas', label: 'Escolas', icon: School }]
+type NavItem = { href: string; label: string; icon: typeof School }
+
+const NAV: NavItem[] = [{ href: '/escolas', label: 'Escolas', icon: School }]
 
 export function AdminSidebar() {
   const pathname = usePathname()
@@ -26,7 +28,7 @@ export function AdminSidebar() {
           return (
             <Link
               key={href}
-              href={href}
+              href={href as any}
               className={cn(
                 'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                 active
