@@ -1,4 +1,6 @@
-import { auth } from '@clerk/nextjs/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
+
+type RoleMeta = { role?: string; unitId?: string }
 
 export interface UnitContext {
   userId: string
@@ -23,11 +25,25 @@ export class ForbiddenError extends Error {
 }
 
 /**
- * Lê userId, role e unitId dos sessionClaims do Clerk.
- * unitId SEMPRE vem da sessão — nunca de parâmetro HTTP.
- * Throws UnauthorizedError se não autenticado.
- * Throws ForbiddenError se role inválido ou unitId ausente para orientador.
+ * Resolve role/unitId do usuário.
+ *
+ * Fonte primária: `sessionClaims.metadata` — o custom claim do Clerk
+ * (`{ "metadata": "{{user.public_metadata}}" }`), que trafega no JWT sem
+ * network call. Fallback: `currentUser().publicMetadata` — cobre sessões
+ * antigas emitidas antes do claim ser configurado. (O session token NÃO
+ * inclui publicMetadata por padrão, por isso não lemos sessionClaims.publicMetadata.)
  */
+async function resolveRoleMeta(
+  sessionClaims: { metadata?: RoleMeta } | null | undefined
+): Promise<RoleMeta> {
+  const fromClaim = sessionClaims?.metadata
+  if (fromClaim?.role) return fromClaim
+
+  // Fallback: claim ausente (sessão pré-configuração). Busca no Clerk.
+  const user = await currentUser()
+  return (user?.publicMetadata ?? {}) as RoleMeta
+}
+
 /**
  * Dev-only auth bypass for local Playwright validation of protected screens.
  * Active ONLY when DISABLE_CLERK=true AND not in production. Returns a fake
@@ -54,11 +70,7 @@ export async function getUnitContext(): Promise<UnitContext> {
 
   if (!userId) throw new UnauthorizedError()
 
-  const meta = (sessionClaims?.publicMetadata ?? {}) as {
-    role?: string
-    unitId?: string
-  }
-
+  const meta = await resolveRoleMeta(sessionClaims)
   const role = meta.role
 
   if (role !== 'admin' && role !== 'orientador') {
@@ -66,7 +78,7 @@ export async function getUnitContext(): Promise<UnitContext> {
   }
 
   if (role === 'orientador' && !meta.unitId) {
-    throw new ForbiddenError('unitId ausente na sessão do orientadorqueado')
+    throw new ForbiddenError('unitId ausente na sessão do orientador')
   }
 
   return {
@@ -74,4 +86,16 @@ export async function getUnitContext(): Promise<UnitContext> {
     unitId: role === 'admin' ? '__admin__' : meta.unitId!,
     role: role as 'admin' | 'orientador',
   }
+}
+
+/**
+ * Exige que o usuário autenticado seja admin. Reusa toda a resolução de
+ * role/unit do getUnitContext. Throws Unauthorized/ForbiddenError.
+ */
+export async function requireAdmin(): Promise<UnitContext> {
+  const ctx = await getUnitContext()
+  if (ctx.role !== 'admin') {
+    throw new ForbiddenError('Apenas administradores podem executar esta ação')
+  }
+  return ctx
 }
