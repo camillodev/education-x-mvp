@@ -11,7 +11,7 @@ const findMany = vi.fn()
 vi.mock('@/lib/db', () => ({ prisma: { unit: { findMany: (...a: unknown[]) => findMany(...a) } } }))
 
 import { GET } from '@/app/api/escolas/route'
-import { ForbiddenError } from '@/lib/auth/unit-context'
+import { ForbiddenError, UnauthorizedError } from '@/lib/auth/unit-context'
 
 beforeEach(() => { requireAdmin.mockReset(); findMany.mockReset() })
 
@@ -31,4 +31,12 @@ it('403 para não-admin', async () => {
   requireAdmin.mockRejectedValue(new ForbiddenError())
   const res = await GET(new NextRequest('http://x/api/escolas'))
   expect(res.status).toBe(403)
+})
+
+it('401 quando sessão expirada', async () => {
+  requireAdmin.mockRejectedValue(new UnauthorizedError())
+  const res = await GET(new NextRequest('http://x/api/escolas'))
+  expect(res.status).toBe(401)
+  const body = await res.json()
+  expect(body.code).toBe('UNAUTHORIZED')
 })
