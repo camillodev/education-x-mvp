@@ -5,6 +5,7 @@ import { Trash2, Plus } from 'lucide-react'
 import type { SubjectInput } from '@/lib/validations/unit'
 import { formatBRL } from '@/lib/format'
 import { planDiscountPercent } from '@/lib/pricing'
+import { SubjectPlanFields } from './SubjectPlanFields'
 
 interface Props {
   subjects: SubjectInput[]
@@ -233,74 +234,21 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
               aria-label="Código NFS-e da nova matéria"
             />
           </div>
-          {/* Linha 2: Preços por plano (valor/mês) + botão */}
-          <p className="text-xs text-gray-400 -mb-1">Valor mensal cobrado em cada plano de fidelidade:</p>
-          <div className="flex flex-wrap gap-2">
-            <div className="flex flex-col gap-0.5">
-              <label className="text-xs text-gray-400">Mensal (valor/mês)</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="R$ 0,00"
-                value={newSubject.priceCents > 0 ? formatBRL(newSubject.priceCents) : ''}
-                onChange={(e) =>
-                  setNewSubject((s) => ({ ...s, priceCents: parseBRL(e.target.value) }))
-                }
-                className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
-                aria-label="Preço mensal da nova matéria"
-              />
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <label className="text-xs text-gray-400">Trimestral (valor/mês)</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="R$ 0,00"
-                value={newSubject.quarterlyPriceCents && newSubject.quarterlyPriceCents > 0 ? formatBRL(newSubject.quarterlyPriceCents) : ''}
-                onChange={(e) =>
-                  setNewSubject((s) => ({ ...s, quarterlyPriceCents: parseBRL(e.target.value) || undefined }))
-                }
-                className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
-                aria-label="Preço trimestral da nova matéria"
-              />
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <label className="text-xs text-gray-400">Semestral (valor/mês)</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="R$ 0,00"
-                value={newSubject.semiannualPriceCents && newSubject.semiannualPriceCents > 0 ? formatBRL(newSubject.semiannualPriceCents) : ''}
-                onChange={(e) =>
-                  setNewSubject((s) => ({ ...s, semiannualPriceCents: parseBRL(e.target.value) || undefined }))
-                }
-                className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
-                aria-label="Preço semestral da nova matéria"
-              />
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <label className="text-xs text-gray-400">
-                Anual (valor/mês) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="Anual *"
-                value={newSubject.annualPriceCents && newSubject.annualPriceCents > 0 ? formatBRL(newSubject.annualPriceCents) : ''}
-                onChange={(e) =>
-                  setNewSubject((s) => ({ ...s, annualPriceCents: parseBRL(e.target.value) }))
-                }
-                className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
-                aria-label="Preço anual da nova matéria"
-              />
-            </div>
+          {/* Linha 2: Cards de plano (valor/mês) com desconto + resumo */}
+          <SubjectPlanFields
+            subject={newSubject}
+            onChange={(patch) => setNewSubject((s) => ({ ...s, ...patch }))}
+            idPrefix="novo"
+          />
+
+          <div className="mt-3 flex justify-end">
             <button
               type="button"
               onClick={handleAddSubject}
               className="flex items-center gap-1 rounded bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 transition-opacity"
             >
               <Plus className="h-3.5 w-3.5" />
-              Adicionar
+              Adicionar matéria
             </button>
           </div>
           {addError && <p className="mt-1.5 text-xs text-red-500">{addError}</p>}
