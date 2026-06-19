@@ -50,6 +50,7 @@ export default function EscolasPage() {
           value={query}
           onChange={(e) => { setQuery(e.target.value); setPage(1) }}
           placeholder="Buscar por escola, franquia ou CNPJ"
+          aria-label="Buscar por escola, franquia ou CNPJ"
           leadingIcon={<Search className="h-4 w-4" />}
           className="max-w-sm"
         />
@@ -58,6 +59,7 @@ export default function EscolasPage() {
             <button
               key={f}
               type="button"
+              aria-pressed={franchise === f}
               onClick={() => { setFranchise(f); setPage(1) }}
               className={cn(
                 'rounded-full border px-4 py-1.5 text-sm font-medium transition-colors',
