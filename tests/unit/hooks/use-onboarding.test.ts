@@ -44,7 +44,7 @@ const baseState = {
     discountType: 'PERCENT' as const,
     discountValue: '',
   },
-  subjects: [{ name: 'Matemática', nfseServiceCode: '8.01', priceCents: 35000 }],
+  subjects: [{ name: 'Matemática', nfseServiceCode: '8.01', priceCents: 35000, annualPriceCents: 30000 }],
   status: 'idle' as const,
 }
 

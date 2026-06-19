@@ -78,24 +78,13 @@ export async function getUnitContext(): Promise<UnitContext> {
   }
 
   if (role === 'orientador' && !meta.unitId) {
-    throw new ForbiddenError('unitId ausente na sessão do orientador')
+    throw new ForbiddenError('unitId ausente na sessão do orientadorqueado')
   }
 
   return {
     userId,
     unitId: role === 'admin' ? '__admin__' : meta.unitId!,
     role: role as 'admin' | 'orientador',
-  }
-}
-
-/**
- * Exige que o usuário autenticado seja admin. Reusa toda a resolução de
- * role/unit do getUnitContext. Throws Unauthorized/ForbiddenError.
- */
-export async function requireAdmin(): Promise<UnitContext> {
-  const ctx = await getUnitContext()
-  if (ctx.role !== 'admin') {
-    throw new ForbiddenError('Apenas administradores podem executar esta ação')
   }
   return ctx
 }

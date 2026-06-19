@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeDiscountedCents, parsePtBrNumber } from '../../src/lib/pricing'
+import { computeDiscountedCents, parsePtBrNumber, planDiscountPercent } from '../../src/lib/pricing'
 
 describe('parsePtBrNumber', () => {
   it('parseia inteiro', () => {
@@ -71,5 +71,25 @@ describe('computeDiscountedCents — edge cases', () => {
       discountCents: 0,
       finalCents: 49900,
     })
+  })
+})
+
+describe('planDiscountPercent', () => {
+  it('calcula o desconto do plano vs. o mensal', () => {
+    // mensal 45000, trimestral 43000 → ~4,4% → arredonda pra 4
+    expect(planDiscountPercent(45000, 43000)).toBe(4)
+  })
+  it('anual mais barato dá desconto maior', () => {
+    // mensal 45000, anual 38000 → ~15,6% → 16
+    expect(planDiscountPercent(45000, 38000)).toBe(16)
+  })
+  it('tier igual ao mensal não tem desconto', () => {
+    expect(planDiscountPercent(45000, 45000)).toBe(0)
+  })
+  it('tier maior que o mensal não tem desconto (nunca negativo)', () => {
+    expect(planDiscountPercent(45000, 50000)).toBe(0)
+  })
+  it('base zero retorna 0 (sem divisão por zero)', () => {
+    expect(planDiscountPercent(0, 38000)).toBe(0)
   })
 })

@@ -4,6 +4,7 @@ import { isValidCnpj, isValidBrMobile, isValidCpf } from './br-documents'
 export const SubjectSchema = z.object({
   name: z.string().min(1, 'Nome da matéria obrigatório'),
   nfseServiceCode: z.string().min(1, 'Código NFS-e obrigatório'),
+  // priceCents = valor mensal (sempre obrigatório, base para cálculo de desconto dos planos)
   priceCents: z.number().int().positive('Preço deve ser positivo'),
   quarterlyPriceCents: z.number().int().positive().optional(),
   semiannualPriceCents: z.number().int().positive().optional(),
