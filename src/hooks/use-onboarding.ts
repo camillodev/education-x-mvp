@@ -1,6 +1,7 @@
 'use client'
 
-import { useReducer, useCallback } from 'react'
+import { useReducer, useCallback, useEffect } from 'react'
+import { loadDraft, saveDraft, clearDraft } from './onboarding-draft'
 import type { CreateSchoolInput, SubjectInput } from '@/lib/validations/unit'
 import { isValidCnpj, isValidCpf, isValidBrMobile } from '@/lib/validations/br-documents'
 import { getPlan, type SchoolPlanId } from '@/lib/data/plans'
@@ -227,8 +228,30 @@ export function canProceedFromStep(state: OnboardingState, step: number): boolea
 
 // ─── Hook principal ───────────────────────────────────────────────────────────
 
+// Restaura o rascunho salvo (localStorage) por cima do estado inicial.
+// Campos voláteis (status/createdUnitId) nunca vêm do draft — sempre começam zerados.
+function initState(): OnboardingState {
+  const draft = loadDraft()
+  if (!draft) return initialState
+  return {
+    ...initialState,
+    step: draft.step ?? initialState.step,
+    dados: { ...initialState.dados, ...draft.dados },
+    cobranca: { ...initialState.cobranca, ...draft.cobranca },
+    plano: { ...initialState.plano, ...draft.plano },
+    subjects: draft.subjects ?? initialState.subjects,
+  }
+}
+
 export function useOnboarding() {
-  const [state, dispatch] = useReducer(reducer, initialState)
+  const [state, dispatch] = useReducer(reducer, undefined, initState)
+
+  // Salva o rascunho a cada mudança nos campos do formulário (cumpre a UI:
+  // "salvo como rascunho automaticamente"). Só roda no cliente.
+  useEffect(() => {
+    if (state.status === 'success') return
+    saveDraft(state)
+  }, [state])
 
   const goToStep = useCallback((step: WizardStep) => {
     dispatch({ type: 'SET_STEP', step })
@@ -330,6 +353,7 @@ export function useOnboarding() {
 
       if (res.ok) {
         const unit = await res.json()
+        clearDraft() // escola criada — descarta o rascunho local
         dispatch({ type: 'SET_CREATED_UNIT', unitId: unit.id })
         dispatch({ type: 'SET_STATUS', status: 'success' })
         return
@@ -337,7 +361,13 @@ export function useOnboarding() {
 
       const err = await res.json().catch(() => ({}))
 
-      if (res.status === 409) {
+      if (res.status === 401 || res.status === 403) {
+        dispatch({
+          type: 'SET_STATUS',
+          status: 'error',
+          errorMsg: 'Você não tem permissão de administrador para cadastrar escolas. Fale com o time da Impact X.',
+        })
+      } else if (res.status === 409) {
         dispatch({ type: 'SET_STATUS', status: 'error', errorMsg: 'CNPJ já cadastrado' })
       } else if (res.status === 502) {
         dispatch({
@@ -358,6 +388,7 @@ export function useOnboarding() {
   }, [state])
 
   const reset = useCallback(() => {
+    clearDraft()
     dispatch({ type: 'RESET' })
   }, [])
 
