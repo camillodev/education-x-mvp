@@ -15,11 +15,11 @@ const devBypass =
   process.env.NODE_ENV !== 'production' && process.env.DISABLE_CLERK === 'true'
 
 export async function POST(req: NextRequest) {
-  // RBAC: apenas admin_ix pode criar escolas
+  // RBAC: apenas admin pode criar escolas
   if (!devBypass) {
     const { sessionClaims } = await auth()
     const meta = sessionClaims?.publicMetadata as { role?: string } | undefined
-    if (meta?.role !== 'admin_ix') {
+    if (meta?.role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
   }

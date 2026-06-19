@@ -12,15 +12,37 @@ interface Props {
   onUpdateSubject: (index: number, subject: Partial<SubjectInput>) => void
 }
 
+// Defaults de preço por período conforme política comercial
+const DEFAULT_MONTHLY_CENTS = 45000   // R$ 450,00
+const DEFAULT_QUARTERLY_CENTS = 43000 // R$ 430,00
+const DEFAULT_SEMIANNUAL_CENTS = 40000 // R$ 400,00
+const DEFAULT_ANNUAL_CENTS = 38000    // R$ 380,00
+
 const emptySubject: SubjectInput = {
   name: '',
   nfseServiceCode: '',
-  priceCents: 0,
+  priceCents: DEFAULT_MONTHLY_CENTS,
+  quarterlyPriceCents: DEFAULT_QUARTERLY_CENTS,
+  semiannualPriceCents: DEFAULT_SEMIANNUAL_CENTS,
+  annualPriceCents: DEFAULT_ANNUAL_CENTS,
 }
 
 function parseBRL(value: string): number {
   const numeric = value.replace(/\D/g, '')
   return parseInt(numeric || '0', 10)
+}
+
+function PriceTiers({ subject }: { subject: SubjectInput }) {
+  const parts: string[] = []
+  if (subject.quarterlyPriceCents) parts.push(`3×: ${formatBRL(subject.quarterlyPriceCents)}`)
+  if (subject.semiannualPriceCents) parts.push(`6×: ${formatBRL(subject.semiannualPriceCents)}`)
+  if (subject.annualPriceCents) parts.push(`12×: ${formatBRL(subject.annualPriceCents)}`)
+  if (parts.length === 0) return null
+  return (
+    <span className="block text-xs text-[var(--color-text-subtle)]">
+      {parts.join(' · ')}
+    </span>
+  )
 }
 
 export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpdateSubject }: Props) {
@@ -44,6 +66,9 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
     onAddSubject({ ...newSubject })
     setNewSubject({ ...emptySubject })
   }
+
+  // Sem auto-fill por cálculo — cada campo tem seu default independente.
+  // O usuário edita livremente; os defaults já vêm preenchidos no emptySubject.
 
   return (
     <div className="space-y-6">
@@ -75,7 +100,7 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {subjects.map((subject, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50">
+                  <tr key={idx} className="bg-[var(--color-primary-softer)] hover:bg-[var(--color-primary-soft)]/30">
                     <td className="px-3 py-2">
                       <input
                         type="text"
@@ -105,6 +130,7 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
                         className="w-28 bg-transparent text-right text-sm focus:outline-none"
                         aria-label={`Preço da matéria ${idx + 1}`}
                       />
+                      <PriceTiers subject={subject} />
                     </td>
                     <td className="px-3 py-2 text-center">
                       <button
@@ -127,7 +153,7 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
         {subjects.length > 0 && (
           <div className="mb-3 space-y-3 sm:hidden">
             {subjects.map((subject, idx) => (
-              <div key={idx} className="relative rounded-md border border-gray-200 p-3">
+              <div key={idx} className="relative rounded-md border border-[var(--color-primary-soft)] bg-[var(--color-primary-softer)] p-3">
                 <button
                   type="button"
                   onClick={() => onRemoveSubject(idx)}
@@ -158,9 +184,10 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
                   inputMode="decimal"
                   value={formatBRL(subject.priceCents)}
                   onChange={(e) => onUpdateSubject(idx, { priceCents: parseBRL(e.target.value) })}
-                  className="w-full border-b border-gray-200 pb-1 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+                  className="mb-1 w-full border-b border-gray-200 pb-1 text-sm focus:border-[var(--color-primary)] focus:outline-none"
                   aria-label={`Preço da matéria ${idx + 1}`}
                 />
+                <PriceTiers subject={subject} />
               </div>
             ))}
           </div>
@@ -168,7 +195,8 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
 
         {/* Linha de adição */}
         <div className="rounded-md border border-dashed border-gray-300 p-3">
-          <div className="grid gap-2 sm:grid-cols-3">
+          {/* Linha 1: Nome | Código NFS-e */}
+          <div className="mb-2 grid gap-2 sm:grid-cols-2">
             <input
               type="text"
               placeholder="Nome da matéria"
@@ -185,27 +213,61 @@ export function StepDocumentos({ subjects, onAddSubject, onRemoveSubject, onUpda
               className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
               aria-label="Código NFS-e da nova matéria"
             />
-            <div className="flex gap-2">
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="R$ 0,00"
-                value={newSubject.priceCents > 0 ? formatBRL(newSubject.priceCents) : ''}
-                onChange={(e) =>
-                  setNewSubject((s) => ({ ...s, priceCents: parseBRL(e.target.value) }))
-                }
-                className="flex-1 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
-                aria-label="Preço da nova matéria"
-              />
-              <button
-                type="button"
-                onClick={handleAddSubject}
-                className="flex items-center gap-1 rounded bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 transition-opacity"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Adicionar
-              </button>
-            </div>
+          </div>
+          {/* Linha 2: Preços + botão */}
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="Mensal"
+              value={newSubject.priceCents > 0 ? formatBRL(newSubject.priceCents) : ''}
+              onChange={(e) =>
+                setNewSubject((s) => ({ ...s, priceCents: parseBRL(e.target.value) }))
+              }
+              className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+              aria-label="Preço mensal da nova matéria"
+            />
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="Trimestral"
+              value={newSubject.quarterlyPriceCents && newSubject.quarterlyPriceCents > 0 ? formatBRL(newSubject.quarterlyPriceCents) : ''}
+              onChange={(e) =>
+                setNewSubject((s) => ({ ...s, quarterlyPriceCents: parseBRL(e.target.value) || undefined }))
+              }
+              className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+              aria-label="Preço trimestral da nova matéria"
+            />
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="Semestral"
+              value={newSubject.semiannualPriceCents && newSubject.semiannualPriceCents > 0 ? formatBRL(newSubject.semiannualPriceCents) : ''}
+              onChange={(e) =>
+                setNewSubject((s) => ({ ...s, semiannualPriceCents: parseBRL(e.target.value) || undefined }))
+              }
+              className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+              aria-label="Preço semestral da nova matéria"
+            />
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="Anual"
+              value={newSubject.annualPriceCents && newSubject.annualPriceCents > 0 ? formatBRL(newSubject.annualPriceCents) : ''}
+              onChange={(e) =>
+                setNewSubject((s) => ({ ...s, annualPriceCents: parseBRL(e.target.value) || undefined }))
+              }
+              className="w-36 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+              aria-label="Preço anual da nova matéria"
+            />
+            <button
+              type="button"
+              onClick={handleAddSubject}
+              className="flex items-center gap-1 rounded bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 transition-opacity"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Adicionar
+            </button>
           </div>
           {addError && <p className="mt-1.5 text-xs text-red-500">{addError}</p>}
         </div>
