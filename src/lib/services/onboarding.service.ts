@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { getMasterAsaasClient } from '../integration/asaas/client'
 import { encrypt } from '../crypto'
 import { prisma } from '../db'
-import { CreateSchoolSchema, type CreateSchoolInput } from '../validations/unit'
+import { CreateSchoolSchema, UpdateSchoolSchema, type CreateSchoolInput, type UpdateSchoolInput } from '../validations/unit'
 import { getPlan } from '../data/plans'
 import { sendConfirmationEmail } from '../email/confirmation-email'
 import { inviteUnitResponsible } from '../auth/invite'
@@ -29,6 +29,14 @@ export class InvalidPlanError extends Error {
   constructor() {
     super('Plano inválido ou desconto maior que o preço')
     this.name = 'InvalidPlanError'
+  }
+}
+
+export class UnitNotFoundError extends Error {
+  readonly status = 404
+  constructor() {
+    super('Escola não encontrada')
+    this.name = 'UnitNotFoundError'
   }
 }
 
@@ -166,6 +174,87 @@ export async function createSchool(
   })
 
   return updatedUnit
+}
+
+/**
+ * Atualiza uma escola existente (admin). Edita Unit + BillingConfig + Subjects
+ * numa transação atômica. NÃO toca cnpj, responsibleCpfEnc, Asaas, status nem e-mail —
+ * são imutáveis/fora do escopo desta operação. Matérias usam delete-all + create
+ * (mesmo padrão do create), então a lista enviada é a verdade final.
+ */
+export async function updateSchool(unitId: string, input: UpdateSchoolInput): Promise<Unit> {
+  const data = UpdateSchoolSchema.parse(input)
+
+  const existing = await prisma.unit.findUnique({ where: { id: unitId } })
+  if (!existing) throw new UnitNotFoundError()
+
+  const plan = getPlan(data.plan.planId)
+  if (!plan) throw new InvalidPlanError()
+  const planPriceCents = plan.priceCents
+  if (data.plan.discountValueCents !== undefined && data.plan.discountValueCents >= planPriceCents) {
+    throw new InvalidPlanError()
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.unit.update({
+      where: { id: unitId },
+      data: {
+        name: data.name,
+        legalName: data.legalName ?? null,
+        tradeName: data.tradeName ?? null,
+        cnpjStatus: data.cnpjStatus ?? null,
+        email: data.email,
+        phone: data.phone,
+        cep: data.cep,
+        address: data.address,
+        number: data.number,
+        neighborhood: data.neighborhood,
+        complement: data.complement ?? null,
+        city: data.city,
+        state: data.state,
+        isFranchise: data.isFranchise,
+        franchiseParent: data.franchiseParent ?? null,
+        responsibleName: data.responsibleName,
+        responsibleEmail: data.responsibleEmail,
+        responsiblePhone: data.responsiblePhone,
+      },
+    })
+
+    await tx.billingConfig.update({
+      where: { unitId },
+      data: {
+        dueDay: data.billing.dueDay,
+        closingDay: data.billing.closingDay,
+        lateFeePercent: data.billing.lateFeePercent,
+        monthlyInterestBp: data.billing.monthlyInterestBp,
+        cardFeePayer: data.billing.cardFeePayer,
+        negativacaoFeePayer: data.billing.negativacaoFeePayer,
+        municipalRegistration: data.billing.municipalRegistration,
+        planId: data.plan.planId,
+        planPriceCents,
+        isBeta: data.plan.isBeta,
+        discountType: data.plan.discountType ?? null,
+        discountValueBp: data.plan.discountValueBp ?? null,
+        discountValueCents: data.plan.discountValueCents ?? null,
+      },
+    })
+
+    await tx.subject.deleteMany({ where: { unitId } })
+    await tx.subject.createMany({
+      data: data.subjects.map((s) => ({
+        unitId,
+        name: s.name,
+        nfseServiceCode: s.nfseServiceCode,
+        priceCents: s.priceCents,
+        quarterlyPriceCents: s.quarterlyPriceCents ?? null,
+        semiannualPriceCents: s.semiannualPriceCents ?? null,
+        annualPriceCents: s.annualPriceCents ?? null,
+        isActive: s.isActive,
+      })),
+    })
+
+    return updated
+  })
 }
 
 // ─── Aceite via link de confirmação ───────────────────────────────────────────

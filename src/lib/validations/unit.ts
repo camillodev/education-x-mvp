@@ -80,3 +80,18 @@ export const CreateSchoolSchema = z.object({
 
 export type CreateSchoolInput = z.infer<typeof CreateSchoolSchema>
 export type SubjectInput = z.infer<typeof SubjectSchema>
+
+// Subject editável no update — inclui isActive (ativar/desativar matéria).
+export const SubjectUpdateSchema = SubjectSchema.extend({
+  isActive: z.boolean(),
+})
+export type SubjectUpdateInput = z.infer<typeof SubjectUpdateSchema>
+
+// Update = Create SEM cnpj e responsibleCpf (read-only após criação), com subjects
+// editáveis (isActive). .strict() faz REJEITAR cnpj/responsibleCpf se vierem no body.
+export const UpdateSchoolSchema = CreateSchoolSchema
+  .omit({ cnpj: true, responsibleCpf: true })
+  .extend({ subjects: z.array(SubjectUpdateSchema).min(1, 'Pelo menos 1 matéria obrigatória') })
+  .strict()
+
+export type UpdateSchoolInput = z.infer<typeof UpdateSchoolSchema>

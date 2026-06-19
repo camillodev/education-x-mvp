@@ -30,6 +30,10 @@
 
 12. **Verificação: rules-based > visual > LLM-judge.** Prefira sempre o gate determinístico (lint/typecheck/test) ao "inteligente". Screenshot→vision só pra UI; LLM-as-judge só pra regra difusa, sabendo que é pouco robusto.
 
+13. **Error handling é padrão único, não improviso.** Todo handler/rota usa `handleError` (`src/lib/errors/handle.ts`): loga a causa técnica real via `console.error` com contexto estruturado (route, unitId, code) e devolve `{ message, code, status }` amigável pra UI montar um toast. Nunca engolir o erro técnico (catch vazio é defeito); nunca vazar stack pro usuário.
+
+14. **API nunca serializa entidade crua do banco.** Resposta de rota passa por um serializer que remove PII e secrets (`*Enc`, tokens, IDs de provider) — inclusive em relações aninhadas (ex: `billingConfig.asaasWebhookTokenEnc`). O caso que vaza é o nested que ninguém olhou. Todo payload de GET/PATCH tem teste com sentinel por campo provando a ausência.
+
 ---
 
 ## Gates obrigatórios (em código, não em prompt)
