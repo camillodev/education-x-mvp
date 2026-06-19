@@ -6,7 +6,6 @@ export const SubjectSchema = z.object({
   nfseServiceCode: z.string().min(1, 'Código NFS-e obrigatório'),
   // priceCents = valor mensal (sempre obrigatório, base para cálculo de desconto dos planos)
   priceCents: z.number().int().positive('Preço deve ser positivo'),
-  // planos de fidelidade: o valor é SEMPRE mensal — quarterly/semiannual são opcionais, annual é obrigatório
   quarterlyPriceCents: z.number().int().positive().optional(),
   semiannualPriceCents: z.number().int().positive().optional(),
   annualPriceCents: z.number().int().positive('Plano anual obrigatório'),

@@ -57,6 +57,12 @@ export default function OnboardingPage() {
     }
   }, [state.status, state.errorMsg, toast])
 
+  // Ao trocar de passo, volta ao topo — senão o usuário fica no fim da página
+  // anterior e parece que a etapa "começou do final".
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [state.step])
+
   function handleNext() {
     if (canProceed(state.step)) {
       goToStep((state.step + 1) as 1 | 2 | 3 | 4)

@@ -79,6 +79,7 @@ O Asaas envia eventos para o endpoint de webhook da subconta. Campos relevantes:
 |---|---|---|
 | `BillingConfig.dueDay` | Unit da escola | Calcular `dueDate` de cada cobrança |
 | `BillingConfig.closingDay` | Unit da escola | Definir limite de fechamento do mes (nao cobrar após o fechamento do mes corrente) |
+| `BillingConfig.firstChargeMode` | Unit da escola | Define regra da 1ª competência: `PROPORTIONAL` (padrão) ou `FREE_FIRST_MONTH` |
 | `BillingConfig.lateFeePercent` | Unit | Multa em basis points (200 = 2%) → dividir por 100 pro Asaas |
 | `BillingConfig.monthlyInterestBp` | Unit | Juros em basis points (100 = 1%) → dividir por 100 pro Asaas |
 | `BillingConfig.autoBilling` | Unit | Flag: false = escola emite manualmente |
@@ -89,7 +90,26 @@ O Asaas envia eventos para o endpoint de webhook da subconta. Campos relevantes:
 | `Subject.priceCents` | Materia cadastrada | Valor base da mensalidade em centavos |
 | `Invoice.id` | Novo model | externalReference — chave de idempotencia |
 
-### 2e. Fiscal
+### 2e. Primeira cobrança (1ª competência por Enrollment)
+
+A Invoice gerada no momento da ativação de um Enrollment (aprovação da matrícula) segue a regra configurada em `BillingConfig.firstChargeMode`:
+
+**PROPORTIONAL (padrão):**
+- Valor = `priceCents × (diasRestantes / diasDoCiclo)`, onde:
+  - `diasRestantes` = dias entre `Enrollment.startedAt` e o `closingDay` do mês corrente (inclusive).
+  - `diasDoCiclo` = total de dias do mês de competência.
+- O vencimento (`dueDate`) respeita o `dueDay` padrão da Unit; se já passou no mês corrente, usa o `dueDay` do mês seguinte.
+- A configuração `firstChargeMode` só pode ser alterada até 5 dias antes do `closingDay` do mês em curso.
+
+**FREE_FIRST_MONTH:**
+- A Invoice da 1ª competência não é emitida (nenhum boleto gerado para o mês de início).
+- A cobrança começa a partir do 2º mês, com mensalidade cheia no `dueDay`.
+
+**Cobranças subsequentes (2ª competência em diante):**
+- Sempre mensalidade cheia (`priceCents - discountCents`).
+- Vencimento no `dueDay` de cada mês.
+
+### 2g. Fiscal
 
 | Dado | Origem | Descricao |
 |---|---|---|
@@ -99,7 +119,7 @@ O Asaas envia eventos para o endpoint de webhook da subconta. Campos relevantes:
 
 **Nota:** NFS-e e emitida pelo Asaas via POST /invoices após o pagamento confirmado. Fora do escopo desta spec (fluxo 05).
 
-### 2f. Compliance / LGPD
+### 2h. Compliance / LGPD
 
 | Campo | Classificacao | Tratamento |
 |---|---|---|
@@ -126,6 +146,8 @@ O Asaas envia eventos para o endpoint de webhook da subconta. Campos relevantes:
 | Invoice.asaasPaymentId | Invoice (NOVO) | Pos-criacao | Nao existe | Retornado pela API | Exibido como "#cob_xxx" em C3/C4 | Salvar o `id` retornado pela API no Invoice |
 | authToken webhook | BillingConfig.asaasWebhookTokenEnc | Sim (seguranca) | Existe (`asaasWebhookTokenEnc String?`) | Header `asaas-access-token` | Nao exibido | Validar no middleware do endpoint webhook; descriptografar em runtime |
 | BillingConfig.autoBilling | BillingConfig | Sim | Existe (`autoBilling Boolean`) | Controla execucao do cron | Nao exibido | Se `false`, cron pula a unidade (emissao manual) |
+| BillingConfig.firstChargeMode | BillingConfig | Sim | Nao existe (NOVO enum + campo) | n/a (logica de negocio) | Nao exibido (config interna) | Novo campo: `PROPORTIONAL` (padrao) ou `FREE_FIRST_MONTH`; afeta calculo da 1a Invoice por Enrollment |
+| Enrollment.isFirstChargeDone | Enrollment | Sim | Nao existe (NOVO campo Boolean) | n/a (controle interno) | Nao exibido | Flag; garante que a logica de 1a competencia so roda uma vez por Enrollment |
 | Description da cobrança | Subject.name + periodo | Nao (boas praticas) | n/a | `description` | Exibido em C4 como "Matematica — Junho/2026" | Montar no servico: `${subject.name} — ${mesAno}` |
 | Enrollment.id | Enrollment (NOVO) | Referencia interna | Nao existe | n/a (interno) | Nao exibido | Necessario para vincular Invoice a Enrollment |
 
@@ -164,6 +186,7 @@ model Enrollment {
   planType        PlanType   @default(MONTHLY)
   discountCents   Int        @default(0)  // desconto negociado em centavos
   customDueDay    Int?       // override do dueDay da BillingConfig (opcional)
+  isFirstChargeDone Boolean  @default(false)  // true apos a 1ª Invoice ser gerada (controla logica de proporcional vs FREE)
   status          String     @default("ACTIVE") // ACTIVE | PAUSED | CANCELLED
 
   startedAt   DateTime @default(now())
@@ -253,6 +276,18 @@ model Payment {
   @@index([asaasPaymentId])
   @@map("payments")
 }
+```
+
+**Campo a adicionar em BillingConfig (model existente):**
+
+```prisma
+enum FirstChargeMode {
+  PROPORTIONAL     // cobra proporcional aos dias restantes do ciclo (padrao)
+  FREE_FIRST_MONTH // nao emite Invoice na 1a competencia; cobra cheia a partir do 2o mes
+}
+
+// Em BillingConfig: adicionar
+firstChargeMode FirstChargeMode @default(PROPORTIONAL)
 ```
 
 **Relacoes a adicionar em models existentes:**
@@ -393,6 +428,12 @@ Logica:
 **RN-12:** WHEN header `asaas-access-token` do webhook nao bate com `BillingConfig.asaasWebhookTokenEnc` da Unit THEN o sistema SHALL retornar `401` e nao processar.
 
 **RN-13:** WHEN escola cancela uma Enrollment THEN o sistema SHALL mudar `Enrollment.status = CANCELLED`. Invoices ja emitidas com `PENDING` devem ser canceladas no Asaas (DELETE /payments/{id}) e marcadas `CANCELLED`.
+
+**RN-14 (1ª competência — proporcional):** WHEN `Enrollment.isFirstChargeDone = false` AND `BillingConfig.firstChargeMode = PROPORTIONAL` THEN o sistema SHALL calcular `amountCents = priceCents × (diasRestantes / diasDoCiclo)` onde `diasRestantes` = dias entre `Enrollment.startedAt` e `closingDay` do mes corrente (inclusive), e `diasDoCiclo` = total de dias do mes. Após emitir a Invoice, marcar `Enrollment.isFirstChargeDone = true`.
+
+**RN-15 (1ª competência — isenção):** IF `BillingConfig.firstChargeMode = FREE_FIRST_MONTH` AND `Enrollment.isFirstChargeDone = false` THEN o sistema SHALL NOT emitir Invoice para a 1ª competência; marcar `Enrollment.isFirstChargeDone = true` sem gerar cobrança. A 1ª Invoice gerada sera referente ao 2º mes, com mensalidade cheia.
+
+**RN-16 (configuração de firstChargeMode):** WHEN escola tenta alterar `BillingConfig.firstChargeMode` AND faltam 5 dias ou menos para o `closingDay` do mes corrente THEN o sistema SHALL rejeitar a alteracao com erro de validacao informando que a janela de configuracao encerrou.
 
 ---
 

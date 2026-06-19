@@ -40,4 +40,4 @@ npm-debug.log*
 .vercel
 .turbo
 *.tsbuildinfo
-.env*.local
+.claude.archived-*

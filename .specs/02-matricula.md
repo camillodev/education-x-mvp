@@ -132,8 +132,9 @@ enum EnrollmentPlan {
 }
 
 enum EnrollmentStatus {
-  PENDING_CONFIRMATION // fluxo manual: aguardando link do responsavel
-  ACTIVE               // contrato aceito + Asaas customer criado
+  PENDING_CONFIRMATION   // fluxo manual: orientador criou, aguardando responsavel revisar e aceitar termos
+  PENDING_SCHOOL_APPROVAL // responsavel revisou/aceitou termos, aguardando aprovacao da escola
+  ACTIVE                 // escola aprovou + Asaas customer criado
   CANCELLED
   SUSPENDED
 }
@@ -253,7 +254,7 @@ model Enrollment {
 }
 ```
 
-**Acao pos-retorno:** gravar `Guardian.asaasCustomerId = "cus_000000000001"` + setar `Enrollment.status = ACTIVE`.
+**Acao pos-retorno:** gravar `Guardian.asaasCustomerId = "cus_000000000001"` + setar `Enrollment.status = ACTIVE`. Este POST ocorre na aprovacao da escola (R14), nao no momento do aceite do responsavel.
 
 **Sandbox-first:** usar `https://sandbox.asaas.com/api/v3/customers` ate o fluxo de cobranca estar validado end-to-end.
 
@@ -288,7 +289,13 @@ WHEN o responsavel envia a matricula THEN o sistema SHALL registrar TermsAccepta
 **R9 - Token de confirmacao (fluxo manual):**
 WHEN o orientador finaliza o preenchimento manual THEN o sistema SHALL gerar `Enrollment.confirmationToken` (UUID v4), enviar link para `Guardian.emailEnc` descriptografado, e manter `Enrollment.status = PENDING_CONFIRMATION`. O token expira em 72 horas.
 
-WHEN o responsavel acessa o link de confirmacao THEN o sistema SHALL validar o token (nao expirado, nao usado), exibir resumo da matricula, coletar aceite dos termos, registrar TermsAcceptance, chamar POST /customers (ou reutilizar asaasCustomerId), e setar `Enrollment.status = ACTIVE`.
+WHEN o responsavel acessa o link de confirmacao THEN o sistema SHALL validar o token (nao expirado, nao usado), exibir resumo da matricula com campos de dados pessoais editaveis (Guardian: nome/CPF/email/telefone; Student: nome/data de nascimento), coletar aceite dos termos, registrar TermsAcceptance com IP do responsavel, e setar `Enrollment.status = PENDING_SCHOOL_APPROVAL`. O POST /customers no Asaas ocorre somente apos aprovacao da escola (R13).
+
+**R13 - Edicao de dados pessoais pelo responsavel:**
+WHEN o responsavel acessa o link de confirmacao e edita dados pessoais THEN o sistema SHALL sobrescrever os valores digitados pelo orientador com os valores informados pelo responsavel nos seguintes campos: Guardian.name, Guardian.cpfEnc, Guardian.emailEnc, Guardian.phoneEnc, Student.nameEnc, Student.birthDateEnc. Os campos de materia, plano e valor (subjectId, plan, agreedPriceCents, discountType, discountValueBp, discountValueCents, finalPriceCents) NAO sao editaveis pelo responsavel e devem ser exibidos como somente-leitura.
+
+**R14 - Aprovacao final da escola:**
+WHEN `Enrollment.status = PENDING_SCHOOL_APPROVAL` THEN somente um usuario com role orientador ou admin da unidade SHALL poder aprovar a matricula no painel. WHEN a escola aprova THEN o sistema SHALL chamar POST /customers no Asaas (ou reutilizar asaasCustomerId se Guardian ja existe), gravar asaasCustomerId, e setar `Enrollment.status = ACTIVE`. Este fluxo aplica-se tanto ao caminho via link quanto ao caminho manual.
 
 **R10 - selfPayer:**
 WHEN `Guardian.selfPayer = true` THEN o sistema SHALL criar automaticamente um Student com os mesmos dados do Guardian (nameEnc = Guardian.nameEnc, birthDateEnc = null ou data declarada). O formulario de "Dados do aluno" e ocultado.
@@ -307,11 +314,17 @@ WHEN qualquer Enrollment for criado THEN `agreedPriceCents` e `finalPriceCents` 
 [inicio]
     |
     v
-PENDING_CONFIRMATION  <-- fluxo manual: orientador criou, aguarda link
+PENDING_CONFIRMATION        <-- fluxo manual: orientador criou, aguarda responsavel abrir link
     |
-    | responsavel abre link + aceita termos + POST /customers OK
+    | responsavel abre link, edita dados pessoais (sobrescreve orientador), aceita termos
     v
-ACTIVE  <-- fluxo link: tambem entra direto aqui apos aceite + POST OK
+PENDING_SCHOOL_APPROVAL     <-- responsavel aceitou; escola precisa aprovar
+    |
+    | orientador/escola aprova no painel
+    | POST /customers no Asaas executado aqui (apos aprovacao da escola)
+    v
+ACTIVE  <-- fluxo link (via link publico): responsavel preenche tudo direto ->
+            apos submit, entra tambem em PENDING_SCHOOL_APPROVAL -> escola aprova -> ACTIVE
     |
     |-- cancelamento pelo orientador ou responsavel
     v
@@ -319,9 +332,11 @@ CANCELLED
     |
     |-- (irreversivel no MVP)
 
-ACTIVE --reativar--> SUSPENDED (ex.: inadimplencia - escopo do fluxo de cobranca)
+ACTIVE --suspender--> SUSPENDED (ex.: inadimplencia - escopo do fluxo de cobranca)
 SUSPENDED --reativar--> ACTIVE
 ```
+
+**Nota de dupla aprovacao (fluxo manual):** o responsavel edita apenas dados pessoais (Guardian: nome, CPF, email, telefone; Student: nome, data de nascimento) e aceita os termos. Apos aceite, o status move para PENDING_SCHOOL_APPROVAL. A escola revisa no painel e aprova: so entao o POST /customers e chamado e o status vai para ACTIVE. A edicao do responsavel sobrescreve o que o orientador digitou nos dados pessoais.
 
 ---
 
@@ -336,7 +351,7 @@ Referencia: `screens-b.jsx`. 4 passos + tela de boas-vindas + tela de confirmaca
 - **B3 - Dados do aluno (Passo 2):** Student.name, Student.birthDate, chips de materia (Subject.name, cor por materia). Limite: 5 alunos - botao "Adicionar outro aluno" aparece se < 5.
 - **B4 - Escolha o plano (Passo 3):** cards de plano (apenas planos com preco configurado). Valor sempre "por mes". Badge "Mais popular" ou "Melhor custo-beneficio" configuravel pela escola. Caixa de resumo mostra total consolidado de todas as Enrollments do fluxo.
 - **B5 - Quase la (Passo 4):** resumo (aluno(s), materias, plano, vencimento do BillingConfig.dueDay), condicoes (multa/juros/cancelamento), expandir contrato da escola (TermsVersion.body do tipo ESCOLA_RESPONSAVEL), checkbox de aceite. Botao "Enviar matricula" bloqueado ate aceite.
-- **B6 - Enviado:** confirmacao visual, instrucao de aguardar confirmacao da escola (Enrollment.status ainda pode ser PENDING se a escola precisar aprovar - decisao pendente, ver secao 11).
+- **B6 - Enviado:** confirmacao visual, instrucao de aguardar aprovacao da escola. Enrollment.status = PENDING_SCHOOL_APPROVAL. A escola recebe notificacao e aprova no painel — so entao a matricula fica ACTIVE.
 
 ### 8b. Fluxo manual (orientador, desktop)
 
@@ -410,7 +425,7 @@ db.guardian.findFirst().then(g => {
 
 | # | Pendencia | Impacto | Resolucao sugerida |
 |---|---|---|---|
-| P1 | Aprovacao manual pela escola? No fluxo link, apos o responsavel enviar, a matricula vai direto para ACTIVE ou fica PENDING aguardando orientador aprovar? | Afeta status inicial do Enrollment e experiencia do responsavel (B6) | Decisao de produto com Rafa. Recomendacao: ACTIVE automatico no MVP (orientador ja gerou o link, logo aprovou a priori) |
+| P1 | ~~Aprovacao manual pela escola?~~ **DECIDIDO (2026-06-19):** a matricula NUNCA vira ACTIVE automaticamente. Apos o responsavel aceitar os termos (fluxo link ou fluxo manual), o status vai para PENDING_SCHOOL_APPROVAL. A escola aprova no painel → ACTIVE. Dupla aprovacao no fluxo manual (orientador cadastra → responsavel aceita → escola aprova). Ver secao 7 e R14. | Resolvido | — |
 | P2 | Multi-materia com planos diferentes? Ex.: aluno A com matematica no plano anual e portugues no plano mensal | Afeta UX (plano por aluno x por materia) | Decisao de produto. Recomendacao MVP: 1 plano por aluno (aplica a todas as materias do aluno). Simplifica UX e logica de assinatura |
 | P3 | Contrato da escola (TermsVersion.body tipo ESCOLA_RESPONSAVEL) - quem cadastra e onde? | Bloqueante para o aceite no passo B5 | Escopo do onboarding: orientador cadastra o texto do contrato no painel (proximo fluxo ou extensao do fluxo 01) |
 | P4 | Cor dos chips de materia (B3) - configuravel pela escola ou fixo? | UX menor | Recomendacao: campo `color` opcional no Subject; default por indice |
@@ -527,19 +542,46 @@ pnpm dlx playwright test matricula-manual-ui --reporter=line
 
 **Scope in:**
 - Rota publica `/m/confirmar/[token]`
-- Exibe resumo da Enrollment (Student + Subject + plano + valor)
+- Exibe resumo da Enrollment (Student + Subject + plano + valor) — materia, plano e valor somente-leitura (travados)
+- Campos editaveis pelo responsavel: Guardian.name, Guardian.cpf, Guardian.email, Guardian.phone; Student.name, Student.birthDate (sobrescreve o que o orientador digitou)
 - Exibe termos da escola (TermsVersion.body)
 - Checkbox de aceite + botao "Confirmar matricula"
-- POST de confirmacao: valida token, registra TermsAcceptance (IP do responsavel), chama POST /customers Asaas, grava asaasCustomerId, seta Enrollment.status = ACTIVE
+- POST de confirmacao: valida token, salva edicoes de dados pessoais, registra TermsAcceptance (IP do responsavel), seta Enrollment.status = PENDING_SCHOOL_APPROVAL. **Nao chama POST /customers Asaas aqui** — isso ocorre apos aprovacao da escola (R14)
 - Tratamento de token expirado (exibe mensagem de contato com a escola)
 
 **Nao incluido:**
-- Edicao dos dados da matricula (responsavel so confirma o que o orientador preencheu)
+- Aprovacao da escola (escopo da Fatia 6)
+- Edicao de materia, plano ou valores (travados para o responsavel)
 
 **DoD:**
 ```bash
 pnpm dlx playwright test matricula-confirmacao-link --reporter=line
-# exit 0 = Enrollment ACTIVE, asaasCustomerId gravado, TermsAcceptance registrada com IP do responsavel
+# exit 0 = Enrollment PENDING_SCHOOL_APPROVAL, edicoes de dados pessoais salvas, TermsAcceptance registrada com IP do responsavel
 pnpm dlx playwright test matricula-token-expirado --reporter=line
 # exit 0 = tela de token expirado exibida corretamente
+```
+
+---
+
+### Fatia 6 - Aprovacao da escola (painel orientador)
+
+**Objetivo:** tela no painel autenticado para a escola revisar e aprovar matriculas em PENDING_SCHOOL_APPROVAL.
+
+**Scope in:**
+- Rota autenticada `/dashboard/matriculas/pendentes`
+- Lista de Enrollments com status PENDING_SCHOOL_APPROVAL
+- Tela de detalhe: dados do Guardian (com edicoes do responsavel destacadas), Student(s), Subject(s), plano, valor
+- Botao "Aprovar" → POST /customers Asaas → grava asaasCustomerId → Enrollment.status = ACTIVE
+- Botao "Recusar" → Enrollment.status = CANCELLED + notificacao ao responsavel
+- Notificacao ao responsavel via email apos aprovacao ou recusa
+
+**Nao incluido:**
+- Edicao dos dados pelo orientador apos confirmacao do responsavel (fora do MVP)
+
+**DoD:**
+```bash
+pnpm dlx playwright test matricula-aprovacao-escola --reporter=line
+# exit 0 = Enrollment ACTIVE, asaasCustomerId gravado apos aprovacao, email de confirmacao enviado (mock)
+pnpm dlx playwright test matricula-recusa-escola --reporter=line
+# exit 0 = Enrollment CANCELLED, email de recusa enviado (mock)
 ```

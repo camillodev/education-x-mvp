@@ -176,11 +176,11 @@ describe('useOnboarding submit', () => {
     expect(result.current.state.createdUnitId).toBe('unit_123')
   })
 
-  it('errorMsg is "CNPJ já cadastrado" on 409', async () => {
+  it('errorMsg de 409 usa a mensagem (pt-BR) do backend', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({
       ok: false,
       status: 409,
-      json: async () => ({ error: 'CNPJ already exists' }),
+      json: async () => ({ error: 'CNPJ já cadastrado.', code: 'DUPLICATE_CNPJ' }),
     }))
 
     const { result } = renderHook(() => useOnboarding())
@@ -198,14 +198,14 @@ describe('useOnboarding submit', () => {
     })
 
     expect(result.current.state.status).toBe('error')
-    expect(result.current.state.errorMsg).toBe('CNPJ já cadastrado')
+    expect(result.current.state.errorMsg).toMatch(/CNPJ já cadastrado/i)
   })
 
-  it('errorMsg on 502 (Asaas failure)', async () => {
+  it('errorMsg de 502 é user-friendly e NÃO vaza "Asaas"', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({
       ok: false,
       status: 502,
-      json: async () => ({}),
+      json: async () => ({ code: 'ASAAS_PROVISION' }),
     }))
 
     const { result } = renderHook(() => useOnboarding())
@@ -223,6 +223,7 @@ describe('useOnboarding submit', () => {
     })
 
     expect(result.current.state.status).toBe('error')
-    expect(result.current.state.errorMsg).toContain('Asaas')
+    expect(result.current.state.errorMsg).not.toContain('Asaas')
+    expect(result.current.state.errorMsg).toMatch(/pagamento|provision/i)
   })
 })

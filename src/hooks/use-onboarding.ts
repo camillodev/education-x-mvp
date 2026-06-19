@@ -5,6 +5,7 @@ import type { CreateSchoolInput, SubjectInput } from '@/lib/validations/unit'
 import { isValidCnpj, isValidCpf, isValidBrMobile } from '@/lib/validations/br-documents'
 import { getPlan, type SchoolPlanId } from '@/lib/data/plans'
 import { computeDiscountedCents, parsePtBrNumber, type DiscountType } from '@/lib/pricing'
+import { mapSubmitError, type ApiErrorBody } from '@/lib/onboarding/submit-error'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -335,25 +336,18 @@ export function useOnboarding() {
         return
       }
 
-      const err = await res.json().catch(() => ({}))
-
-      if (res.status === 409) {
-        dispatch({ type: 'SET_STATUS', status: 'error', errorMsg: 'CNPJ já cadastrado' })
-      } else if (res.status === 502) {
-        dispatch({
-          type: 'SET_STATUS',
-          status: 'error',
-          errorMsg: 'Falha ao criar subconta Asaas. Tente novamente.',
-        })
-      } else {
-        dispatch({
-          type: 'SET_STATUS',
-          status: 'error',
-          errorMsg: err?.error ?? 'Erro ao criar escola',
-        })
-      }
-    } catch {
-      dispatch({ type: 'SET_STATUS', status: 'error', errorMsg: 'Erro de conexão. Tente novamente.' })
+      const body = (await res.json().catch(() => null)) as ApiErrorBody | null
+      const errorMsg = mapSubmitError(res.status, body)
+      // Log estruturado pra observabilidade — o erro nunca mais é silencioso.
+      console.error('[onboarding] submit failed:', {
+        status: res.status,
+        code: body?.code,
+        error: body?.error,
+      })
+      dispatch({ type: 'SET_STATUS', status: 'error', errorMsg })
+    } catch (err) {
+      console.error('[onboarding] submit network error:', err)
+      dispatch({ type: 'SET_STATUS', status: 'error', errorMsg: mapSubmitError(0, null) })
     }
   }, [state])
 

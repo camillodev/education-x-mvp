@@ -1,10 +1,9 @@
 {
   "mcpServers": {
-    "asaas": {
-      "url": "https://docs.asaas.com/mcp",
-      "env": {
-        "ASAAS_ACCESS_TOKEN": "${ASAAS_MASTER_API_KEY}"
-      }
-    }
+    "context7": { "command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"] },
+    "playwright": { "command": "npx", "args": ["@playwright/mcp@latest"] },
+    "github": { "type": "http", "url": "https://api.githubcopilot.com/mcp/", "headers": { "Authorization": "Bearer ${GITHUB_PAT}" } },
+    "supabase": { "type": "http", "url": "https://mcp.supabase.com/mcp?project_ref=${SUPABASE_PROJECT_REF}&read_only=true", "headers": { "Authorization": "Bearer ${SUPABASE_ACCESS_TOKEN}" } },
+    "vercel": { "type": "http", "url": "https://mcp.vercel.com" }
   }
 }
