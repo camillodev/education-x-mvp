@@ -17,7 +17,7 @@
 - NÃO tocar: Create/wizard, `(app)/layout.tsx`, rotas da escola.
 - Não editar testes pra passar.
 - Tokens: `--color-primary:#0467DB`. Status→Badge: `ACTIVE`→success, `SUSPENDED`→danger, `PENDING`→info.
-- DoD: `pnpm typecheck && pnpm test:run && DISABLE_CLERK=true pnpm dlx playwright test escolas --reporter=line`
+- DoD: `pnpm typecheck && pnpm test:run && DISABLE_CLERK=true pnpm exec playwright test escolas --reporter=line` (use `pnpm exec`, NUNCA `pnpm dlx` — dlx baixa cópia fresca do Playwright sem os browsers do projeto).
 
 ## Interfaces existentes (consumidas — assinaturas literais)
 - `GET /api/escolas` retorna hoje: `{ id, name, cnpj, city, state, status, createdAt, subjectCount }[]`. **Task 1 adiciona `franchiseParent`.**
@@ -529,17 +529,18 @@ import { Search } from 'lucide-react'
 import { useSchools, filterSchools } from '@/hooks/use-schools'
 import { SchoolsTable } from '@/components/admin/SchoolsTable'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Segmented } from '@/components/ui/segmented'
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 6
+type StatusFilter = 'all' | 'ACTIVE' | 'SUSPENDED'
 
 export default function EscolasPage() {
   const { schools, loading, error } = useSchools()
   const [query, setQuery] = useState('')
   const [franchise, setFranchise] = useState('all')
-  const [status, setStatus] = useState('all')
+  const [status, setStatus] = useState<StatusFilter>('all')
   const [page, setPage] = useState(1)
 
   const franchises = useMemo(
@@ -564,9 +565,7 @@ export default function EscolasPage() {
           <h1 className="text-2xl font-bold text-[var(--color-text)]">Gestão de escolas</h1>
           <p className="text-sm text-[var(--color-text-subtle)]">Onboarde uma unidade e ela já cobra os pais dela no mesmo dia.</p>
         </div>
-        <Button asChild>
-          <Link href="/onboarding">+ Nova escola</Link>
-        </Button>
+        <Link href="/onboarding" className={cn(buttonVariants())}>+ Nova escola</Link>
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -605,7 +604,7 @@ export default function EscolasPage() {
             { value: 'SUSPENDED', label: 'Suspensas' },
           ]}
           value={status}
-          onChange={(v) => { setStatus(v); setPage(1) }}
+          onChange={(v: StatusFilter) => { setStatus(v); setPage(1) }}
         />
       </div>
 
@@ -638,12 +637,12 @@ export default function EscolasPage() {
 }
 ```
 
-> Se `Button` não suportar `asChild`, trocar por `<Link>` estilizado com `buttonVariants()`. Verificar no Step 4; se faltar, usar `className={cn(buttonVariants())}` no Link.
+> Confirmado: `Button` NÃO tem `asChild`/Slot. O "+ Nova escola" usa `<Link className={cn(buttonVariants())}>` (já no código acima). `status` é tipado como `StatusFilter` pra casar com `Segmented<T>`.
 
 - [ ] **Step 4: Rodar e ver passar + typecheck**
 
 Run: `pnpm vitest run tests/unit/components/SchoolsTable.test.tsx && pnpm typecheck`
-Expected: PASS + exit 0. (Se `asChild` não existir no Button, ajustar conforme nota.)
+Expected: PASS + exit 0.
 
 - [ ] **Step 5: Commit**
 
@@ -726,21 +725,20 @@ test('filtro de status Suspensas mostra só suspensas', async ({ page }) => {
   await expect(page.getByText(/Wizard Contagem E2E/)).toBeVisible()
   await expect(page.getByText(/Kumon Camargos E2E/)).toHaveCount(0)
 })
-
-test('não-admin recebe 403 na API', async ({ request }) => {
-  // DEV_USER_ROLE não é admin → guardAdmin bloqueia. Aqui validamos via API direta.
-  const res = await request.get('/api/escolas', { headers: { 'x-e2e-role': 'orientador' } })
-  // Se o bypass não suportar header de role, este teste documenta o contrato — ajustar conforme o que o app expõe.
-  expect([200, 403]).toContain(res.status())
-})
 ```
 
-> Nota: o teste de 403 depende de como o `DISABLE_CLERK` resolve role. Se não houver como forçar não-admin por request no E2E (o bypass fixa role via env `DEV_USER_ROLE`), mover essa asserção pro teste unit da rota (já coberto no PR A) e remover o caso E2E — registrar no report. O E2E foca no fluxo visual admin.
+> **Decisão (contrato vs realidade):** o contrato B1 lista "não-admin → 403" no E2E, mas o bypass `DISABLE_CLERK` fixa o role por env (`DEV_USER_ROLE`) e o `webServer` do Playwright sobe UMA vez — não dá pra ser admin (ver a lista) e não-admin (403) no mesmo run. O caso 403 NÃO cabe neste E2E. **Cobertura de 403 já existe nos unit tests de rota do PR A** (`tests/unit/api/escolas-list.route.test.ts` — caso "403 para não-admin", via `guardAdmin`). Portanto o caso 403 é REMOVIDO do E2E. Registrar isso no report (não é gap silencioso). Comportamento do orientador em `/escolas`: carrega a chrome (sidebar) e os dados retornam 403 → estado de erro na tabela. Aceitável pra ferramenta interna no MVP.
 
-- [ ] **Step 2: Rodar e ver falhar**
+- [ ] **Step 2: Confirmar resolução de imports `@/` no Playwright + listar**
 
-Run: `DISABLE_CLERK=true pnpm dlx playwright test escolas --reporter=line`
-Expected: FAIL — página `/escolas` ainda não renderiza dados / seletores não batem (ou já passa se tudo das tasks 1-5 estiver certo; nesse caso é GREEN direto, aceitável pra E2E).
+`tests/e2e/_seed.ts` importa `@/lib/db` e `@/lib/crypto`. O `tsconfig.json` tem `paths: { "@/*": ["./src/*"] }` (confirmado). Rodar:
+Run: `pnpm exec playwright test escolas --list`
+Expected: lista os testes SEM erro de resolução de módulo. Se `@/` não resolver no contexto do Playwright, adicionar um `tsconfig`-aware loader ou trocar os imports do `_seed.ts` por caminho relativo (`../../src/lib/db`). NÃO prosseguir até `--list` funcionar.
+
+- [ ] **Step 3 (RED): Rodar e ver falhar**
+
+Run: `DISABLE_CLERK=true pnpm exec playwright test escolas --reporter=line`
+Expected: FAIL — seletores não batem até a UI das tasks 1-5 estar montada (ou GREEN direto se tudo certo, aceitável pra E2E).
 
 - [ ] **Step 3: Ajustar seletores/IDs até o E2E refletir a UI real**
 
@@ -748,7 +746,7 @@ Rodar o app local (`DISABLE_CLERK=true pnpm dev`), abrir `/escolas`, conferir qu
 
 - [ ] **Step 4: Rodar o DoD completo do B1**
 
-Run: `pnpm typecheck && pnpm test:run && DISABLE_CLERK=true pnpm dlx playwright test escolas --reporter=line`
+Run: `pnpm typecheck && pnpm test:run && DISABLE_CLERK=true pnpm exec playwright test escolas --reporter=line`
 Expected: exit 0 em tudo (3 breakpoints do Playwright passam).
 
 - [ ] **Step 5: Commit**
