@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
+import type { Route } from 'next'
 import { usePathname } from 'next/navigation'
 import { School } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type NavItem = { href: string; label: string; icon: typeof School }
+type NavItem = { href: Route; label: string; icon: typeof School }
 
 const NAV: NavItem[] = [{ href: '/escolas', label: 'Escolas', icon: School }]
 
@@ -28,7 +29,7 @@ export function AdminSidebar() {
           return (
             <Link
               key={href}
-              href={href as any}
+              href={href}
               className={cn(
                 'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                 active

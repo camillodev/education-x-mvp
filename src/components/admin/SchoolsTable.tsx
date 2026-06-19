@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { Route } from 'next'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
@@ -39,7 +40,7 @@ export function SchoolsTable({ schools }: { schools: SchoolListItem[] }) {
               </Badge>
             </TableCell>
             <TableCell className="text-right">
-              <Link href={`/escolas/${s.id}` as any} className="font-medium text-[var(--color-primary)] hover:underline">
+              <Link href={`/escolas/${s.id}` as Route} className="font-medium text-[var(--color-primary)] hover:underline">
                 Abrir ›
               </Link>
             </TableCell>
