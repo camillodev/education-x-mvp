@@ -3,7 +3,7 @@
 import type { OnboardingState } from '@/hooks/use-onboarding'
 import { formatBRL, maskCnpj } from '@/lib/format'
 import { getPlan } from '@/lib/data/plans'
-import { computeDiscountedCents } from '@/lib/pricing'
+import { computeDiscountedCents, planDiscountPercent } from '@/lib/pricing'
 
 interface Props {
   state: OnboardingState
@@ -220,14 +220,22 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
                 <span className="text-gray-400 text-xs">({s.nfseServiceCode})</span>
               </span>
               <span className="shrink-0 text-right">
-                <span className="font-medium">{formatBRL(s.priceCents)}</span>
+                <span className="font-medium">{formatBRL(s.priceCents)}/mês</span>
                 {(s.quarterlyPriceCents || s.semiannualPriceCents || s.annualPriceCents) && (
                   <span className="block text-xs text-[var(--color-text-subtle)]">
                     {[
-                      s.quarterlyPriceCents ? `3×: ${formatBRL(s.quarterlyPriceCents)}` : null,
-                      s.semiannualPriceCents ? `6×: ${formatBRL(s.semiannualPriceCents)}` : null,
-                      s.annualPriceCents ? `12×: ${formatBRL(s.annualPriceCents)}` : null,
-                    ].filter(Boolean).join(' · ')}
+                      s.quarterlyPriceCents
+                        ? `Trimestral ${formatBRL(s.quarterlyPriceCents)}/mês −${planDiscountPercent(s.priceCents, s.quarterlyPriceCents)}%`
+                        : null,
+                      s.semiannualPriceCents
+                        ? `Semestral ${formatBRL(s.semiannualPriceCents)}/mês −${planDiscountPercent(s.priceCents, s.semiannualPriceCents)}%`
+                        : null,
+                      s.annualPriceCents
+                        ? `Anual ${formatBRL(s.annualPriceCents)}/mês −${planDiscountPercent(s.priceCents, s.annualPriceCents)}%`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </span>
                 )}
               </span>
