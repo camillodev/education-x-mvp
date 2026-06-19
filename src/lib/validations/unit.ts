@@ -80,3 +80,39 @@ export const CreateSchoolSchema = z.object({
 
 export type CreateSchoolInput = z.infer<typeof CreateSchoolSchema>
 export type SubjectInput = z.infer<typeof SubjectSchema>
+
+// Subject editável no update — inclui isActive (ativar/desativar matéria).
+export const SubjectUpdateSchema = SubjectSchema.extend({
+  isActive: z.boolean(),
+})
+
+// Update = subset do Create SEM cnpj e responsibleCpf (read-only após criação).
+// .strict() faz o schema REJEITAR cnpj/responsibleCpf se vierem no body (zod
+// por padrão só removeria as chaves desconhecidas — strict transforma em erro).
+export const UpdateSchoolSchema = z
+  .object({
+    name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+    legalName: z.string().optional(),
+    tradeName: z.string().optional(),
+    cnpjStatus: z.string().optional(),
+    email: z.string().email('E-mail inválido'),
+    phone: z.string().refine(isValidBrMobile, 'Celular inválido (DDD + 9 dígitos, com o 9)'),
+    cep: z.string().length(8, 'CEP deve ter 8 dígitos'),
+    address: z.string().min(5, 'Endereço inválido'),
+    number: z.string().min(1, 'Número obrigatório'),
+    neighborhood: z.string().min(2, 'Bairro inválido'),
+    complement: z.string().optional(),
+    city: z.string().min(2, 'Cidade inválida'),
+    state: z.string().length(2, 'UF deve ter 2 caracteres'),
+    isFranchise: z.boolean(),
+    franchiseParent: z.string().optional(),
+    responsibleName: z.string().min(3, 'Nome do responsável obrigatório'),
+    responsibleEmail: z.string().email('E-mail do responsável inválido'),
+    responsiblePhone: z.string().refine(isValidBrMobile, 'Celular do responsável inválido (DDD + 9 dígitos)'),
+    billing: BillingConfigSchema,
+    plan: PlanSchema,
+    subjects: z.array(SubjectUpdateSchema).min(1, 'Pelo menos 1 matéria obrigatória'),
+  })
+  .strict()
+
+export type UpdateSchoolInput = z.infer<typeof UpdateSchoolSchema>
