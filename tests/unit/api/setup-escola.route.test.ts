@@ -55,7 +55,9 @@ const validPayload = {
     municipalRegistration: '1234567',
   },
   plan: { planId: 'crescimento' as const, isBeta: false },
-  subjects: [{ name: 'Matemática', nfseServiceCode: '8.01', priceCents: 35000 }],
+  subjects: [
+    { name: 'Matemática', nfseServiceCode: '8.01', priceCents: 35000, annualPriceCents: 360000 },
+  ],
 }
 
 function postRequest(body: unknown): NextRequest {

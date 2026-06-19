@@ -8,7 +8,7 @@ export const SubjectSchema = z.object({
   priceCents: z.number().int().positive('Preço deve ser positivo'),
   quarterlyPriceCents: z.number().int().positive().optional(),
   semiannualPriceCents: z.number().int().positive().optional(),
-  annualPriceCents: z.number().int().positive().optional(),
+  annualPriceCents: z.number().int().positive('Plano anual obrigatório'),
 })
 
 export const BillingConfigSchema = z.object({
