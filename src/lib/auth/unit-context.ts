@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
 
 export interface UnitContext {
   userId: string
@@ -23,8 +23,10 @@ export class ForbiddenError extends Error {
 }
 
 /**
- * Lê userId, role e unitId dos sessionClaims do Clerk.
- * unitId SEMPRE vem da sessão — nunca de parâmetro HTTP.
+ * Lê userId, role e unitId do usuário Clerk.
+ * O role/unitId vivem no publicMetadata, que o session token NÃO inclui por padrão —
+ * por isso buscamos o User no Clerk (currentUser) em vez de ler sessionClaims.
+ * unitId SEMPRE vem do metadata do usuário — nunca de parâmetro HTTP.
  * Throws UnauthorizedError se não autenticado.
  * Throws ForbiddenError se role inválido ou unitId ausente para orientador.
  */
@@ -50,11 +52,12 @@ export async function getUnitContext(): Promise<UnitContext> {
   const bypass = devBypassContext()
   if (bypass) return bypass
 
-  const { userId, sessionClaims } = await auth()
+  const { userId } = await auth()
 
   if (!userId) throw new UnauthorizedError()
 
-  const meta = (sessionClaims?.publicMetadata ?? {}) as {
+  const user = await currentUser()
+  const meta = (user?.publicMetadata ?? {}) as {
     role?: string
     unitId?: string
   }

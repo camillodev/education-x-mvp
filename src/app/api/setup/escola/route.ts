@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
 import { ZodError } from 'zod'
 import {
   createSchool,
@@ -15,11 +15,17 @@ const devBypass =
   process.env.NODE_ENV !== 'production' && process.env.DISABLE_CLERK === 'true'
 
 export async function POST(req: NextRequest) {
-  // RBAC: apenas admin pode criar escolas
+  // RBAC: apenas admin pode criar escolas.
+  // O role vive no publicMetadata do usuário. O session token NÃO o inclui por
+  // padrão, então buscamos o User no Clerk (currentUser) em vez de ler sessionClaims.
   if (!devBypass) {
-    const { sessionClaims } = await auth()
-    const meta = sessionClaims?.publicMetadata as { role?: string } | undefined
-    if (meta?.role !== 'admin') {
+    const { userId } = await auth()
+    if (!userId) {
+      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    }
+    const user = await currentUser()
+    const role = (user?.publicMetadata as { role?: string } | undefined)?.role
+    if (role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
   }
