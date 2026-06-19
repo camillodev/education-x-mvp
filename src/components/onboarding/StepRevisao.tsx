@@ -3,7 +3,7 @@
 import type { OnboardingState } from '@/hooks/use-onboarding'
 import { formatBRL, maskCnpj } from '@/lib/format'
 import { getPlan } from '@/lib/data/plans'
-import { computeDiscountedCents, planDiscountPercent } from '@/lib/pricing'
+import { computeDiscountedCents } from '@/lib/pricing'
 
 interface Props {
   state: OnboardingState
@@ -212,36 +212,42 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
             Editar
           </button>
         </div>
-        <ul className="space-y-1 text-sm">
-          {state.subjects.map((s, idx) => (
-            <li key={idx} className="flex items-start justify-between gap-2">
-              <span className="min-w-0 truncate">
-                {s.name}{' '}
-                <span className="text-gray-400 text-xs">({s.nfseServiceCode})</span>
-              </span>
-              <span className="shrink-0 text-right">
-                <span className="font-medium">{formatBRL(s.priceCents)}/mês</span>
-                {(s.quarterlyPriceCents || s.semiannualPriceCents || s.annualPriceCents) && (
-                  <span className="block text-xs text-[var(--color-text-subtle)]">
-                    {[
-                      s.quarterlyPriceCents
-                        ? `Trimestral ${formatBRL(s.quarterlyPriceCents)}/mês −${planDiscountPercent(s.priceCents, s.quarterlyPriceCents)}%`
-                        : null,
-                      s.semiannualPriceCents
-                        ? `Semestral ${formatBRL(s.semiannualPriceCents)}/mês −${planDiscountPercent(s.priceCents, s.semiannualPriceCents)}%`
-                        : null,
-                      s.annualPriceCents
-                        ? `Anual ${formatBRL(s.annualPriceCents)}/mês −${planDiscountPercent(s.priceCents, s.annualPriceCents)}%`
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </span>
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 text-xs text-[var(--color-text-subtle)]">
+                <th className="py-1.5 pr-2 text-left font-medium">Matéria</th>
+                <th className="px-2 py-1.5 text-right font-medium">Mensal</th>
+                <th className="px-2 py-1.5 text-right font-medium">Trimestral</th>
+                <th className="px-2 py-1.5 text-right font-medium">Semestral</th>
+                <th className="py-1.5 pl-2 text-right font-medium">Anual</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {state.subjects.map((s, idx) => (
+                <tr key={idx}>
+                  <td className="py-2 pr-2">
+                    <span className="font-medium text-[var(--color-text)]">{s.name}</span>{' '}
+                    <span className="text-xs text-gray-400">({s.nfseServiceCode})</span>
+                  </td>
+                  <td className="px-2 py-2 text-right font-medium">{formatBRL(s.priceCents)}</td>
+                  <td className="px-2 py-2 text-right text-[var(--color-text-subtle)]">
+                    {s.quarterlyPriceCents ? formatBRL(s.quarterlyPriceCents) : '—'}
+                  </td>
+                  <td className="px-2 py-2 text-right text-[var(--color-text-subtle)]">
+                    {s.semiannualPriceCents ? formatBRL(s.semiannualPriceCents) : '—'}
+                  </td>
+                  <td className="py-2 pl-2 text-right text-[var(--color-text-subtle)]">
+                    {s.annualPriceCents ? formatBRL(s.annualPriceCents) : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-2 text-xs text-[var(--color-text-subtle)]">
+            Valores por mês em cada plano de fidelidade.
+          </p>
+        </div>
       </div>
 
       {state.errorMsg && (

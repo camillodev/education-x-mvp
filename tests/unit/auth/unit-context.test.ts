@@ -1,17 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { getUnitContext, UnauthorizedError, ForbiddenError } from '../../../src/lib/auth/unit-context'
 
-// Mock do Clerk auth()
+// Mock do Clerk auth() + currentUser()
+// O role/unitId vivem no publicMetadata do User (currentUser), não nos sessionClaims —
+// o session token não inclui publicMetadata por padrão.
 vi.mock('@clerk/nextjs/server', () => ({
   auth: vi.fn(),
+  currentUser: vi.fn(),
 }))
 
-import { auth } from '@clerk/nextjs/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
 const mockAuth = vi.mocked(auth)
+const mockCurrentUser = vi.mocked(currentUser)
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mockAuthReturn(value: Record<string, unknown>) {
-  mockAuth.mockResolvedValue(value as unknown as Awaited<ReturnType<typeof auth>>)
+function mockSession(userId: string | null, publicMetadata?: Record<string, unknown>) {
+  mockAuth.mockResolvedValue({ userId } as unknown as Awaited<ReturnType<typeof auth>>)
+  mockCurrentUser.mockResolvedValue(
+    (userId ? { id: userId, publicMetadata: publicMetadata ?? {} } : null) as unknown as Awaited<
+      ReturnType<typeof currentUser>
+    >
+  )
 }
 
 beforeEach(() => {
@@ -20,23 +28,17 @@ beforeEach(() => {
 
 describe('getUnitContext', () => {
   it('lança UnauthorizedError quando não autenticado (userId null)', async () => {
-    mockAuthReturn({ userId: null, sessionClaims: null })
+    mockSession(null)
     await expect(getUnitContext()).rejects.toThrow(UnauthorizedError)
   })
 
   it('lança ForbiddenError quando role é inválido', async () => {
-    mockAuthReturn({
-      userId: 'user-123',
-      sessionClaims: { publicMetadata: { role: 'desconhecido' } },
-    })
+    mockSession('user-123', { role: 'desconhecido' })
     await expect(getUnitContext()).rejects.toThrow(ForbiddenError)
   })
 
   it('retorna contexto admin com unitId __admin__', async () => {
-    mockAuthReturn({
-      userId: 'user-admin',
-      sessionClaims: { publicMetadata: { role: 'admin' } },
-    })
+    mockSession('user-admin', { role: 'admin' })
 
     const ctx = await getUnitContext()
     expect(ctx.role).toBe('admin')
@@ -44,11 +46,8 @@ describe('getUnitContext', () => {
     expect(ctx.userId).toBe('user-admin')
   })
 
-  it('retorna contexto orientador com unitId da sessão', async () => {
-    mockAuthReturn({
-      userId: 'user-orientador',
-      sessionClaims: { publicMetadata: { role: 'orientador', unitId: 'unit-abc-123' } },
-    })
+  it('retorna contexto orientador com unitId do metadata', async () => {
+    mockSession('user-orientador', { role: 'orientador', unitId: 'unit-abc-123' })
 
     const ctx = await getUnitContext()
     expect(ctx.role).toBe('orientador')
@@ -56,20 +55,12 @@ describe('getUnitContext', () => {
   })
 
   it('lança ForbiddenError quando role = orientador mas unitId ausente', async () => {
-    mockAuthReturn({
-      userId: 'user-orientador',
-      sessionClaims: { publicMetadata: { role: 'orientador' } },
-    })
-
+    mockSession('user-orientador', { role: 'orientador' })
     await expect(getUnitContext()).rejects.toThrow(ForbiddenError)
   })
 
   it('lança ForbiddenError quando publicMetadata ausente', async () => {
-    mockAuthReturn({
-      userId: 'user-123',
-      sessionClaims: {},
-    })
-
+    mockSession('user-123', undefined)
     await expect(getUnitContext()).rejects.toThrow(ForbiddenError)
   })
 })
