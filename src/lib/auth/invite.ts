@@ -8,7 +8,7 @@ interface InviteParams {
 /**
  * Invites the school's responsible to access the platform.
  * The invitation's publicMetadata becomes the user's publicMetadata on sign-up,
- * scoping them to their unit with the `fran` role.
+ * scoping them to their unit with the `orientador` role.
  *
  * Never throws: a failed invite must not roll back the terms acceptance — the
  * acceptance is the legally important part. Logs and continues.
@@ -25,7 +25,7 @@ export async function inviteUnitResponsible({ email, unitId }: InviteParams): Pr
     const client = await clerkClient()
     await client.invitations.createInvitation({
       emailAddress: email,
-      publicMetadata: { role: 'fran', unitId },
+      publicMetadata: { role: 'orientador', unitId },
       ignoreExisting: true,
     })
   } catch (err) {

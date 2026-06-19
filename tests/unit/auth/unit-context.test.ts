@@ -32,33 +32,33 @@ describe('getUnitContext', () => {
     await expect(getUnitContext()).rejects.toThrow(ForbiddenError)
   })
 
-  it('retorna contexto admin_ix com unitId __admin__', async () => {
+  it('retorna contexto admin com unitId __admin__', async () => {
     mockAuthReturn({
       userId: 'user-admin',
-      sessionClaims: { publicMetadata: { role: 'admin_ix' } },
+      sessionClaims: { publicMetadata: { role: 'admin' } },
     })
 
     const ctx = await getUnitContext()
-    expect(ctx.role).toBe('admin_ix')
+    expect(ctx.role).toBe('admin')
     expect(ctx.unitId).toBe('__admin__')
     expect(ctx.userId).toBe('user-admin')
   })
 
-  it('retorna contexto fran com unitId da sessão', async () => {
+  it('retorna contexto orientador com unitId da sessão', async () => {
     mockAuthReturn({
-      userId: 'user-fran',
-      sessionClaims: { publicMetadata: { role: 'fran', unitId: 'unit-abc-123' } },
+      userId: 'user-orientador',
+      sessionClaims: { publicMetadata: { role: 'orientador', unitId: 'unit-abc-123' } },
     })
 
     const ctx = await getUnitContext()
-    expect(ctx.role).toBe('fran')
+    expect(ctx.role).toBe('orientador')
     expect(ctx.unitId).toBe('unit-abc-123')
   })
 
-  it('lança ForbiddenError quando role = fran mas unitId ausente', async () => {
+  it('lança ForbiddenError quando role = orientador mas unitId ausente', async () => {
     mockAuthReturn({
-      userId: 'user-fran',
-      sessionClaims: { publicMetadata: { role: 'fran' } },
+      userId: 'user-orientador',
+      sessionClaims: { publicMetadata: { role: 'orientador' } },
     })
 
     await expect(getUnitContext()).rejects.toThrow(ForbiddenError)
