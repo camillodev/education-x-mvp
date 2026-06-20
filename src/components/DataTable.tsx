@@ -31,7 +31,7 @@ export function SectionHead({ title, description, action, className }: SectionHe
 
 // ── Table primitives ─────────────────────────────────────────────────────────
 
-export interface TdProps extends React.TdHTMLAttributes<HTMLTableCellElement> {}
+export type TdProps = React.TdHTMLAttributes<HTMLTableCellElement>;
 
 export function Td({ className, children, ...props }: TdProps) {
   return (
@@ -44,7 +44,7 @@ export function Td({ className, children, ...props }: TdProps) {
   );
 }
 
-export interface TrHoverProps extends React.HTMLAttributes<HTMLTableRowElement> {}
+export type TrHoverProps = React.HTMLAttributes<HTMLTableRowElement>;
 
 export function TrHover({ className, children, ...props }: TrHoverProps) {
   const [hovered, setHovered] = React.useState(false);
