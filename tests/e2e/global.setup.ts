@@ -5,10 +5,9 @@ import { test as setup, expect } from '@playwright/test'
 // Setup roda serial — necessário porque o storageState é compartilhado.
 setup.describe.configure({ mode: 'serial' })
 
-// Credenciais do usuário de teste. Aceita os nomes oficiais do Clerk
-// (E2E_CLERK_USER_*) com fallback pros nomes já presentes no .env (CLERK_TEST_*).
-const IDENTIFIER = process.env.E2E_CLERK_USER_EMAIL ?? process.env.CLERK_TEST_EMAIL
-const PASSWORD = process.env.E2E_CLERK_USER_PASSWORD ?? process.env.CLERK_TEST_PASSWORD
+// Email do usuário de teste. Aceita o nome oficial do Clerk (E2E_CLERK_USER_EMAIL)
+// com fallback pro nome já presente no .env (CLERK_TEST_EMAIL).
+const EMAIL = process.env.E2E_CLERK_USER_EMAIL ?? process.env.CLERK_TEST_EMAIL
 
 const authFile = path.join(__dirname, '../../playwright/.clerk/user.json')
 
@@ -19,19 +18,18 @@ setup('clerk setup', async () => {
 })
 
 setup('authenticate and save state', async ({ page }) => {
-  if (!IDENTIFIER || !PASSWORD) {
+  if (!EMAIL) {
     throw new Error(
-      'Credenciais de teste ausentes: defina E2E_CLERK_USER_EMAIL/E2E_CLERK_USER_PASSWORD (ou CLERK_TEST_EMAIL/CLERK_TEST_PASSWORD).'
+      'Email de teste ausente: defina E2E_CLERK_USER_EMAIL (ou CLERK_TEST_EMAIL).'
     )
   }
 
   // signIn exige uma página que monte o ClerkProvider. A home (`/`) é pública e
   // NÃO carrega o Clerk; `/sign-in` carrega (layout do grupo (auth)) e é pública.
   await page.goto('/sign-in')
-  await clerk.signIn({
-    page,
-    signInParams: { strategy: 'password', identifier: IDENTIFIER, password: PASSWORD },
-  })
+  // Login por ticket server-side (Backend API) — sem senha. É a forma recomendada
+  // pelo Clerk: contorna verificação/MFA e não esbarra em checagem de senha vazada.
+  await clerk.signIn({ page, emailAddress: EMAIL })
 
   // Confirma acesso a uma rota protegida real (middleware ativo).
   await page.goto('/escolas')
