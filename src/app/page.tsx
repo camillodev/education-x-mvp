@@ -10,9 +10,14 @@ export default function Home() {
       <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
         Gestão financeira escolar
       </p>
-      <Link href="/onboarding" className={buttonVariants()}>
-        Começar
-      </Link>
+      <div className="flex gap-3">
+        <Link href="/escolas" className={buttonVariants()}>
+          Gestão de escolas
+        </Link>
+        <Link href="/onboarding" className={buttonVariants({ variant: "outline" })}>
+          Nova escola
+        </Link>
+      </div>
     </main>
   );
 }

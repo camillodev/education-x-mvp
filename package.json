@@ -33,6 +33,7 @@
     "zod": "^3.25.56"
   },
   "devDependencies": {
+    "@clerk/testing": "^2.1.4",
     "@eslint/eslintrc": "^3.3.5",
     "@playwright/test": "^1.52.0",
     "@tailwindcss/postcss": "^4.1.8",

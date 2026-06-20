@@ -37,7 +37,11 @@ prisma/migrations/dev.db*
 .DS_Store
 *.log
 npm-debug.log*
-.vercel
+.vercel/*
+!.vercel/project.json
 .turbo
 *.tsbuildinfo
 .claude.archived-*
+
+# Clerk E2E auth state (token de sessão — nunca commitar)
+playwright/.clerk/

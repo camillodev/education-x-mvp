@@ -18,13 +18,14 @@ beforeEach(() => { requireAdmin.mockReset(); findMany.mockReset() })
 it('200 com a lista de escolas para admin', async () => {
   requireAdmin.mockResolvedValue({ role: 'admin' })
   findMany.mockResolvedValue([
-    { id: '1', name: 'A', cnpj: '111', city: 'BH', state: 'MG', status: 'ACTIVE', createdAt: new Date(), _count: { subjects: 2 } },
+    { id: '1', name: 'A', cnpj: '111', city: 'BH', state: 'MG', status: 'ACTIVE', createdAt: new Date(), _count: { subjects: 2 }, franchiseParent: 'Kumon' },
   ])
   const res = await GET(new NextRequest('http://x/api/escolas'))
   expect(res.status).toBe(200)
   const body = await res.json()
   expect(body).toHaveLength(1)
   expect(body[0].subjectCount).toBe(2)
+  expect(body[0].franchiseParent).toBe('Kumon')
 })
 
 it('403 para não-admin', async () => {
@@ -39,4 +40,16 @@ it('401 quando sessão expirada', async () => {
   expect(res.status).toBe(401)
   const body = await res.json()
   expect(body.code).toBe('UNAUTHORIZED')
+})
+
+it('500 inclui a causa técnica real no campo detail', async () => {
+  requireAdmin.mockResolvedValue({ role: 'admin' })
+  findMany.mockRejectedValue(new Error('connect ECONNREFUSED 5432'))
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  const res = await GET(new NextRequest('http://x/api/escolas'))
+  expect(res.status).toBe(500)
+  const body = await res.json()
+  expect(body.code).toBe('INTERNAL')
+  expect(body.detail).toContain('ECONNREFUSED') // causa técnica volta na resposta
+  vi.restoreAllMocks()
 })

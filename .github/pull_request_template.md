@@ -13,6 +13,23 @@ Um bom PR = revisão rápida e segura. Apague as linhas que não se aplicam.
 - Deadline:
 - Depende de (PR/tarefa anterior):
 
+## 📝 O que foi modificado
+<!-- Bullets do que mudou no código: arquivos/áreas novas e editadas. Resumo técnico, 1 linha cada. -->
+-
+
+## ✅ Como testar
+<!--
+Checklist acionável pro Rafa validar o PR. Cada item é um passo verificável com um link de página.
+Use o link do PREVIEW (Vercel comenta abaixo) ou local (http://localhost:3000). Marque os que se aplicam.
+Exemplos abaixo — adapte ao que este PR muda.
+-->
+- [ ] Acesse [`/escolas`](http://localhost:3000/escolas) — a lista de escolas carrega
+- [ ] Busque por nome/CNPJ no campo de busca — a tabela filtra
+- [ ] Filtre por status (Todas / Ativas / Suspensas) — a lista reflete o filtro
+- [ ] Abra uma escola via "Abrir ›" — vai pro detalhe
+- [ ] Acesse [`/onboarding`](http://localhost:3000/onboarding) — sidebar à esquerda + stepper horizontal no topo
+- [ ] Rodapé da sidebar mostra avatar + nome + role, e o botão Sair desloga
+
 ## 🔍 Como revisar (guia pro Rafa)
 <!-- O caminho mais rápido pra você validar. Diga ONDE olhar primeiro e O QUE testar no preview. -->
 1. **Preview:** <link do deploy de preview — a Vercel comenta automático abaixo>

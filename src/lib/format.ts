@@ -18,6 +18,12 @@ export function maskCnpj(value: string): string {
     .replace(/(\d{4})(\d)/, '$1-$2')
 }
 
+/** CNPJ mascarado para listagem: "•••• 00190" (bullets + últimos 5 dígitos). */
+export function maskCnpjTail(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 14)
+  return `•••• ${digits.slice(-5)}`
+}
+
 export function maskCpf(value: string): string {
   return value
     .replace(/\D/g, '')
