@@ -119,7 +119,7 @@ jobs:
 
       - name: Install Playwright browsers
         if: steps.specs.outputs.has_specs == 'true'
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps
 
       - name: Run E2E (3 breakpoints)
         if: steps.specs.outputs.has_specs == 'true'
