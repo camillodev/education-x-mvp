@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server'
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
 const isPublicRoute = createRouteMatcher([
@@ -12,21 +11,11 @@ const isPublicRoute = createRouteMatcher([
   '/api/confirmar(.*)',       // POST do aceite (público, valida token)
 ])
 
-// Dev-only bypass: pula a proteção do Clerk para validar telas protegidas
-// localmente (Playwright). Nunca ativo em produção.
-const devBypass =
-  process.env.NODE_ENV !== 'production' && process.env.DISABLE_CLERK === 'true'
-
-// Quando bypass, NÃO chamamos clerkMiddleware() — ele inicializa o Clerk na
-// construção e exige CLERK_SECRET_KEY (quebra no CI com `Missing secretKey`,
-// antes mesmo de qualquer request). No-op middleware mantém o E2E sem auth real.
-export default devBypass
-  ? () => NextResponse.next()
-  : clerkMiddleware(async (auth, req) => {
-      if (!isPublicRoute(req)) {
-        await auth.protect()
-      }
-    })
+export default clerkMiddleware(async (auth, req) => {
+  if (!isPublicRoute(req)) {
+    await auth.protect()
+  }
+})
 
 export const config = {
   matcher: [

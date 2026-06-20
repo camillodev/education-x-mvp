@@ -5,6 +5,7 @@ import type { Route } from 'next'
 import { usePathname } from 'next/navigation'
 import { School, PlusCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ProfileFooter } from './ProfileFooter'
 
 type NavItem = { href: Route; label: string; icon: typeof School }
 
@@ -46,9 +47,7 @@ export function AdminSidebar() {
           )
         })}
       </nav>
-      <div className="mt-auto rounded-md border border-[var(--color-border)] px-3 py-2 text-sm text-[var(--color-text-subtle)]">
-        ADMIN IX
-      </div>
+      <ProfileFooter />
     </aside>
   )
 }

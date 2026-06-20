@@ -7,19 +7,15 @@ import { AdminShell } from '@/components/admin/AdminShell'
 // statically export pages wrapped in ClerkProvider.
 export const dynamic = 'force-dynamic'
 
-// Dev-only bypass: sem ClerkProvider, o Clerk não tenta carregar a key (que
-// quebraria com chave dummy). Nunca ativo em produção.
-const devBypass =
-  process.env.NODE_ENV !== 'production' && process.env.DISABLE_CLERK === 'true'
-
 // O grupo (app) é a área autenticada do admin IX — toda tela vive dentro do
-// AdminShell (sidebar à esquerda): lista de escolas E cadastro.
+// AdminShell (sidebar à esquerda): lista de escolas E cadastro. O ClerkProvider
+// envolve tudo para os hooks de sessão (useUser/useClerk) funcionarem no client.
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const content = (
-    <ToastProvider>
-      <AdminShell>{children}</AdminShell>
-    </ToastProvider>
+  return (
+    <ClerkProvider>
+      <ToastProvider>
+        <AdminShell>{children}</AdminShell>
+      </ToastProvider>
+    </ClerkProvider>
   )
-  if (devBypass) return content
-  return <ClerkProvider>{content}</ClerkProvider>
 }

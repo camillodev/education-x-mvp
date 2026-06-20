@@ -41,3 +41,6 @@ npm-debug.log*
 .turbo
 *.tsbuildinfo
 .claude.archived-*
+
+# Clerk E2E auth state (token de sessão — nunca commitar)
+playwright/.clerk/

@@ -69,18 +69,21 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    # Envs do job inteiro. O E2E roda com o bypass de auth (DISABLE_CLERK=true):
-    # o middleware vira no-op e NÃO inicializa o Clerk — por isso a CLERK_SECRET_KEY
-    # dummy basta (só evita o crash de construção em libs que a leem no import).
+    # Envs do job inteiro. O E2E roda LOGADO de verdade (@clerk/testing):
+    # o global.setup.ts faz signIn com o usuário de teste e salva a sessão.
+    # As chaves Clerk + credenciais do user de teste vêm de Secrets do GitHub
+    # (Settings → Secrets and variables → Actions). pk/sk devem ser da instância
+    # dev onde E2E_CLERK_USER_EMAIL existe com senha habilitada.
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/education_x_test
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/education_x_test
-      DISABLE_CLERK: 'true'
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ci-dummy
-      CLERK_SECRET_KEY: sk_test_ci-dummy
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       # 64 chars hex = 32 bytes (AES-256). Dummy de CI, não é segredo real.
       ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+      E2E_CLERK_USER_EMAIL: ${{ secrets.E2E_CLERK_USER_EMAIL }}
+      E2E_CLERK_USER_PASSWORD: ${{ secrets.E2E_CLERK_USER_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
