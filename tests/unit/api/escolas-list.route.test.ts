@@ -41,3 +41,15 @@ it('401 quando sessão expirada', async () => {
   const body = await res.json()
   expect(body.code).toBe('UNAUTHORIZED')
 })
+
+it('500 inclui a causa técnica real no campo detail', async () => {
+  requireAdmin.mockResolvedValue({ role: 'admin' })
+  findMany.mockRejectedValue(new Error('connect ECONNREFUSED 5432'))
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  const res = await GET(new NextRequest('http://x/api/escolas'))
+  expect(res.status).toBe(500)
+  const body = await res.json()
+  expect(body.code).toBe('INTERNAL')
+  expect(body.detail).toContain('ECONNREFUSED') // causa técnica volta na resposta
+  vi.restoreAllMocks()
+})

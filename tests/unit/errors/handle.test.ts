@@ -18,6 +18,17 @@ describe('handleError', () => {
     expect(logged).toContain('/api/escolas/[unitId]')
   })
 
+  it('inclui a causa técnica real no campo detail (volta na resposta da API)', () => {
+    const real = new Error('connection refused at 5432')
+    const out = handleError(real, { route: 'GET /api/escolas' })
+    expect(out.detail).toBe('connection refused at 5432')
+  })
+
+  it('detail funciona com erro não-Error (string/objeto)', () => {
+    const out = handleError('falha crua', { route: 'GET /x' })
+    expect(out.detail).toContain('falha crua')
+  })
+
   it('mapeia DuplicateCnpjError para 409/DUPLICATE_CNPJ', () => {
     const out = handleError(new DuplicateCnpjError(), { route: 'POST /x' })
     expect(out.code).toBe('DUPLICATE_CNPJ')

@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import {
   DuplicateCnpjError,
@@ -18,16 +19,32 @@ export interface HandledError {
   message: string
   code: string
   status: number
+  /** Causa técnica real (ex: "connection refused at 5432"). Volta na resposta da API. */
+  detail: string
+}
+
+/** Extrai a mensagem técnica de qualquer valor lançado (Error, string, objeto). */
+function extractDetail(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return String(error)
+  }
 }
 
 /**
  * Padrão único de tratamento de erro do projeto:
  *  1. console.error com a CAUSA REAL (erro técnico) + contexto estruturado;
- *  2. devolve { message, code, status } amigável para a UI montar um toast.
+ *  2. devolve { message, code, status, detail } — `detail` carrega a causa técnica
+ *     real para a resposta da API (ferramenta interna admin); o front loga `detail`
+ *     no console e mostra `message` ao usuário.
  * Toda rota/handler deve usar isto em vez de inventar o próprio formato.
  */
 export function handleError(error: unknown, ctx: ErrorContext): HandledError {
   const known = mapKnown(error)
+  const detail = extractDetail(error)
 
   // Log estruturado: contexto + causa real (nunca engolir o erro técnico).
   console.error(
@@ -39,10 +56,24 @@ export function handleError(error: unknown, ctx: ErrorContext): HandledError {
     message: ctx.userMessage ?? known.message,
     code: known.code,
     status: known.status,
+    detail,
   }
 }
 
-function mapKnown(error: unknown): HandledError {
+/**
+ * Atalho: trata o erro e já devolve o NextResponse padronizado.
+ * Resposta sempre inclui `error` (amigável), `code` e `detail` (causa técnica real).
+ * Use nas rotas: `return errorResponse(err, { route: '...' })`.
+ */
+export function errorResponse(error: unknown, ctx: ErrorContext): NextResponse {
+  const h = handleError(error, ctx)
+  return NextResponse.json(
+    { error: h.message, code: h.code, detail: h.detail },
+    { status: h.status }
+  )
+}
+
+function mapKnown(error: unknown): Omit<HandledError, 'detail'> {
   if (error instanceof DuplicateCnpjError) {
     return { message: 'CNPJ já cadastrado.', code: 'DUPLICATE_CNPJ', status: 409 }
   }

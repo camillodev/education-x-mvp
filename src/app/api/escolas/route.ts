@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { handleError } from '@/lib/errors/handle'
+import { errorResponse } from '@/lib/errors/handle'
 import { guardAdmin } from '@/lib/api/guard'
 
 // Admin-only. Usa prisma cru (NÃO forUnit): o admin tem unitId='__admin__' e
@@ -24,7 +24,6 @@ export async function GET(req: NextRequest) {
     }))
     return NextResponse.json(list, { status: 200 })
   } catch (err) {
-    const h = handleError(err, { route: 'GET /api/escolas' })
-    return NextResponse.json({ error: h.message, code: h.code }, { status: h.status })
+    return errorResponse(err, { route: 'GET /api/escolas' })
   }
 }

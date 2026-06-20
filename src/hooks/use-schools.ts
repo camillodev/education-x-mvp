@@ -45,8 +45,18 @@ export function useSchools() {
     try {
       const res = await fetch('/api/escolas')
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string }
-        throw new Error(body.error ?? 'Falha ao carregar escolas.')
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string
+          code?: string
+          detail?: string
+        }
+        // A causa técnica real (detail) vai pro console; a message amigável pra UI.
+        console.error(
+          `[useSchools] GET /api/escolas falhou (${res.status} ${body.code ?? ''}):`,
+          body.detail ?? '(sem detail)'
+        )
+        setError(body.error ?? 'Falha ao carregar escolas.')
+        return
       }
       setSchools((await res.json()) as SchoolListItem[])
     } catch (err) {
