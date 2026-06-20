@@ -51,6 +51,37 @@ jobs:
     name: Playwright E2E (375 / 768 / 1440)
     runs-on: ubuntu-latest
     needs: quality
+
+    # Postgres efêmero por run — padrão de mercado pra E2E com banco.
+    # Isolado, descartável, nunca toca dev/prod. Migrations + seed rodam contra ele.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: education_x_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # Envs do job inteiro. O E2E roda com o bypass de auth (DISABLE_CLERK=true):
+    # o middleware vira no-op e NÃO inicializa o Clerk — por isso a CLERK_SECRET_KEY
+    # dummy basta (só evita o crash de construção em libs que a leem no import).
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/education_x_test
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/education_x_test
+      DISABLE_CLERK: 'true'
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ci-dummy
+      CLERK_SECRET_KEY: sk_test_ci-dummy
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      # 64 chars hex = 32 bytes (AES-256). Dummy de CI, não é segredo real.
+      ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+
     steps:
       - uses: actions/checkout@v4
 
@@ -68,6 +99,11 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm prisma generate
 
+      - name: Aplicar migrations no Postgres de teste
+        run: pnpm prisma migrate deploy
+        # Os specs de escolas seedam o próprio dado via tests/e2e/_seed.ts
+        # (seedSchool). Não dependemos de seed global aqui.
+
       - name: Check for E2E specs
         id: specs
         run: |
@@ -75,7 +111,7 @@ jobs:
             echo "has_specs=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_specs=false" >> "$GITHUB_OUTPUT"
-            echo "Nenhum spec E2E ainda (tests/e2e/ vazio) — pulando. Specs entram na Tarefa 1.3."
+            echo "Nenhum spec E2E ainda (tests/e2e/ vazio) — pulando."
           fi
 
       - name: Install Playwright browsers
@@ -85,12 +121,6 @@ jobs:
       - name: Run E2E (3 breakpoints)
         if: steps.specs.outputs.has_specs == 'true'
         run: pnpm test:e2e
-        env:
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ci-dummy
-          NEXT_PUBLIC_APP_URL: http://localhost:3000
-          # ⚠️ E2E que dependem de banco/auth real precisam de secrets do GitHub
-          # (DATABASE_URL de teste, Clerk test keys). Configurar em Settings > Secrets.
-          # Enquanto não houver, manter os specs e2e em telas públicas (sem login/db).
 
       - name: Upload Playwright report
         if: ${{ !cancelled() && steps.specs.outputs.has_specs == 'true' }}
