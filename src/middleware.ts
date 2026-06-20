@@ -11,13 +11,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/confirmar(.*)',       // POST do aceite (público, valida token)
 ])
 
-// Dev-only bypass: pula a proteção do Clerk para validar telas protegidas
-// localmente (Playwright). Nunca ativo em produção.
-const devBypass =
-  process.env.NODE_ENV !== 'production' && process.env.DISABLE_CLERK === 'true'
-
 export default clerkMiddleware(async (auth, req) => {
-  if (devBypass) return
   if (!isPublicRoute(req)) {
     await auth.protect()
   }
