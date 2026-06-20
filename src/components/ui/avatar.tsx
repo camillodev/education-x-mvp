@@ -27,7 +27,7 @@ const Avatar = React.forwardRef<HTMLSpanElement, AvatarProps>(
         ref={ref}
         aria-hidden="true"
         className={cn(
-          "inline-flex shrink-0 items-center justify-center rounded-[var(--radius-md)] font-semibold",
+          "inline-flex shrink-0 items-center justify-center rounded-full font-semibold",
           "bg-[var(--color-primary-softer)] text-[var(--color-primary)]",
           sizeClasses[size],
           className

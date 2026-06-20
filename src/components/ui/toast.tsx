@@ -70,11 +70,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 function variantClasses(v: ToastVariant): string {
   switch (v) {
     case 'success':
-      return 'border-green-200 bg-green-50 text-green-800'
+      return 'border-(--color-success-soft) bg-(--color-toast-success-bg) text-(--color-success)'
     case 'error':
-      return 'border-red-200 bg-red-50 text-red-800'
+      return 'border-(--color-danger-soft) bg-(--color-danger-soft) text-(--color-danger)'
     default:
-      return 'border-gray-200 bg-white text-gray-800'
+      return 'border-(--color-border) bg-(--color-primary-softer) text-(--color-primary)'
   }
 }
 

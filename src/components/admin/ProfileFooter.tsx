@@ -44,7 +44,7 @@ export function ProfileFooter() {
       </div>
       <Button
         type="button"
-        variant="ghost"
+        variant="tertiary"
         size="icon"
         aria-label="Sair"
         onClick={() => signOut({ redirectUrl: '/' })}

@@ -100,11 +100,11 @@ export default function EscolasPage() {
               {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} de {filtered.length} escolas
             </span>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" disabled={safePage <= 1} onClick={() => setPage((p) => p - 1)}>
+              <Button variant="tertiary" size="sm" disabled={safePage <= 1} onClick={() => setPage((p) => p - 1)}>
                 ‹ Anterior
               </Button>
               <span>{safePage} / {totalPages}</span>
-              <Button variant="ghost" size="sm" disabled={safePage >= totalPages} onClick={() => setPage((p) => p + 1)}>
+              <Button variant="tertiary" size="sm" disabled={safePage >= totalPages} onClick={() => setPage((p) => p + 1)}>
                 Próxima ›
               </Button>
             </div>

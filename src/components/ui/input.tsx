@@ -47,7 +47,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div
         className={cn(
-          "flex items-center gap-2.5 rounded-md border px-3.5 transition-colors focus-within:ring-1",
+          "flex items-center gap-2.5 rounded-md border-[1.5px] px-3.5 transition-colors focus-within:ring-1",
           "h-[46px]",
           borderState,
           className
