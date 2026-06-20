@@ -3,7 +3,7 @@ import type { Route } from 'next'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
-import { maskCnpj } from '@/lib/format'
+import { maskCnpjTail } from '@/lib/format'
 import type { SchoolListItem } from '@/hooks/use-schools'
 
 const STATUS_LABEL: Record<string, string> = { ACTIVE: 'Ativa', SUSPENDED: 'Suspensa', PENDING: 'Pendente' }
@@ -33,7 +33,7 @@ export function SchoolsTable({ schools }: { schools: SchoolListItem[] }) {
               </div>
             </TableCell>
             <TableCell className="text-[var(--color-text-subtle)]">{s.franchiseParent ?? '—'}</TableCell>
-            <TableCell className="text-[var(--color-text-subtle)]">{maskCnpj(s.cnpj)}</TableCell>
+            <TableCell className="font-mono text-[var(--color-text-subtle)]">{maskCnpjTail(s.cnpj)}</TableCell>
             <TableCell>
               <Badge variant={STATUS_VARIANT[s.status] ?? 'neutral'} dot>
                 {STATUS_LABEL[s.status] ?? s.status}

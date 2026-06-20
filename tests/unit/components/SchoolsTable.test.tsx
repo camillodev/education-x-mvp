@@ -11,7 +11,8 @@ it('renderiza nome, franquia, cnpj mascarado, status e link Abrir', () => {
   render(<SchoolsTable schools={schools} />)
   expect(screen.getByText('Kumon Camargos')).toBeInTheDocument()
   expect(screen.getByText('Kumon')).toBeInTheDocument()
-  expect(screen.getByText('11.222.333/0001-90')).toBeInTheDocument()
+  // CNPJ na listagem é mascarado como "•••• <últimos 5 dígitos>" (privacidade, igual protótipo).
+  expect(screen.getByText('•••• 00190')).toBeInTheDocument()
   expect(screen.getByText(/ativa/i)).toBeInTheDocument()
   expect(screen.getByRole('link', { name: /abrir/i })).toHaveAttribute('href', '/escolas/abc')
 })

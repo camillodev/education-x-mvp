@@ -74,7 +74,7 @@ export default function EscolasPage() {
         </div>
       </div>
 
-      <div className="mb-4 max-w-xs">
+      <div className="mb-4 flex justify-end">
         <Segmented
           aria-label="Filtrar por status"
           options={[

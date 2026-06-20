@@ -79,39 +79,27 @@ export default function OnboardingPage() {
   const isSubmittingOrSuccess = state.status === 'submitting' || state.status === 'success'
 
   return (
-    <div className="min-h-screen bg-[var(--color-surface)] flex flex-col">
-      {/* Header */}
-      <header className="bg-white border-b border-[var(--color-border)] px-4 py-4">
-        <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <div
-            className="h-8 w-8 rounded-md flex items-center justify-center text-white text-sm font-bold"
-            style={{ background: 'var(--color-primary)' }}
-          >
-            IX
-          </div>
-          <span className="font-semibold text-[var(--color-text)]">Education X</span>
-        </div>
-      </header>
+    <div className="flex flex-col">
+      {/* Cabeçalho do fluxo: título + stepper horizontal no topo.
+          A navegação principal (sidebar) vem do AdminShell — aqui só o progresso. */}
+      <div className="mb-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-subtle)]">
+          Onboarding de escola
+        </p>
+        <h1 className="text-2xl font-bold text-[var(--color-text)]">Nova escola</h1>
+      </div>
 
-      {/* Main */}
-      <main className="flex-1 px-4 py-8">
-        <div className="mx-auto max-w-5xl">
+      <main className="flex-1">
+        <div className="mx-auto max-w-3xl">
           {!isSubmittingOrSuccess ? (
-            <div className="lg:grid lg:grid-cols-[240px_1fr] lg:gap-10">
-              {/* Stepper vertical sticky (desktop) */}
-              <aside className="hidden lg:block">
-                <div className="sticky top-8">
-                  <Stepper steps={STEPS} current={state.step} orientation="vertical" />
-                </div>
-              </aside>
-
-              {/* Stepper horizontal (mobile) */}
-              <div className="mb-6 lg:hidden">
+            <div className="flex flex-col">
+              {/* Stepper horizontal no topo (desktop e mobile) — a sidebar ocupa a lateral */}
+              <div className="mb-8 border-b border-[var(--color-border)] pb-6">
                 <Stepper steps={STEPS} current={state.step} orientation="horizontal" />
               </div>
 
-              {/* Conteúdo do passo — max-width contido */}
-              <div className="min-w-0 max-w-2xl">
+              {/* Conteúdo do passo */}
+              <div className="min-w-0">
                 {state.step === 1 && (
                   <StepDados dados={state.dados} onChange={setDados} />
                 )}
@@ -161,8 +149,8 @@ export default function OnboardingPage() {
                   </div>
                 )}
 
-                {/* Nav desktop */}
-                <div className="mt-6 hidden lg:flex justify-between">
+                {/* Navegação do wizard */}
+                <div className="mt-6 flex justify-between">
                   <button
                     type="button"
                     onClick={handleBack}
@@ -201,32 +189,6 @@ export default function OnboardingPage() {
           )}
         </div>
       </main>
-
-      {/* Nav mobile sticky */}
-      {!isSubmittingOrSuccess && (
-        <div className="sticky bottom-0 bg-white border-t border-[var(--color-border)] px-4 py-3 flex justify-between lg:hidden">
-          <button
-            type="button"
-            onClick={handleBack}
-            disabled={state.step === 1}
-            className="px-4 py-2 text-sm text-[var(--color-text-subtle)] hover:text-[var(--color-text)] disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
-          >
-            ← Voltar
-          </button>
-
-          {state.step < 4 && (
-            <button
-              type="button"
-              onClick={handleNext}
-              disabled={!canProceed(state.step)}
-              className="rounded-md px-6 py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ background: 'var(--color-primary)' }}
-            >
-              Próximo →
-            </button>
-          )}
-        </div>
-      )}
     </div>
   )
 }

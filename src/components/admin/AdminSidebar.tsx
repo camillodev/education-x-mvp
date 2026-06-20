@@ -3,12 +3,15 @@
 import Link from 'next/link'
 import type { Route } from 'next'
 import { usePathname } from 'next/navigation'
-import { School } from 'lucide-react'
+import { School, PlusCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type NavItem = { href: Route; label: string; icon: typeof School }
 
-const NAV: NavItem[] = [{ href: '/escolas', label: 'Escolas', icon: School }]
+const NAV: NavItem[] = [
+  { href: '/escolas', label: 'Escolas', icon: School },
+  { href: '/onboarding', label: 'Nova escola', icon: PlusCircle },
+]
 
 export function AdminSidebar() {
   const pathname = usePathname()
@@ -25,7 +28,7 @@ export function AdminSidebar() {
       </div>
       <nav className="flex flex-col gap-1">
         {NAV.map(({ href, label, icon: Icon }) => {
-          const active = pathname.startsWith(href)
+          const active = pathname === href || pathname.startsWith(`${href}/`)
           return (
             <Link
               key={href}
