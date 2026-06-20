@@ -30,7 +30,7 @@ export function Segmented<T extends string>({
 }: SegmentedProps<T>) {
   return (
     <div
-      role="tablist"
+      role="radiogroup"
       className={cn("flex border-b border-(--color-border)", className)}
       {...props}
     >
@@ -40,8 +40,8 @@ export function Segmented<T extends string>({
           <button
             key={opt.value}
             type="button"
-            role="tab"
-            aria-selected={active}
+            role="radio"
+            aria-checked={active}
             disabled={disabled}
             onClick={() => !disabled && onChange(opt.value)}
             className={cn(
