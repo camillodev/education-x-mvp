@@ -40,8 +40,8 @@ export function SchoolsTable({ schools }: { schools: SchoolListItem[] }) {
               </Badge>
             </TableCell>
             <TableCell className="text-right">
-              <Link href={`/escolas/${s.id}` as Route} className="font-medium text-[var(--color-primary)] hover:underline">
-                Abrir ›
+              <Link href={`/escolas/${s.id}/editar` as Route} className="font-medium text-[var(--color-primary)] hover:underline">
+                Editar ›
               </Link>
             </TableCell>
           </TableRow>

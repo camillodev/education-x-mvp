@@ -21,6 +21,8 @@ interface Props {
   revealed: boolean
   /** Revela os campos manualmente (escape do CNPJ-first). */
   onRevealManual: () => void
+  /** Desabilita edição do CNPJ (modo edição de escola existente). */
+  cnpjDisabled?: boolean
 }
 
 /** Mapeia a situação cadastral do CNPJ para a variante do Badge. */
@@ -40,6 +42,7 @@ export function CardIdentidade({
   loadingCnpj,
   revealed,
   onRevealManual,
+  cnpjDisabled,
 }: Props) {
   return (
     <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-white p-6 shadow-[var(--shadow-card)]">
@@ -62,6 +65,7 @@ export function CardIdentidade({
           inputMode="numeric"
           error={!!cnpjError}
           aria-required="true"
+          disabled={cnpjDisabled}
           leadingIcon={<Building2 size={18} />}
           trailing={
             loadingCnpj ? (

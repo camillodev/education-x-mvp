@@ -12,6 +12,8 @@ interface Props {
   respCpfError: string
   respEmailError: string
   respPhoneError: string
+  /** Desabilita edição do CPF (modo edição de escola existente). */
+  cpfDisabled?: boolean
 }
 
 export function CardResponsavel({
@@ -20,6 +22,7 @@ export function CardResponsavel({
   respCpfError,
   respEmailError,
   respPhoneError,
+  cpfDisabled,
 }: Props) {
   // Copia o contato da unidade pros campos do responsável.
   function duplicateUnitContact() {
@@ -80,6 +83,7 @@ export function CardResponsavel({
               inputMode="numeric"
               error={!!respCpfError}
               aria-required="true"
+              disabled={cpfDisabled}
             />
           </Field>
         </div>

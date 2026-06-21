@@ -1,18 +1,30 @@
 'use client'
 
-import type { OnboardingState } from '@/hooks/use-onboarding'
+import type { OnboardingState, DadosState, CobrancaState, PlanoState } from '@/hooks/use-onboarding'
+import type { SubjectInput } from '@/lib/validations/unit'
 import { formatBRL, maskCnpj } from '@/lib/format'
 import { getPlan } from '@/lib/data/plans'
 import { computeDiscountedCents } from '@/lib/pricing'
 
+// Aceita OnboardingState ou qualquer estado compatível (ex: EditEscolaState)
+type RevisaoCompatState = {
+  dados: DadosState
+  cobranca: CobrancaState
+  plano: PlanoState
+  subjects: SubjectInput[]
+  status: OnboardingState['status']
+  errorMsg?: string
+}
+
 interface Props {
-  state: OnboardingState
+  state: RevisaoCompatState
   onEditStep: (step: 1 | 2 | 3) => void
   onSubmit: () => void
   loadingSteps?: string[]
+  submitLabel?: string
 }
 
-export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props) {
+export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps, submitLabel }: Props) {
   const isSubmitting = state.status === 'submitting'
 
   if (state.status === 'success') {
@@ -262,7 +274,7 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps }: Props
         disabled={isSubmitting}
         className="w-full rounded-md bg-[var(--color-primary)] px-6 py-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
       >
-        {isSubmitting ? 'Cadastrando...' : 'Cadastrar e enviar confirmação'}
+        {isSubmitting ? 'Salvando...' : (submitLabel ?? 'Cadastrar e enviar confirmação')}
       </button>
     </div>
   )

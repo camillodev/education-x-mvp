@@ -13,15 +13,17 @@ import { CardResponsavel } from './CardResponsavel'
 interface Props {
   dados: DadosState
   onChange: (dados: Partial<DadosState>) => void
+  readOnly?: { cnpj?: boolean; responsibleCpf?: boolean }
 }
 
-export function StepDados({ dados, onChange }: Props) {
+export function StepDados({ dados, onChange, readOnly }: Props) {
   const [loadingCep, setLoadingCep] = useState(false)
   const [loadingCnpj, setLoadingCnpj] = useState(false)
   // CNPJ-first: começa escondendo os demais campos. Inicia revelado quando
-  // o usuário está editando um draft que já tem identidade preenchida.
+  // o usuário está editando um draft que já tem identidade preenchida,
+  // ou quando o campo CNPJ está em modo read-only (fluxo de edição).
   const [revealed, setRevealed] = useState(
-    () => Boolean(dados.legalName || dados.tradeName || dados.name)
+    () => readOnly?.cnpj === true || Boolean(dados.legalName || dados.tradeName || dados.name)
   )
   const { toast } = useToast()
 
@@ -35,10 +37,14 @@ export function StepDados({ dados, onChange }: Props) {
   const currentRef = useRef(dados)
   currentRef.current = dados
 
+  const cnpjReadOnly = readOnly?.cnpj ?? false
+
   // Autofill de CNPJ via BrasilAPI quando o CNPJ fica válido (14 díg + DV).
+  // Desabilitado no modo edição (readOnly.cnpj) — dados já chegam pré-preenchidos.
   // Best-effort: erro vai pro console + toast, nunca bloqueia o cadastro.
   useEffect(() => {
     const cnpj = dados.cnpj
+    if (cnpjReadOnly) return
     if (!isValidCnpj(cnpj) || lastLookedUp.current === cnpj) return
     lastLookedUp.current = cnpj
 
@@ -84,7 +90,7 @@ export function StepDados({ dados, onChange }: Props) {
       })
 
     return () => controller.abort()
-  }, [dados.cnpj])
+  }, [dados.cnpj, cnpjReadOnly])
 
   // Inline validation — only surfaced after the user typed something.
   const cnpjError = dados.cnpj.length > 0 && !isValidCnpj(dados.cnpj) ? 'CNPJ inválido' : ''
@@ -139,6 +145,7 @@ export function StepDados({ dados, onChange }: Props) {
         loadingCnpj={loadingCnpj}
         revealed={revealed}
         onRevealManual={() => setRevealed(true)}
+        cnpjDisabled={readOnly?.cnpj}
       />
 
       {/* Endereço e Responsável só aparecem depois do CNPJ-first revelar. */}
@@ -157,6 +164,7 @@ export function StepDados({ dados, onChange }: Props) {
             respCpfError={respCpfError}
             respEmailError={respEmailError}
             respPhoneError={respPhoneError}
+            cpfDisabled={readOnly?.responsibleCpf}
           />
         </div>
       )}
