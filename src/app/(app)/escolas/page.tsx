@@ -8,6 +8,7 @@ import { SchoolsTable } from '@/components/admin/SchoolsTable'
 import { Input } from '@/components/ui/input'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Segmented } from '@/components/ui/segmented'
+import { Chip } from '@/components/ui/Chip'
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 6
@@ -38,13 +39,14 @@ export default function EscolasPage() {
     <div className="mx-auto max-w-6xl">
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-subtle)]">Escolas conectadas</p>
-          <h1 className="text-2xl font-bold text-[var(--color-text)]">Gestão de escolas</h1>
-          <p className="text-sm text-[var(--color-text-subtle)]">Onboarde uma unidade e ela já cobra os pais dela no mesmo dia.</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-subtle)">Escolas conectadas</p>
+          <h1 className="text-2xl font-bold text-(--color-text)">Gestão de escolas</h1>
+          <p className="text-sm text-(--color-text-subtle)">Onboarde uma unidade e ela já cobra os pais dela no mesmo dia.</p>
         </div>
-        <Link href="/onboarding" className={cn(buttonVariants())}>+ Nova escola</Link>
+        <Link href="/onboarding" className={cn(buttonVariants(), 'gap-1')}>+ Nova escola</Link>
       </div>
 
+      {/* Busca + chips de franquia + tabs de status — todos na mesma linha */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Input
           value={query}
@@ -54,28 +56,17 @@ export default function EscolasPage() {
           leadingIcon={<Search className="h-4 w-4" />}
           className="max-w-sm"
         />
-        <div className="flex flex-wrap gap-2">
-          {franchises.map((f) => (
-            <button
-              key={f}
-              type="button"
-              aria-pressed={franchise === f}
-              onClick={() => { setFranchise(f); setPage(1) }}
-              className={cn(
-                'rounded-full border px-4 py-1.5 text-sm font-medium transition-colors',
-                franchise === f
-                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white'
-                  : 'border-[var(--color-border)] text-[var(--color-text-subtle)] hover:bg-[var(--color-primary-softer)]'
-              )}
-            >
-              {f === 'all' ? 'Todas as franquias' : f}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="mb-4 flex justify-end">
+        {franchises.map((f) => (
+          <Chip
+            key={f}
+            active={franchise === f}
+            onClick={() => { setFranchise(f); setPage(1) }}
+          >
+            {f === 'all' ? 'Todas as franquias' : f}
+          </Chip>
+        ))}
         <Segmented
+          className="ml-auto"
           aria-label="Filtrar por status"
           options={[
             { value: 'all', label: 'Todas' },
@@ -87,25 +78,51 @@ export default function EscolasPage() {
         />
       </div>
 
-      {loading && <p className="py-12 text-center text-[var(--color-text-subtle)]">Carregando escolas…</p>}
-      {error && <p className="py-12 text-center text-[var(--color-danger)]">{error}</p>}
+      {loading && <p className="py-12 text-center text-(--color-text-subtle)">Carregando escolas…</p>}
+      {error && <p className="py-12 text-center text-(--color-danger)">{error}</p>}
       {!loading && !error && filtered.length === 0 && (
-        <p className="py-12 text-center text-[var(--color-text-subtle)]">Nenhuma escola encontrada.</p>
+        <p className="py-12 text-center text-(--color-text-subtle)">Nenhuma escola encontrada.</p>
       )}
       {!loading && !error && filtered.length > 0 && (
         <>
           <SchoolsTable schools={pageItems} />
-          <div className="mt-4 flex items-center justify-between text-sm text-[var(--color-text-subtle)]">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-(--color-text-subtle)">
             <span>
               {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} de {filtered.length} escolas
             </span>
-            <div className="flex items-center gap-2">
-              <Button variant="tertiary" size="sm" disabled={safePage <= 1} onClick={() => setPage((p) => p - 1)}>
-                ‹ Anterior
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="tertiary"
+                size="sm"
+                iconLeft="chevron-left"
+                disabled={safePage <= 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                Anterior
               </Button>
-              <span>{safePage} / {totalPages}</span>
-              <Button variant="tertiary" size="sm" disabled={safePage >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                Próxima ›
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setPage(i + 1)}
+                  className="h-[34px] w-[34px] cursor-pointer rounded-[9px] font-semibold text-[13.5px] transition-colors"
+                  style={{
+                    border: `1px solid ${i + 1 === safePage ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                    background: i + 1 === safePage ? 'var(--color-primary)' : 'var(--color-bg)',
+                    color: i + 1 === safePage ? '#fff' : 'var(--color-text-muted)',
+                  }}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <Button
+                variant="tertiary"
+                size="sm"
+                iconRight="chevron-right"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Próxima
               </Button>
             </div>
           </div>
