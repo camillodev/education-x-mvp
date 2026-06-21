@@ -1,6 +1,6 @@
 # BACKLOG — Education X MVP
 
-> Backlog consolidado das specs 02–09 da Education X, fatiado em tasks de ≤400 linhas, cada uma com DoD binário (exit 0). Ordenado por **dependência de schema** (a cadeia de models manda), agrupado em 6 ondas. Cada task é um Task Contract independente, pronto pro board Multica → Claude Code.
+> Backlog consolidado das specs 02–11 da Education X, fatiado em tasks de ≤400 linhas, cada uma com DoD binário (exit 0). Ordenado por **dependência de schema** (a cadeia de models manda), agrupado em 7 ondas. Cada task é um Task Contract independente, pronto pro board Multica → Claude Code.
 
 ---
 
@@ -11,6 +11,7 @@
 - **[EDX-DEC-03] Fluxo manual — dupla aprovação** — `P1`. **DECIDIDO.** Fluxo manual usa **dupla aprovação**: orientador cadastra → Enrollment fica `PENDING_CONFIRMATION` → responsável recebe link por email → revisa e edita apenas dados pessoais (nome/CPF/email/telefone do responsável + nome/data de nascimento do aluno; matéria/plano/valor travados) → aceita termos → status passa a `AWAITING_SCHOOL_APPROVAL` → escola aprova → `ACTIVE`. A edição do responsável sobrescreve o que o orientador digitou nos dados pessoais. **Não é PENDING como default genérico — é fluxo de dupla aprovação intencional.**
 - **[EDX-DEC-04] NFS-e via proxy ou redirect direto do Asaas (spec 04/07)** — `P2`. A URL do PDF/XML do Asaas é exposta ao cliente ou proxificada pelo servidor? Recomendação: proxy com validação de sessão. Rafa decide se vale o custo.
 - **[EDX-DEC-05] Re-auth Clerk para ações fiscais/sensíveis (spec 09 / P-04)** — `P2`. Hoje **SKIP** (Admin já logado). Revisitar se Rafa exigir 2FA pra editar dados bancários/fiscais.
+- **[EDX-DEC-06] Módulo financeiro completo (contas a pagar + fluxo de caixa)** — `P1`. **DECIDIDO.** Specs 10 e 11 fecham o gap de paridade com a Sponte que os planos Business/Cofounder prometem. Escopo: contas a pagar **manual** (EdX nunca movimenta dinheiro de terceiros — franqueado paga por fora e marca como pago), fluxo de caixa **on-the-fly** (não persistido), categorias **flat** (não chart contábil), seed Kumon. **DRE e bill-pay Asaas ficam no roadmap** (a própria Sponte só tem DRE no roadmap). Regra de corretude do fluxo de caixa: **nunca somar itens PAID na projeção** (já estão no saldo Asaas — somar dobra o valor). `categoryId` opcional em Invoice (consistente com EDX-DEC-02: spec 02 é dona do Enrollment; este campo é aditivo, não-breaking). Bill-pay via Asaas documentado como roadmap com os 4 riscos mapeados (responsabilidade regulatória BCB, dinheiro fora do Asaas, compliance IP, dor real = visibilidade) — reavaliar só se cliente com >10 unidades pedir.
 
 ---
 
@@ -64,6 +65,15 @@
 | EDX-44 | 5 | Importação CSV (upload, validação, import atômico) | P1 | EDX-42, EDX-01 |
 | EDX-45 | 5 | Settings abas Dados e Taxas | P1 | EDX-42 |
 | EDX-46 | 5 | Config firstChargeMode na UI de Settings | P1 | EDX-45, EDX-08 |
+| EDX-47 | 6 | Schema: FinancialCategory + Supplier + Payable + seed Kumon | P0 | EDX-01 |
+| EDX-48 | 6 | Services: Payable + FinancialCategory + Supplier | P1 | EDX-47 |
+| EDX-49 | 6 | API routes: payables + categories + suppliers | P1 | EDX-48 |
+| EDX-50 | 6 | UI: contas a pagar (lista + form + modais) | P1 | EDX-49 |
+| EDX-51 | 6 | Migration: Invoice.categoryId + índices cashflow | P0 | EDX-08, EDX-47 |
+| EDX-52 | 6 | CashflowService: projeção on-the-fly + relatório mensal | P1 | EDX-47, EDX-08 |
+| EDX-53 | 6 | API + UI: card de fluxo de caixa no painel | P1 | EDX-52, EDX-51 |
+
+> **Onda 6 (financeiro completo) depende da Onda 2** (Invoice/Payment, EDX-08) pra projeção de entradas, mas o lado **contas a pagar (EDX-47 a EDX-50) só depende de EDX-01** (Unit existe) — pode ser implementado em paralelo às ondas 3-5. O fluxo de caixa (EDX-51 a EDX-53) precisa de Invoice (EDX-08) + Payable (EDX-47).
 
 ---
 
@@ -763,8 +773,109 @@
 
 ---
 
+## Onda 6 — Financeiro completo (contas a pagar + fluxo de caixa)
+
+> Specs 10 e 11. Fecham a paridade financeira com a Sponte prometida nos planos Business/Cofounder. Contas a pagar (EDX-47 a EDX-50) é independente das ondas 3-5 — só precisa de Unit (EDX-01). Fluxo de caixa (EDX-51 a EDX-53) precisa de Invoice (EDX-08) + Payable (EDX-47).
+
+### EDX-47 · Schema: FinancialCategory + Supplier + Payable + seed Kumon
+- **Spec 10 / Fatia 1 · P0 · Depende de: EDX-01**
+- **Objetivo:** Criar os 3 models do módulo de contas a pagar + 2 enums + seed de categorias Kumon no onboarding.
+- **Scope:**
+  - enum `CategoryKind` (RECEITA, DESPESA)
+  - enum `PayableStatus` (PENDING, PAID, OVERDUE, CANCELLED)
+  - model `FinancialCategory` (id, unitId, name, kind, isSystem, isActive, relations) — `@@index([unitId, kind])`
+  - model `Supplier` (id, unitId, name, documentEnc?, relations) — `@@index([unitId])`
+  - model `Payable` (id, unitId, supplierId?, categoryId, description, amountCents, dueDate, status, paidAt?, paidAmountCents?, referenceMonth?, isRecurring, notes?, relations) — índices `[unitId,status]`, `[unitId,dueDate]`, `[unitId,categoryId]`, `[unitId,referenceMonth]`
+  - relations em `Unit`: financialCategories, suppliers, payables
+  - `src/lib/seeds/financial-categories.ts` — array `KUMON_DEFAULT_CATEGORIES` (8 categorias DESPESA) + `seedDefaultCategories(unitId)`, invocado no `createUnit` (spec 01)
+  - Registrar `FinancialCategory`, `Supplier`, `Payable` em `TENANT_MODELS` (`src/lib/db.ts`)
+- **Not-Included:** services, API routes, UI, integração Asaas
+- **DoD-comando:** `pnpm prisma migrate dev --name add-payables && pnpm prisma generate && pnpm typecheck`
+- **TDD (RED primeiro):** typecheck passa; criar Unit nova → 8 categorias `isSystem=true kind=DESPESA` existem.
+- **Decisões adotadas:** `supplierId` nullable (não forçar fornecedor — EDX-DEC-06). Categorias flat. Seed só DESPESA (receita já vem de Invoice). Sem Asaas (registro manual).
+- **Arquivos-alvo:** `prisma/schema.prisma`, `prisma/migrations/<ts>_add_payables`, `src/lib/seeds/financial-categories.ts`, `src/lib/db.ts`, ponto de chamada do `createUnit`
+
+### EDX-48 · Services: Payable + FinancialCategory + Supplier
+- **Spec 10 / Fatia 2 · P1 · Depende de: EDX-47**
+- **Objetivo:** CRUD dos 3 services com guard de `unitId`, OVERDUE on-read, transição "marcar como pago".
+- **Scope:**
+  - `payable.service.ts`: createPayable (valida categoryId, supplierId opcional, amountCents>0), listPayables (filtros status/categoryId/dateRange/referenceMonth, OVERDUE on-read), markAsPaid (guard status → PAID + paidAt + paidAmountCents), cancelPayable (guard status → CANCELLED)
+  - `financial-category.service.ts`: listCategories (ativas), createCategory, deactivateCategory (guard `isSystem=true` rejeita)
+  - `supplier.service.ts`: listSuppliers, createSupplier (criptografa documentEnc)
+  - testes unitários `payable.service.test.ts`, `financial-category.service.test.ts`
+- **Not-Included:** API routes, UI
+- **DoD-comando:** `pnpm test:run src/lib/services/payable.service.test.ts src/lib/services/financial-category.service.test.ts`
+- **TDD (RED primeiro):** marcar PENDING como pago → status PAID, paidAt setado; tentar pagar PAID → 409; deletar categoria isSystem → rejeitado.
+- **Decisões adotadas:** OVERDUE on-read no MVP (job cron se volume crescer). `paidAmountCents` pode diferir de `amountCents` (desconto/multa). Sem log de auditoria (updatedAt basta).
+- **Arquivos-alvo:** `src/lib/services/payable.service.ts`, `financial-category.service.ts`, `supplier.service.ts`, testes
+
+### EDX-49 · API routes: payables + categories + suppliers
+- **Spec 10 / Fatia 3 · P1 · Depende de: EDX-48**
+- **Objetivo:** Endpoints REST com Clerk auth + guard unitId + Zod.
+- **Scope:**
+  - `api/payables/route.ts` (GET filtros + POST), `api/payables/[id]/route.ts` (GET + PATCH pay/cancel + DELETE soft via CANCELLED)
+  - `api/financial-categories/route.ts` (GET por kind + POST), `[id]/route.ts` (PATCH, guard isSystem)
+  - `api/suppliers/route.ts` (GET + POST), `[id]/route.ts` (GET + PATCH)
+  - guard `unitId` → 404 se tenant divergir (não 403, não vazar existência)
+- **Not-Included:** UI, E2E
+- **DoD-comando:** `pnpm typecheck && pnpm test:run src/app/api/payables src/app/api/financial-categories src/app/api/suppliers`
+- **Decisões adotadas:** unitId sempre de auth(), nunca do body. Zod nos bodies.
+- **Arquivos-alvo:** rotas acima
+
+### EDX-50 · UI: contas a pagar (lista + form + modais)
+- **Spec 10 / Fatia 4 · P1 · Depende de: EDX-49**
+- **Objetivo:** Tela de contas a pagar com lista filtrada, form de criação, modal de pagamento, cadastro inline de fornecedor.
+- **Scope:**
+  - `(app)/financeiro/contas-pagar/page.tsx` + componentes PayableTable, PayableFilters, PayableForm, PayModal, SupplierInlineForm
+  - badges: PENDING=cinza, OVERDUE=vermelho, PAID=verde, CANCELLED=riscado
+  - responsivo 375/768/1440, Alfabeto DS
+- **Not-Included:** tela de config de categorias (futura), integração spec 11
+- **DoD-comando:** `pnpm typecheck && pnpm dlx playwright test contas-pagar --reporter=line`
+- **TDD (RED primeiro):** criar despesa sem fornecedor → PENDING; marcar pago → PAID; filtrar por OVERDUE só mostra vencidas.
+- **Arquivos-alvo:** componentes acima, `tests/e2e/contas-pagar.spec.ts`
+
+### EDX-51 · Migration: Invoice.categoryId + índices cashflow
+- **Spec 11 / Fatia 2 · P0 · Depende de: EDX-08, EDX-47**
+- **Objetivo:** Adicionar `categoryId` opcional em Invoice (relatório por categoria) + índices de projeção.
+- **Scope:**
+  - `Invoice.categoryId String?` + relação `FinancialCategory?` (aditivo, não-breaking; null → "Sem categoria")
+  - `@@index([unitId, status, dueDate])` em Invoice e Payable (se não existir)
+  - `@@index([unitId, categoryId])` em Payable
+  - migration `add-invoice-category-cashflow-indexes`
+- **Not-Included:** service, UI, API
+- **DoD-comando:** `pnpm prisma migrate dev --name add-invoice-category-cashflow-indexes && pnpm prisma generate && pnpm typecheck`
+- **Decisões adotadas:** categoryId opcional por design (escola pode não categorizar). Consistente com EDX-DEC-02 (spec 02 dona do Enrollment; campo de Invoice é aditivo).
+- **Arquivos-alvo:** `prisma/schema.prisma`, migration
+
+### EDX-52 · CashflowService: projeção on-the-fly + relatório mensal
+- **Spec 11 / Fatia 1 · P1 · Depende de: EDX-47, EDX-08**
+- **Objetivo:** Service de fluxo de caixa com projeção e relatório por categoria. Testes cobrem a regra crítica.
+- **Scope:**
+  - `cashflow.service.ts`: getProjection(unitId, horizonDays) → `{ balanceCents, days: [{date, incomeCents, outcomeCents, projectedBalanceCents}] }` (chama getBalance + 2 queries Invoice/Payable PENDING/OVERDUE; Asaas falha → balanceCents null + projeção relativa); getMonthlyReport(unitId, referenceMonth) → categorias + totais
+  - cache em memória TTL 60s do balanceCents (rate limit Asaas)
+  - `cashflow.service.test.ts` — provas obrigatórias: **Invoice PAID NÃO entra na projeção**, **Payable PAID NÃO entra**, `saldo_N = balance + entradas_até_N - saídas_até_N`, isolamento unitId, Asaas indisponível → projeção relativa, mês vazio → zeros, categoryId null → "Sem categoria"
+- **Not-Included:** API, UI, migration (EDX-51)
+- **DoD-comando:** `pnpm test:run src/lib/services/cashflow.service.test.ts`
+- **Decisões adotadas:** on-the-fly sem persistência. **Nunca somar PAID** (regra crítica EDX-DEC-06). Saldo âncora só do Asaas. netAmountCents nas entradas. DailyBalanceSnapshot é roadmap.
+- **Arquivos-alvo:** `src/lib/services/cashflow.service.ts`, teste
+
+### EDX-53 · API + UI: card de fluxo de caixa no painel
+- **Spec 11 / Fatia 3 · P1 · Depende de: EDX-52, EDX-51**
+- **Objetivo:** Expor projeção via rota e renderizar o card de fluxo de caixa integrado ao painel (spec 06).
+- **Scope:**
+  - `api/cashflow/projection/route.ts` (GET horizon 30/60/90), `api/cashflow/monthly-report/route.ts` (GET month YYYY-MM)
+  - card no painel: saldo atual em destaque, seletor de horizonte, gráfico de linha (entradas/saídas/saldo projetado), tabela de movimentos futuros, relatório mensal por categoria
+  - componentes CashflowCard, CashflowChart, MovementTable, MonthlyReportTable; mesma lib de gráfico da spec 06
+  - aviso inline se saldo Asaas indisponível; alerta se saldo projetado negativo
+  - responsivo 375/768/1440, Alfabeto DS
+- **Not-Included:** exportação CSV, DailyBalanceSnapshot, join pesado Enrollment/Subject (usar Invoice.description)
+- **DoD-comando:** `pnpm typecheck && pnpm test:run src/components/cashflow`
+- **Arquivos-alvo:** rotas acima, `(app)/painel/caixa/` ou sub-aba do painel, componentes
+
+---
+
 ## Lembretes operacionais
 
-- **TENANT_MODELS (sem RLS):** todo model novo tenant-scoped (com `unitId`) **precisa ser registrado em `src/lib/db.ts` → `TENANT_MODELS`**. Não há RLS no Postgres — o isolamento de tenant é garantido em código. Models afetados nesta backlog: `Student`, `Enrollment`, `Invoice`, `Payment`, `Dunning`, `NfseConfig`, `CardToken`, `PortalSession`, `BankAccount`, `Transfer`, `Anticipation`, `PlatformInvoice`, `ImportJob`. Confirmar a entrada em `TENANT_MODELS` no DoD de cada task de schema.
+- **TENANT_MODELS (sem RLS):** todo model novo tenant-scoped (com `unitId`) **precisa ser registrado em `src/lib/db.ts` → `TENANT_MODELS`**. Não há RLS no Postgres — o isolamento de tenant é garantido em código. Models afetados nesta backlog: `Student`, `Enrollment`, `Invoice`, `Payment`, `Dunning`, `NfseConfig`, `CardToken`, `PortalSession`, `BankAccount`, `Transfer`, `Anticipation`, `PlatformInvoice`, `ImportJob`, `FinancialCategory`, `Supplier`, `Payable`. Confirmar a entrada em `TENANT_MODELS` no DoD de cada task de schema.
 - **Webhook Asaas é endpoint único:** `src/app/api/webhooks/asaas/route.ts` (criado em EDX-07) é estendido por EDX-11, EDX-15, EDX-16, EDX-22, EDX-41 e EDX-42. Não criar receivers paralelos — adicionar `case` ao switch.
 - **Primeiro ticket sugerido pro smoke Multica → Claude Code:** **EDX-02** (E2E do onboarding — spec 01 já implementada, Playwright vazio). É o caminho mais curto pra validar o pipeline de ponta a ponta antes de encarar a cadeia de schema.
