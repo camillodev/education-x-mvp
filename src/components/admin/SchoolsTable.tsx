@@ -32,8 +32,8 @@ export function SchoolsTable({ schools }: { schools: SchoolListItem[] }) {
             </Badge>
           </Td>
           <Td align="right">
-            <Link href={`/escolas/${s.id}/editar` as Route} className="font-medium text-(--color-primary) hover:underline">
-              Editar ›
+            <Link href={`/escolas/${s.id}` as Route} className="font-medium text-(--color-primary) hover:underline">
+              Abrir
             </Link>
           </Td>
         </TrHover>
