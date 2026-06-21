@@ -14,7 +14,7 @@ export default function Home() {
         <Link href="/escolas" className={buttonVariants()}>
           Gestão de escolas
         </Link>
-        <Link href="/onboarding" className={buttonVariants({ variant: "outline" })}>
+        <Link href="/onboarding" className={buttonVariants({ variant: "secondary" })}>
           Nova escola
         </Link>
       </div>

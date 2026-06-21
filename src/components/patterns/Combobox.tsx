@@ -60,7 +60,7 @@ export function Combobox({
         <Button
           id={id}
           type="button"
-          variant="outline"
+          variant="secondary"
           role="combobox"
           aria-expanded={open}
           className="mt-1 w-full justify-between font-normal"

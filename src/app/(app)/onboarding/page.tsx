@@ -8,6 +8,8 @@ import { StepFinanceiro } from '@/components/onboarding/StepFinanceiro'
 import { StepDocumentos } from '@/components/onboarding/StepDocumentos'
 import { StepRevisao } from '@/components/onboarding/StepRevisao'
 import { useToast } from '@/components/ui/toast'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/Card'
 
 const STEPS = [
   { label: 'Dados da escola', description: 'Identidade, endereço e responsável' },
@@ -57,8 +59,6 @@ export default function OnboardingPage() {
     }
   }, [state.status, state.errorMsg, toast])
 
-  // Ao trocar de passo, volta ao topo — senão o usuário fica no fim da página
-  // anterior e parece que a etapa "começou do final".
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [state.step])
@@ -80,25 +80,21 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex flex-col">
-      {/* Cabeçalho do fluxo: título + stepper horizontal no topo.
-          A navegação principal (sidebar) vem do AdminShell — aqui só o progresso. */}
       <div className="mb-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-subtle)]">
+        <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-subtle)">
           Onboarding de escola
         </p>
-        <h1 className="text-2xl font-bold text-[var(--color-text)]">Nova escola</h1>
+        <h1 className="text-2xl font-bold text-(--color-text)">Nova escola</h1>
       </div>
 
       <main className="flex-1">
         <div className="mx-auto max-w-3xl">
           {!isSubmittingOrSuccess ? (
             <div className="flex flex-col">
-              {/* Stepper horizontal no topo (desktop e mobile) — a sidebar ocupa a lateral */}
-              <div className="mb-8 border-b border-[var(--color-border)] pb-6">
+              <div className="mb-8 border-b border-(--color-border) pb-6">
                 <Stepper steps={STEPS} current={state.step} orientation="horizontal" />
               </div>
 
-              {/* Conteúdo do passo */}
               <div className="min-w-0">
                 {state.step === 1 && (
                   <StepDados dados={state.dados} onChange={setDados} />
@@ -117,9 +113,9 @@ export default function OnboardingPage() {
                   <div className="space-y-6">
                     <div>
                       <p className="label">PASSO 3 DE 4</p>
-                      <h1 className="text-2xl font-semibold text-[var(--color-text)]">Matérias</h1>
+                      <h1 className="text-2xl font-semibold text-(--color-text)">Matérias</h1>
                     </div>
-                    <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-white p-6 shadow-[var(--shadow-card)]">
+                    <Card className="p-6">
                       <div className="label mb-4">MATÉRIAS</div>
                       <StepDocumentos
                         subjects={state.subjects}
@@ -127,7 +123,7 @@ export default function OnboardingPage() {
                         onRemoveSubject={removeSubject}
                         onUpdateSubject={updateSubject}
                       />
-                    </div>
+                    </Card>
                   </div>
                 )}
 
@@ -135,9 +131,9 @@ export default function OnboardingPage() {
                   <div className="space-y-6">
                     <div>
                       <p className="label">PASSO 4 DE 4</p>
-                      <h1 className="text-2xl font-semibold text-[var(--color-text)]">Revisão e envio</h1>
+                      <h1 className="text-2xl font-semibold text-(--color-text)">Revisão e envio</h1>
                     </div>
-                    <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-white p-6 shadow-[var(--shadow-card)]">
+                    <Card className="p-6">
                       <div className="label mb-4">REVISÃO</div>
                       <StepRevisao
                         state={state}
@@ -145,46 +141,48 @@ export default function OnboardingPage() {
                         onSubmit={submit}
                         loadingSteps={activeLoadingSteps}
                       />
-                    </div>
+                    </Card>
                   </div>
                 )}
 
                 {/* Navegação do wizard */}
                 <div className="mt-6 flex justify-between">
-                  <button
+                  <Button
                     type="button"
+                    variant="tertiary"
+                    size="sm"
                     onClick={handleBack}
                     disabled={state.step === 1}
-                    className="px-4 py-2 text-sm text-[var(--color-text-subtle)] hover:text-[var(--color-text)] disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
+                    iconLeft="arrow-left"
                   >
-                    ← Voltar
-                  </button>
+                    Voltar
+                  </Button>
 
                   {state.step < 4 && (
-                    <button
+                    <Button
                       type="button"
+                      variant="primary"
+                      size="md"
                       onClick={handleNext}
                       disabled={!canProceed(state.step)}
-                      className="rounded-md px-6 py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-                      style={{ background: 'var(--color-primary)' }}
+                      iconRight="arrow-right"
                     >
-                      Próximo →
-                    </button>
+                      Próximo
+                    </Button>
                   )}
                 </div>
               </div>
             </div>
           ) : (
-            /* Estado de submitting/success — centralizado */
             <div className="flex justify-center">
-              <div className="w-full max-w-2xl bg-white rounded-[var(--radius-lg)] border border-[var(--color-border)] shadow-[var(--shadow-card)] p-6">
+              <Card className="w-full max-w-2xl p-6">
                 <StepRevisao
                   state={state}
                   onEditStep={(s) => goToStep(s)}
                   onSubmit={submit}
                   loadingSteps={activeLoadingSteps}
                 />
-              </div>
+              </Card>
             </div>
           )}
         </div>

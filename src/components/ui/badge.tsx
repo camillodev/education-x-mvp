@@ -14,13 +14,12 @@ const variantClasses: Record<BadgeVariant, string> = {
   warning: "bg-[var(--badge-warning-bg)] text-[var(--badge-warning-fg)]",
   danger: "bg-[var(--badge-danger-bg)] text-[var(--badge-danger-fg)]",
   info: "bg-[var(--badge-info-bg)] text-[var(--badge-info-fg)]",
-  primary: "bg-[var(--color-primary-soft)] text-[var(--color-primary-hover)]",
+  primary: "bg-(--color-primary-soft) text-(--color-primary-hover)",
   neutral: "bg-[var(--badge-neutral-bg)] text-[var(--badge-neutral-fg)]",
 };
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
-  /** Shows a leading colored dot (same color as text). */
   dot?: boolean;
   size?: "sm" | "md";
 }
@@ -47,5 +46,36 @@ const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
   }
 );
 Badge.displayName = "Badge";
+
+// ── Status map ───────────────────────────────────────────────────────────────
+
+export const STATUS: Record<string, BadgeVariant> = {
+  ativa: "success",
+  ativo: "success",
+  aprovado: "success",
+  pago: "success",
+  inadimplente: "danger",
+  cancelado: "danger",
+  bloqueado: "danger",
+  inativo: "neutral",
+  pendente: "warning",
+  aguardando: "warning",
+  trial: "info",
+  gratuito: "info",
+};
+
+export interface StatusBadgeProps extends Omit<BadgeProps, "variant"> {
+  status: string;
+}
+
+export function StatusBadge({ status, children, ...props }: StatusBadgeProps) {
+  const key = status.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const variant: BadgeVariant = STATUS[key] ?? "neutral";
+  return (
+    <Badge variant={variant} dot {...props}>
+      {children ?? status}
+    </Badge>
+  );
+}
 
 export { Badge };
