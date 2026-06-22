@@ -24,7 +24,6 @@ const baseState = {
     isFranchise: false,
     franchiseParent: '',
     responsibleName: 'Maria Pimenta',
-    responsibleCpf: '11144477735',
     responsibleEmail: 'maria@escola.com',
     responsiblePhone: '31988887777',
   },
@@ -132,11 +131,6 @@ describe('canProceedFromStep', () => {
   it('step 3 invalid when no subjects', () => {
     const state = { ...baseState, subjects: [] }
     expect(canProceedFromStep(state, 3)).toBe(false)
-  })
-
-  it('step 1 invalid when responsible CPF is invalid', () => {
-    const state = { ...baseState, dados: { ...baseState.dados, responsibleCpf: '11144477700' } }
-    expect(canProceedFromStep(state, 1)).toBe(false)
   })
 
   it('step 1 invalid when responsible email is invalid', () => {

@@ -72,7 +72,6 @@ const baseInput = {
   isFranchise: true,
   franchiseParent: 'Kumon Brasil',
   responsibleName: 'Maria Pimenta',
-  responsibleCpf: '11144477735',
   responsibleEmail: 'maria@kumon.com',
   responsiblePhone: '31988887777',
   billing: {
@@ -151,17 +150,6 @@ describe('createSchool', () => {
         }),
       })
     )
-  })
-
-  it('criptografa o CPF do responsável (não persiste plaintext)', async () => {
-    const mp = prisma as unknown as MockPrisma
-    await createSchool(baseInput, BASE_URL)
-
-    const createCall = mp.unit.create.mock.calls[0][0]
-    const enc = createCall.data.responsibleCpfEnc
-    expect(enc).toBeDefined()
-    expect(enc).not.toContain('11144477735')
-    expect(await decrypt(enc)).toBe('11144477735')
   })
 
   it('gera token de confirmação e mantém status PENDING após Asaas', async () => {

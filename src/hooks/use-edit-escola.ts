@@ -1,8 +1,9 @@
 'use client'
 
-import { useReducer, useCallback, useEffect, useState } from 'react'
+import { useReducer, useCallback, useEffect, useState, useRef } from 'react'
+import { useToast } from '@/components/ui/toast'
 import type { SubjectUpdateInput } from '@/lib/validations/unit'
-import { isValidCnpj, isValidCpf, isValidBrMobile } from '@/lib/validations/br-documents'
+import { isValidCnpj, isValidBrMobile } from '@/lib/validations/br-documents'
 import { getPlan, type SchoolPlanId } from '@/lib/data/plans'
 import { computeDiscountedCents, parsePtBrNumber, type DiscountType } from '@/lib/pricing'
 import { mapSubmitError, type ApiErrorBody } from '@/lib/onboarding/submit-error'
@@ -25,6 +26,7 @@ export interface EditEscolaState {
   subjects: SubjectUpdateInput[]
   status: 'idle' | 'submitting' | 'success' | 'error'
   errorMsg?: string
+  lastSavedAt: Date | null
 }
 
 const emptyDados: DadosState = {
@@ -45,7 +47,6 @@ const emptyDados: DadosState = {
   isFranchise: false,
   franchiseParent: '',
   responsibleName: '',
-  responsibleCpf: '',
   responsibleEmail: '',
   responsiblePhone: '',
 }
@@ -75,6 +76,7 @@ const initialState: EditEscolaState = {
   plano: emptyPlano,
   subjects: [],
   status: 'idle',
+  lastSavedAt: null,
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -89,6 +91,7 @@ type Action =
   | { type: 'REMOVE_SUBJECT'; index: number }
   | { type: 'UPDATE_SUBJECT'; index: number; subject: Partial<SubjectUpdateInput> }
   | { type: 'SET_STATUS'; status: EditEscolaState['status']; errorMsg?: string }
+  | { type: 'SET_LAST_SAVED'; at: Date }
 
 function reducer(state: EditEscolaState, action: Action): EditEscolaState {
   switch (action.type) {
@@ -115,6 +118,8 @@ function reducer(state: EditEscolaState, action: Action): EditEscolaState {
       }
     case 'SET_STATUS':
       return { ...state, status: action.status, errorMsg: action.errorMsg }
+    case 'SET_LAST_SAVED':
+      return { ...state, lastSavedAt: action.at }
     default:
       return state
   }
@@ -136,7 +141,6 @@ function isDadosValid(state: EditEscolaState): boolean {
     d.city.length >= 2 &&
     d.state.length === 2 &&
     d.responsibleName.length >= 3 &&
-    isValidCpf(d.responsibleCpf) &&
     EMAIL_RE.test(d.responsibleEmail) &&
     isValidBrMobile(d.responsiblePhone)
   )
@@ -179,6 +183,9 @@ export function canProceedFromStep(state: EditEscolaState, step: number): boolea
 export function useEditEscola(unitId: string) {
   const [state, dispatch] = useReducer(reducer, initialState)
   const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
+  const stateRef = useRef(state)
+  stateRef.current = state
 
   useEffect(() => {
     if (!unitId) return
@@ -213,7 +220,6 @@ export function useEditEscola(unitId: string) {
             isFranchise: (u.isFranchise as boolean) ?? false,
             franchiseParent: (u.franchiseParent as string) ?? '',
             responsibleName: (u.responsibleName as string) ?? '',
-            responsibleCpf: (u.responsibleCpf as string) ?? '',
             responsibleEmail: (u.responsibleEmail as string) ?? '',
             responsiblePhone: (u.responsiblePhone as string) ?? '',
           },
@@ -243,6 +249,7 @@ export function useEditEscola(unitId: string) {
             isActive: (s.isActive as boolean) ?? true,
           })),
           status: 'idle',
+          lastSavedAt: null,
         }
         dispatch({ type: 'LOAD', state: loaded })
       })
@@ -312,7 +319,7 @@ export function useEditEscola(unitId: string) {
         : {}),
     }
 
-    // cnpj e responsibleCpf são imutáveis — nunca enviados no PATCH
+    // cnpj é imutável — nunca enviado no PATCH
     const payload = {
       name: state.dados.name,
       legalName: state.dados.legalName || undefined,
@@ -367,6 +374,72 @@ export function useEditEscola(unitId: string) {
     }
   }, [state, unitId])
 
+  const autoSave = useCallback(async () => {
+    const s = stateRef.current
+    if (!canProceedFromStep(s, s.step)) return
+    if (s.status === 'submitting') return
+
+    const plan = getPlan(s.plano.planId)!
+    const discountValueNum = parsePtBrNumber(s.plano.discountValue)
+    const planPayload = {
+      planId: s.plano.planId,
+      isBeta: s.plano.isBeta,
+      ...(s.plano.discountEnabled && discountValueNum > 0
+        ? s.plano.discountType === 'PERCENT'
+          ? { discountType: 'PERCENT' as const, discountValueBp: Math.round(Math.min(discountValueNum, 100) * 100) }
+          : { discountType: 'FIXED' as const, discountValueCents: Math.min(Math.round(discountValueNum * 100), plan.priceCents) }
+        : {}),
+    }
+
+    const payload = {
+      name: s.dados.name,
+      legalName: s.dados.legalName || undefined,
+      tradeName: s.dados.tradeName || undefined,
+      cnpjStatus: s.dados.cnpjStatus || undefined,
+      email: s.dados.email,
+      phone: s.dados.phone.replace(/\D/g, ''),
+      cep: s.dados.cep.replace(/\D/g, ''),
+      address: s.dados.address,
+      number: s.dados.number,
+      neighborhood: s.dados.neighborhood,
+      complement: s.dados.complement || undefined,
+      city: s.dados.city,
+      state: s.dados.state,
+      isFranchise: s.dados.isFranchise,
+      franchiseParent: s.dados.franchiseParent || undefined,
+      responsibleName: s.dados.responsibleName,
+      responsibleEmail: s.dados.responsibleEmail,
+      responsiblePhone: s.dados.responsiblePhone.replace(/\D/g, ''),
+      billing: {
+        dueDay: s.cobranca.dueDay,
+        closingDay: s.cobranca.closingDay,
+        lateFeePercent: s.cobranca.lateFeePercent,
+        monthlyInterestBp: s.cobranca.monthlyInterestBp,
+        cardFeePayer: s.cobranca.cardFeePayer,
+        negativacaoFeePayer: s.cobranca.negativacaoFeePayer,
+        municipalRegistration: s.cobranca.municipalRegistration,
+      },
+      plan: planPayload,
+      subjects: s.subjects,
+    }
+
+    try {
+      const res = await fetch(`/api/escolas/${unitId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (res.ok) {
+        dispatch({ type: 'SET_LAST_SAVED', at: new Date() })
+      } else {
+        const body = (await res.json().catch(() => null)) as ApiErrorBody | null
+        toast(mapSubmitError(res.status, body), 'error')
+      }
+    } catch {
+      toast(mapSubmitError(0, null), 'error')
+    }
+  }, [unitId, toast])
+
   return {
     state,
     loading,
@@ -378,6 +451,7 @@ export function useEditEscola(unitId: string) {
     removeSubject,
     updateSubject,
     submit,
+    autoSave,
     canProceed: (step: number) => canProceedFromStep(state, step),
   }
 }

@@ -40,6 +40,7 @@ export default function EditarEscolaPage() {
     removeSubject,
     updateSubject,
     submit,
+    autoSave,
     canProceed,
   } = useEditEscola(unitId)
 
@@ -75,15 +76,20 @@ export default function EditarEscolaPage() {
   }, [state.step])
 
   function handleNext() {
-    if (canProceed(state.step)) {
-      goToStep((state.step + 1) as 1 | 2 | 3 | 4)
-    }
+    void autoSave()
+    goToStep((state.step + 1) as 1 | 2 | 3 | 4)
   }
 
   function handleBack() {
     if (state.step > 1) {
+      void autoSave()
       goToStep((state.step - 1) as 1 | 2 | 3 | 4)
     }
+  }
+
+  function handleStepClick(step: number) {
+    void autoSave()
+    goToStep(step as 1 | 2 | 3 | 4)
   }
 
   const activeLoadingSteps = LOADING_STEPS.slice(0, loadingStepIdx + 1)
@@ -111,7 +117,14 @@ export default function EditarEscolaPage() {
         <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-subtle)">
           Editar escola
         </p>
-        <h1 className="text-2xl font-bold text-(--color-text)">{state.dados.name || 'Escola'}</h1>
+        <div className="flex items-baseline gap-4">
+          <h1 className="text-2xl font-bold text-(--color-text)">{state.dados.name || 'Escola'}</h1>
+          {state.lastSavedAt && (
+            <span className="text-xs text-(--color-text-subtle)">
+              Salvo às {state.lastSavedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+        </div>
       </div>
 
       <main className="flex-1">
@@ -119,7 +132,7 @@ export default function EditarEscolaPage() {
           {!isSubmittingOrSuccess ? (
             <div className="flex flex-col">
               <div className="mb-8 border-b border-[var(--color-border)] pb-6">
-                <Stepper steps={STEPS} current={state.step} orientation="horizontal" />
+                <Stepper steps={STEPS} current={state.step} orientation="horizontal" onStepClick={handleStepClick} />
               </div>
 
               <div className="min-w-0">
@@ -127,7 +140,7 @@ export default function EditarEscolaPage() {
                   <StepDados
                     dados={state.dados}
                     onChange={setDados}
-                    readOnly={{ cnpj: true, responsibleCpf: true }}
+                    readOnly={{ cnpj: true }}
                   />
                 )}
 
@@ -191,8 +204,7 @@ export default function EditarEscolaPage() {
                     <button
                       type="button"
                       onClick={handleNext}
-                      disabled={!canProceed(state.step)}
-                      className="rounded-md px-6 py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="rounded-md px-6 py-2 text-sm font-semibold text-white transition-opacity"
                       style={{ background: 'var(--color-primary)' }}
                     >
                       Próximo →

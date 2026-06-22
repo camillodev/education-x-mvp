@@ -12,9 +12,10 @@ interface StepperProps {
   steps: Step[]
   current: number
   orientation?: 'horizontal' | 'vertical'
+  onStepClick?: (step: number) => void
 }
 
-export function Stepper({ steps, current, orientation = 'horizontal' }: StepperProps) {
+export function Stepper({ steps, current, orientation = 'horizontal', onStepClick }: StepperProps) {
   const isVertical = orientation === 'vertical'
 
   return (
@@ -29,9 +30,14 @@ export function Stepper({ steps, current, orientation = 'horizontal' }: StepperP
             return (
               <li key={step.label}>
                 <div
+                  role={onStepClick ? 'button' : undefined}
+                  tabIndex={onStepClick ? 0 : undefined}
+                  onClick={onStepClick ? () => onStepClick(stepNum) : undefined}
+                  onKeyDown={onStepClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onStepClick(stepNum) } : undefined}
                   className={cn(
                     'flex items-start gap-3',
-                    isActive && 'rounded-lg bg-[var(--color-primary-softer)] px-3 py-2'
+                    isActive && 'rounded-lg bg-[var(--color-primary-softer)] px-3 py-2',
+                    onStepClick && 'cursor-pointer hover:opacity-80 transition-opacity'
                   )}
                 >
                   <div
@@ -87,7 +93,16 @@ export function Stepper({ steps, current, orientation = 'horizontal' }: StepperP
 
           return (
             <li key={step.label} className="flex flex-1 items-center">
-              <div className="flex flex-col items-center gap-1.5 flex-1">
+              <div
+                role={onStepClick ? 'button' : undefined}
+                tabIndex={onStepClick ? 0 : undefined}
+                onClick={onStepClick ? () => onStepClick(stepNum) : undefined}
+                onKeyDown={onStepClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onStepClick(stepNum) } : undefined}
+                className={cn(
+                  'flex flex-col items-center gap-1.5 flex-1',
+                  onStepClick && 'cursor-pointer hover:opacity-80 transition-opacity'
+                )}
+              >
                 <div
                   className={cn(
                     'flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-medium transition-colors',

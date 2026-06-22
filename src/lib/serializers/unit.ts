@@ -4,7 +4,6 @@
  */
 
 type SensitiveFields =
-  | 'responsibleCpfEnc'
   | 'asaasApiKeyEnc'
   | 'asaasWalletId'
   | 'asaasAccountId'
@@ -21,7 +20,6 @@ export function toSafeUnit<T extends Record<string, unknown>>(
   unit: T
 ): Omit<T, SensitiveFields> {
   const {
-    responsibleCpfEnc: _cpf,
     asaasApiKeyEnc: _key,
     asaasWalletId: _wallet,
     asaasAccountId: _account,

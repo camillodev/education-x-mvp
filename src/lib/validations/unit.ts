@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { isValidCnpj, isValidBrMobile, isValidCpf } from './br-documents'
+import { isValidCnpj, isValidBrMobile } from './br-documents'
 
 export const SubjectSchema = z.object({
   name: z.string().min(1, 'Nome da matéria obrigatório'),
@@ -63,10 +63,6 @@ export const CreateSchoolSchema = z.object({
   franchiseParent: z.string().optional(),
   // Responsável da unidade — recebe o e-mail de aceite dos termos
   responsibleName: z.string().min(3, 'Nome do responsável obrigatório'),
-  responsibleCpf: z
-    .string()
-    .regex(/^\d{11}$/, 'CPF deve ter 11 dígitos numéricos')
-    .refine(isValidCpf, 'CPF inválido (dígito verificador não confere)'),
   responsibleEmail: z.string().email('E-mail do responsável inválido'),
   responsiblePhone: z
     .string()
@@ -87,10 +83,10 @@ export const SubjectUpdateSchema = SubjectSchema.extend({
 })
 export type SubjectUpdateInput = z.infer<typeof SubjectUpdateSchema>
 
-// Update = Create SEM cnpj e responsibleCpf (read-only após criação), com subjects
-// editáveis (isActive). .strict() faz REJEITAR cnpj/responsibleCpf se vierem no body.
+// Update = Create SEM cnpj (read-only após criação), com subjects
+// editáveis (isActive). .strict() faz REJEITAR cnpj se vier no body.
 export const UpdateSchoolSchema = CreateSchoolSchema
-  .omit({ cnpj: true, responsibleCpf: true })
+  .omit({ cnpj: true })
   .extend({ subjects: z.array(SubjectUpdateSchema).min(1, 'Pelo menos 1 matéria obrigatória') })
   .strict()
 

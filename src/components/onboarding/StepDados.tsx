@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import type { DadosState } from '@/hooks/use-onboarding'
-import { isValidCnpj, isValidCpf, isValidBrMobile } from '@/lib/validations/br-documents'
+import { isValidCnpj, isValidBrMobile } from '@/lib/validations/br-documents'
 import { lookupCnpj, CnpjNotFoundError } from '@/lib/data/cnpj-lookup'
 import { useToast } from '@/components/ui/toast'
 import { EMAIL_RE } from './dados-masks'
@@ -13,7 +13,7 @@ import { CardResponsavel } from './CardResponsavel'
 interface Props {
   dados: DadosState
   onChange: (dados: Partial<DadosState>) => void
-  readOnly?: { cnpj?: boolean; responsibleCpf?: boolean }
+  readOnly?: { cnpj?: boolean }
 }
 
 export function StepDados({ dados, onChange, readOnly }: Props) {
@@ -96,8 +96,6 @@ export function StepDados({ dados, onChange, readOnly }: Props) {
   const cnpjError = dados.cnpj.length > 0 && !isValidCnpj(dados.cnpj) ? 'CNPJ inválido' : ''
   const emailError = dados.email.length > 0 && !EMAIL_RE.test(dados.email) ? 'E-mail inválido' : ''
   const phoneError = dados.phone.length > 0 && !isValidBrMobile(dados.phone) ? 'Celular inválido (DDD + 9 dígitos)' : ''
-  const respCpfError =
-    dados.responsibleCpf.length > 0 && !isValidCpf(dados.responsibleCpf) ? 'CPF inválido' : ''
   const respEmailError =
     dados.responsibleEmail.length > 0 && !EMAIL_RE.test(dados.responsibleEmail) ? 'E-mail inválido' : ''
   const respPhoneError =
@@ -161,10 +159,8 @@ export function StepDados({ dados, onChange, readOnly }: Props) {
           <CardResponsavel
             dados={dados}
             onChange={onChange}
-            respCpfError={respCpfError}
             respEmailError={respEmailError}
             respPhoneError={respPhoneError}
-            cpfDisabled={readOnly?.responsibleCpf}
           />
         </div>
       )}

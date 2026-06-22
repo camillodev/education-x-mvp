@@ -64,8 +64,7 @@ export async function createSchool(
     throw new InvalidPlanError()
   }
 
-  // 3. Criptografar PII do responsável (CPF) + gerar token de confirmação
-  const responsibleCpfEnc = await encrypt(data.responsibleCpf)
+  // 3. Gerar token de confirmação
   const confirmationToken = randomUUID()
   const confirmationTokenExpiresAt = new Date(Date.now() + CONFIRMATION_TTL_MS)
 
@@ -90,7 +89,6 @@ export async function createSchool(
         isFranchise: data.isFranchise,
         franchiseParent: data.franchiseParent,
         responsibleName: data.responsibleName,
-        responsibleCpfEnc,
         responsibleEmail: data.responsibleEmail,
         responsiblePhone: data.responsiblePhone,
         confirmationToken,
@@ -178,7 +176,7 @@ export async function createSchool(
 
 /**
  * Atualiza uma escola existente (admin). Edita Unit + BillingConfig + Subjects
- * numa transação atômica. NÃO toca cnpj, responsibleCpfEnc, Asaas, status nem e-mail —
+ * numa transação atômica. NÃO toca cnpj, Asaas, status nem e-mail —
  * são imutáveis/fora do escopo desta operação. Matérias usam delete-all + create
  * (mesmo padrão do create), então a lista enviada é a verdade final.
  */

@@ -35,7 +35,6 @@ const emptyDados: DadosState = {
   isFranchise: false,
   franchiseParent: '',
   responsibleName: '',
-  responsibleCpf: '',
   responsibleEmail: '',
   responsiblePhone: '',
 }

@@ -1,6 +1,5 @@
 import { describe, it, expect, afterEach, afterAll } from 'vitest'
 import { prisma } from '@/lib/db'
-import { encrypt } from '@/lib/crypto'
 import { updateSchool, UnitNotFoundError } from '@/lib/services/onboarding.service'
 import { cleanupUnits, TEST_PREFIX } from './_setup'
 import type { UpdateSchoolInput } from '@/lib/validations/unit'
@@ -10,7 +9,6 @@ afterAll(() => cleanupUnits())
 
 // Cria uma Unit completa (Unit + BillingConfig + 1 Subject) direto no banco.
 async function seedUnit(suffix = 'a') {
-  const cpfEnc = await encrypt('12345678909')
   return prisma.unit.create({
     data: {
       name: `${TEST_PREFIX} Escola ${suffix}`,
@@ -18,7 +16,7 @@ async function seedUnit(suffix = 'a') {
       email: 'old@e.com', phone: '31999990000', cep: '30000000',
       address: 'Rua Velha', number: '1', neighborhood: 'Centro',
       city: 'BH', state: 'MG', isFranchise: false,
-      responsibleName: 'Antigo', responsibleCpfEnc: cpfEnc,
+      responsibleName: 'Antigo',
       responsibleEmail: 'old@r.com', responsiblePhone: '31988880000',
       status: 'ACTIVE',
       billingConfig: { create: {
@@ -61,13 +59,12 @@ describe('updateSchool (integração — banco real)', () => {
     expect(reloaded.subjects[0].name).toBe('Matemática')
   })
 
-  it('não altera cnpj nem responsibleCpfEnc', async () => {
+  it('não altera cnpj', async () => {
     const unit = await seedUnit()
     const before = await prisma.unit.findUniqueOrThrow({ where: { id: unit.id } })
     await updateSchool(unit.id, validInput())
     const after = await prisma.unit.findUniqueOrThrow({ where: { id: unit.id } })
     expect(after.cnpj).toBe(before.cnpj)
-    expect(after.responsibleCpfEnc).toBe(before.responsibleCpfEnc)
   })
 
   it('lança UnitNotFoundError se a Unit não existe', async () => {

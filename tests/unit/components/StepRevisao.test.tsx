@@ -23,7 +23,6 @@ const baseState: OnboardingState = {
     isFranchise: false,
     franchiseParent: '',
     responsibleName: 'Maria Pimenta',
-    responsibleCpf: '11144477735',
     responsibleEmail: 'maria@escola.com',
     responsiblePhone: '31988887777',
   },

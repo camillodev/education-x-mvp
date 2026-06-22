@@ -42,7 +42,6 @@ const validPayload = {
   isFranchise: true,
   franchiseParent: 'Kumon Brasil',
   responsibleName: 'Maria Pimenta',
-  responsibleCpf: '11144477735',
   responsibleEmail: 'maria@kumon.com',
   responsiblePhone: '31988887777',
   billing: {
