@@ -4,7 +4,7 @@ Specs técnicas por fluxo. Cada uma define **quais dados o produto precisa** par
 
 > **Como a spec vive no workflow:** a spec é o artefato upstream que alimenta o pipeline de 7 passos do `.claude/AGENTS.md`. Ela termina em fatiamento de Task Contracts (skill `task-contract`), cada fatia vira 1 PR ≤400 linhas com DoD binário.
 
-## Os 9 fluxos do MVP
+## Os 11 fluxos do MVP
 
 | # | Spec | Toca dinheiro? | Models-chave |
 |---|------|----------------|--------------|
@@ -17,8 +17,12 @@ Specs técnicas por fluxo. Cada uma define **quais dados o produto precisa** par
 | 07 | [Portal do responsável](07-portal-responsavel.md) | sim | Payment, CardToken✗ |
 | 08 | [Saque + antecipação](08-saque-antecipacao.md) | sim | Transfer✗, Anticipation✗ |
 | 09 | [Billing + importação + settings](09-billing-importacao-settings.md) | sim | PlatformInvoice✗ |
+| 10 | [Contas a pagar](10-contas-pagar.md) | não (registro manual) | FinancialCategory✗, Supplier✗, Payable✗ |
+| 11 | [Fluxo de caixa](11-fluxo-caixa.md) | não (leitura) | agregação (Invoice + Payable) |
 
 ✗ = model ainda não existe no schema (delta especificado na spec).
+
+**Specs 10 e 11 — paridade financeira com a Sponte.** Os planos comerciais Business e Cofounder prometem "fluxo de caixa + contas a pagar e receber". O lado receber (Invoice) e a negativação (moat) já estão nas specs 03 e 05. As specs 10 (contas a pagar manual) e 11 (fluxo de caixa por projeção) fecham o gap. DRE e bill-pay Asaas ficam no roadmap (a própria Sponte só tem DRE no roadmap).
 
 ## Fontes de verdade (ordem)
 1. **Piso de campos** = doc oficial Asaas (`docs.asaas.com/reference/*`) + skill `ix-asaas`, confrontado com `src/lib/integration/asaas/types.ts`.

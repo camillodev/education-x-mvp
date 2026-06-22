@@ -29,17 +29,12 @@ const validUpdate = {
 }
 
 describe('UpdateSchoolSchema', () => {
-  it('aceita um update válido sem cnpj nem cpf', () => {
+  it('aceita um update válido sem cnpj', () => {
     expect(UpdateSchoolSchema.safeParse(validUpdate).success).toBe(true)
   })
 
   it('rejeita se cnpj estiver presente (read-only)', () => {
     const r = UpdateSchoolSchema.safeParse({ ...validUpdate, cnpj: '11222333000181' })
-    expect(r.success).toBe(false)
-  })
-
-  it('rejeita se responsibleCpf estiver presente (read-only/PII)', () => {
-    const r = UpdateSchoolSchema.safeParse({ ...validUpdate, responsibleCpf: '12345678909' })
     expect(r.success).toBe(false)
   })
 

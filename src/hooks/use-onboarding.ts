@@ -2,7 +2,7 @@
 
 import { useReducer, useCallback } from 'react'
 import type { CreateSchoolInput, SubjectInput } from '@/lib/validations/unit'
-import { isValidCnpj, isValidCpf, isValidBrMobile } from '@/lib/validations/br-documents'
+import { isValidCnpj, isValidBrMobile } from '@/lib/validations/br-documents'
 import { getPlan, type SchoolPlanId } from '@/lib/data/plans'
 import { computeDiscountedCents, parsePtBrNumber, type DiscountType } from '@/lib/pricing'
 import { mapSubmitError, type ApiErrorBody } from '@/lib/onboarding/submit-error'
@@ -30,7 +30,6 @@ export interface DadosState {
   franchiseParent: string
   // Responsável da unidade (recebe o e-mail de aceite)
   responsibleName: string
-  responsibleCpf: string
   responsibleEmail: string
   responsiblePhone: string
 }
@@ -86,7 +85,6 @@ const initialState: OnboardingState = {
     isFranchise: false,
     franchiseParent: '',
     responsibleName: '',
-    responsibleCpf: '',
     responsibleEmail: '',
     responsiblePhone: '',
   },
@@ -177,7 +175,6 @@ function isDadosValid(state: OnboardingState): boolean {
     d.state.length === 2 &&
     // Responsável
     d.responsibleName.length >= 3 &&
-    isValidCpf(d.responsibleCpf) &&
     EMAIL_RE.test(d.responsibleEmail) &&
     isValidBrMobile(d.responsiblePhone)
   )
@@ -306,7 +303,6 @@ export function useOnboarding() {
       isFranchise: state.dados.isFranchise,
       franchiseParent: state.dados.franchiseParent || undefined,
       responsibleName: state.dados.responsibleName,
-      responsibleCpf: state.dados.responsibleCpf.replace(/\D/g, ''),
       responsibleEmail: state.dados.responsibleEmail,
       responsiblePhone: state.dados.responsiblePhone.replace(/\D/g, ''),
       billing: {

@@ -33,7 +33,7 @@ export function SchoolsTable({ schools }: { schools: SchoolListItem[] }) {
           </Td>
           <Td align="right">
             <Link href={`/escolas/${s.id}` as Route} className="font-medium text-(--color-primary) hover:underline">
-              Abrir ›
+              Abrir
             </Link>
           </Td>
         </TrHover>

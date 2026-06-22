@@ -61,7 +61,6 @@ model Unit {
 
   // Responsável da unidade (quem recebe o aceite dos termos por e-mail)
   responsibleName  String
-  responsibleCpfEnc String // PII — AES-256-GCM
   responsibleEmail String
   responsiblePhone String
 

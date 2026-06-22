@@ -16,7 +16,6 @@ const validInput = {
   isFranchise: true,
   franchiseParent: 'Kumon Brasil',
   responsibleName: 'Maria Pimenta',
-  responsibleCpf: '11144477735',
   responsibleEmail: 'maria@kumon.com',
   responsiblePhone: '31988887777',
   billing: {
@@ -157,11 +156,6 @@ describe('CreateSchoolSchema', () => {
 
   it('rejeita sem bairro', () => {
     const result = CreateSchoolSchema.safeParse({ ...validInput, neighborhood: '' })
-    expect(result.success).toBe(false)
-  })
-
-  it('rejeita CPF do responsável inválido', () => {
-    const result = CreateSchoolSchema.safeParse({ ...validInput, responsibleCpf: '11144477700' })
     expect(result.success).toBe(false)
   })
 

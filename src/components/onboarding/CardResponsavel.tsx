@@ -4,12 +4,11 @@ import { Copy, Mail, Phone, User } from 'lucide-react'
 import type { DadosState } from '@/hooks/use-onboarding'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { maskCpf, maskPhone } from './dados-masks'
+import { maskPhone } from './dados-masks'
 
 interface Props {
   dados: DadosState
   onChange: (dados: Partial<DadosState>) => void
-  respCpfError: string
   respEmailError: string
   respPhoneError: string
 }
@@ -17,7 +16,6 @@ interface Props {
 export function CardResponsavel({
   dados,
   onChange,
-  respCpfError,
   respEmailError,
   respPhoneError,
 }: Props) {
@@ -65,21 +63,6 @@ export function CardResponsavel({
               aria-required="true"
               autoComplete="name"
               leadingIcon={<User size={18} />}
-            />
-          </Field>
-        </div>
-
-        <div>
-          <Field label="CPF" htmlFor="responsibleCpf" required error={respCpfError || undefined}>
-            <Input
-              id="responsibleCpf"
-              value={maskCpf(dados.responsibleCpf)}
-              onChange={(e) => onChange({ responsibleCpf: e.target.value.replace(/\D/g, '') })}
-              placeholder="000.000.000-00"
-              maxLength={14}
-              inputMode="numeric"
-              error={!!respCpfError}
-              aria-required="true"
             />
           </Field>
         </div>
