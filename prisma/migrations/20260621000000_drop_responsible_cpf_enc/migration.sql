@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "Unit" DROP COLUMN "responsibleCpfEnc";
+ALTER TABLE "units" DROP COLUMN "responsibleCpfEnc";
