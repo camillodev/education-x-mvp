@@ -276,7 +276,7 @@ Dona cria uma escola em 4 passos, coletando identidade (CNPJ), endereço, plano 
 - Toast / Error message
 
 **Design System — Alfabeto:**
-- Cores: Azul primary `#0467DB` · branco `#FFF` · cinza light `#F5F5F5` · vermelho erro `#E53E3E`.
+- Cores: Azul primary `#0467DB` · branco `#FFF` · cinza light cinza de fundo · vermelho erro vermelho crítico.
 - Tipografia: Fonte sans-serif (Alfabeto define), h1/h2/body/caption.
 - Spacing: grid 8px.
 - Border-radius: 8px cards.

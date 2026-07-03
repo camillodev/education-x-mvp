@@ -31,7 +31,7 @@ A dona acessa `/financeiro`, vê o saldo disponível (PIX/boleto liberado) separ
   - Label acima: "Saldo Disponível"
   - Subtítulo: "PIX / boleto liberado — em sua conta agora"
 - **Badge secundária:** "R$ YYY em cartão — libera em D+X"
-  - Cinza/muted (bg: #F0F0F0, text: #666)
+  - Cinza/muted (bg: cinza de fundo, text: #666)
   - Educacional: separa "disponível agora" vs "a liberar"
   - Dados: `notYetAvailableValue` de GET /finance/balance
 - **Botão "Transferir para banco"** (sólido, azul #0467DB, height ≥ 44px mobile)
@@ -79,7 +79,7 @@ A dona acessa `/financeiro`, vê o saldo disponível (PIX/boleto liberado) separ
      - EVP: "[chave criptografada]"
    - Tipo da chave: badge com `pixKeyType` enum
    - Badge extra: "PIX na hora" (verde/info)
-   - Todos os campos com background #F5F5F5, texto #666 (visualmente disabled)
+   - Todos os campos com background cinza de fundo, texto #666 (visualmente disabled)
 
 3. **Botões de ação**
    - "Cancelar" (outline/secundário, height ≥ 40px)

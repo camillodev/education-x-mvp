@@ -159,11 +159,11 @@ Mostrar eventos em ordem cronológica (mais recente no topo):
 | Status | Badge | Cor | Copy | Quando aparece |
 |--------|-------|-----|------|----------------|
 | **PENDING** | "A pagar" | Azul (#0467DB) | "Vence em DD/MM" | Criada, vencimento futuro |
-| **PAID** | "Pago" | Verde (#22C55E) | "Pago em DD/MM" | Webhook PAYMENT_RECEIVED processado |
-| **OVERDUE** | "Vencida" | Vermelho (#EF4444) | "Vence em DD/MM (+multa)" | Webhook PAYMENT_OVERDUE ou dueDate passou |
+| **PAID** | "Pago" | Verde (verde de sucesso) | "Pago em DD/MM" | Webhook PAYMENT_RECEIVED processado |
+| **OVERDUE** | "Vencida" | Vermelho (vermelho crítico) | "Vence em DD/MM (+multa)" | Webhook PAYMENT_OVERDUE ou dueDate passou |
 | **CANCELLED** | "Cancelada" | Cinza (#6B7280) | "Cancelada em DD/MM" | Escola clicou "Cancelar" ou Enrollment foi cancelada |
-| **BLOCKED** | "Aguardando cadastro" | Amarelo (#FBBF24) | "Responsável não cadastrado no sistema de pagamento" | Guardian.asaasCustomerId é nulo → Invoice não entra no fluxo Asaas |
-| **ERROR** | "Falha na emissão" | Vermelho escuro (#991B1B) | "Erro ao gerar cobrança. Tentando novamente..." | Asaas retornou erro (sera retentado dia 2 e 3) |
+| **BLOCKED** | "Aguardando cadastro" | Amarelo (âmbar de aviso) | "Responsável não cadastrado no sistema de pagamento" | Guardian.asaasCustomerId é nulo → Invoice não entra no fluxo Asaas |
+| **ERROR** | "Falha na emissão" | Vermelho escuro (vermelho escuro) | "Erro ao gerar cobrança. Tentando novamente..." | Asaas retornou erro (sera retentado dia 2 e 3) |
 
 **Nota especial BLOCKED e ERROR:**
 - Escola recebe notificação por e-mail de cada BLOCKED (precisa cadastrar responsável)
@@ -326,10 +326,10 @@ Quando Enrollment começa no meio do mês, primeira cobrança pode ser proporcio
 ### Paleta (Alfabeto)
 
 - **Primária:** `#0467DB` (azul, badges PENDING, botões, links)
-- **Sucesso:** `#22C55E` (verde, badge PAID)
-- **Alerta:** `#FBBF24` (amarelo, badge BLOCKED)
-- **Erro:** `#EF4444` (vermelho, badge OVERDUE)
-- **Fundo:** `#FFFFFF` (branco cards), `#F9FAFB` (cinza claro fundo tabela)
+- **Sucesso:** verde de sucesso (verde, badge PAID)
+- **Alerta:** âmbar de aviso (amarelo, badge BLOCKED)
+- **Erro:** vermelho crítico (vermelho, badge OVERDUE)
+- **Fundo:** `#FFFFFF` (branco cards), cinza de fundo (cinza claro fundo tabela)
 - **Texto:** `#111827` (preto text), `#6B7280` (cinza médio labels)
 
 ### Breakpoints
@@ -366,8 +366,8 @@ Quando Enrollment começa no meio do mês, primeira cobrança pode ser proporcio
 **Badges BLOCKED e ERROR sem cor/copy definida no protótipo anterior:**
 
 Recomendação implementação (validada contra spec):
-- **BLOCKED:** badge amarelo `#FBBF24`, copy "Aguardando cadastro do responsável", ícone ⚠
-- **ERROR:** badge vermelho escuro `#991B1B`, copy "Falha na emissão. Tentando novamente...", ícone 🔴
+- **BLOCKED:** badge âmbar de aviso, copy "Aguardando cadastro do responsável", ícone ⚠
+- **ERROR:** badge vermelho escuro vermelho escuro, copy "Falha na emissão. Tentando novamente...", ícone 🔴
 
 Validar com design/UX antes de codificar C3 e C4.
 
