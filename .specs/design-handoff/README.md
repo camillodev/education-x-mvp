@@ -2,6 +2,22 @@
 
 Handoffs de design para o **Claude Design**, um por spec do MVP. Cada arquivo traduz a spec técnica em **fluxo de telas para a persona dona/orientadora** — o que ela vê, o que faz, estados, campos, regras que afetam a UI.
 
+## Formato: conciliar com o protótipo existente (não recriar)
+
+Já existe um protótipo do Education X em andamento no Claude Design. Cada handoff começa com uma seção **"Como usar este handoff (conciliação)"** que instrui: localizar as telas que já existem, conciliar com a spec (manter o que bate, ajustar o que divergir, criar só o que faltar), e — quando houver conflito — **a spec vence** (é a fonte de verdade dos campos/regras).
+
+## Como validar (uma por vez, não em bloco)
+
+Leve **um handoff por vez** ao Claude Design, valide o fluxo visualmente, feche, siga pro próximo. Ordem recomendada (segue a dependência visual, não a numérica):
+
+1. `mvp-01` onboarding — porta de entrada, define os tokens Alfabeto base
+2. `mvp-03` cobrança — a **tela-hub**: NFS-e e negativação aparecem dentro dela
+3. `mvp-04` NFS-e + `mvp-05` negativação — reusam a tela de cobrança
+4. `mvp-02` matrícula — fluxo próprio
+5. `mvp-06` transferência — tela isolada (`/financeiro`), a mais simples
+
+> Ter os 6 prontos **não** obriga a disparar os 6 juntos. Serial por design.
+
 ## Persona única destes handoffs: dona/orientadora
 
 A **dona/orientadora** é quem opera a escola: cadastra, cobra, negativa, transfere saldo. Tom de comunicação (do Notion de marca): *"falamos como você fala"* — informal, direto, zero jargão de tech. Ela não é dev; se não entendeu, o problema é da comunicação, não dela.

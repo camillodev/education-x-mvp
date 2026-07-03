@@ -1,25 +1,38 @@
 # Design Handoff — Cobrança
 
-> **Fase:** MVP · **Ordem:** 03 · **Persona:** dona/orientadora
-> **Spec-fonte:** [`mvp-03-cobranca-automatica.md`](../mvp-03-cobranca-automatica.md) (fonte de verdade dos campos e regras)
-> **Marca:** Alfabeto azul `#0467DB` · shadcn/ui · pt-BR · reais na tela · PII mascarada · breakpoints 375/768/1440
+> **Fase:** MVP · **Ordem:** 03 · **Persona:** dona/orientadora  
+> **Spec-fonte:** [`mvp-03-cobranca-automatica.md`](../mvp-03-cobranca-automatica.md) — fonte de verdade dos campos e regras.  
+> **Marca:** Alfabeto azul `#0467DB` · pt-BR · reais na tela · PII mascarada · breakpoints 375/768/1440.  
 > **Tom:** "falamos como você fala" — informal, direto, zero jargão. A dona não é dev.
+
+---
+
+## Como usar este handoff (conciliação com o protótipo existente)
+
+**Já existe um protótipo do Education X em andamento no Claude Design.** Não recrie do zero. Para este fluxo:
+
+1. **Localize as telas deste fluxo que já existem** no protótipo.
+2. **Concilie com a spec abaixo:** mantenha o que já bate, ajuste o que divergir, crie só o que faltar.
+3. **Onde a spec e o protótipo conflitarem, a spec vence** — ela é a fonte de verdade técnica e de negócio.
+4. **Sinalize divergências relevantes ao Rafa** — se design atual violaria uma regra de negócio, documente.
+
+> **Esta é a tela-hub:** as seções de NFS-e (mvp-04) e negativação (mvp-05) aparecem dentro do detalhe da cobrança. Estabeleça aqui o padrão visual que esses dois reusam (ex: timeline, abas, buttons).
 
 ---
 
 ## 1. Objetivo
 
-Exibir em tempo real à dona da escola a lista de cobranças geradas automaticamente para cada aluno matriculado, com status, data de vencimento, valor, boleto PDF, linha digitável, PIX copia-e-cola e histórico de pagamento.
+Gerar cobranças mensais automaticamente para cada Enrollment ativo, reconciliar o pagamento via webhook Asaas e expor o status em tempo real na tela de cobranças da escola.
 
-**Gatilho:** No dia 1 de cada mês às 08h, o sistema gera automaticamente Invoices (cobranças) para todas as matrículas ativas. Guardian (responsável financeiro do aluno) recebe boleto + PIX por WhatsApp e e-mail. Quando paga, webhook Asaas atualiza o status em tempo real na tela.
+**DoD (Rafa):** no dia 1 de cada mês às 08:00, toda Enrollment com status `ACTIVE` e Guardian com `asaasCustomerId` recebe uma Invoice gerada, um boleto com PIX embutido é emitido no Asaas e o Guardian recebe a cobrança por WhatsApp e e-mail. Quando o pagamento chega, o webhook Asaas atualiza o Invoice para `PAID` de forma idempotente.
 
 ---
 
 ## 2. Telas e passos
 
-### C0 — Dashboard (resumo)
+### C0 — Dashboard (resumo de vencimentos)
 
-**Onde:** Topo do app (card "Próximos vencimentos").
+**Onde:** Topo/card do app (seção "Próximos vencimentos").
 
 **O que mostrar:**
 - Card destacado com até 5 cobranças próximas de vencer
@@ -42,14 +55,14 @@ Exibir em tempo real à dona da escola a lista de cobranças geradas automaticam
 
 **Tabela (colunas):**
 
-| Coluna | Dado | Formato | Comportamento |
-|--------|------|---------|---------------|
+| Coluna | Dado | Formato | Behavior |
+|--------|------|---------|----------|
 | **Responsável** | Guardian.name | "João Silva" | Ordenável A-Z |
 | **Aluno** | Student.name | "Marina Silva" | Ordenável A-Z |
 | **Matéria** | Subject.name | "Matemática" | Ordenável A-Z |
 | **Valor** | netAmountCents/100 | R$ 1.250,00 | Direita, número puro |
 | **Vencimento** | dueDate | DD/MM/AAAA | Esquerda, ordenável |
-| **Status** | Badge colorido | (ver seção 3) | Clicável (filtro) |
+| **Status** | Badge colorido | (ver seção 3) | Filtro clicável |
 | **Forma** | Hardcoded | "Boleto + PIX" | Informativo |
 
 **Filtros:**
@@ -79,13 +92,19 @@ Exibir em tempo real à dona da escola a lista de cobranças geradas automaticam
 **Seções:**
 
 #### Valor (grande, destacado)
+
 - Valor base: "R$ 1.250,00"
 - Se OVERDUE: + multa "Multa de atraso: +R$ 25,00"
 - Total: "Total: R$ 1.275,00" (negrito, cor destaque)
 
-#### Boleto + PIX
+**Regra de cálculo:**
+- `netAmountCents = amountCents - discountCents` (já calculado no banco)
+- Se OVERDUE: multa é `lateFeePercent / 100` (ex: 200 bp → 2%) do netAmount
+- Juros (se aplicável) — vem do webhook `paidAmountCents` vs `netAmountCents`
 
-**Abas internas:** "Boleto" | "PIX"
+#### Boleto + PIX (abas internas)
+
+**Abas:** "Boleto" | "PIX"
 
 **Boleto:**
 - Imagem do boleto (asaasBankSlipUrl em PDF inline ou screenshot)
@@ -95,7 +114,7 @@ Exibir em tempo real à dona da escola a lista de cobranças geradas automaticam
 - Botão "Ver no navegador" (abre link asaasPaymentUrl em nova aba)
 
 **PIX:**
-- QR Code (renderizar de `asaasPaymentUrl` ou chave Pix copia-e-cola gerada pelo Asaas)
+- QR Code (renderizar de chave Pix/URL do Asaas)
 - Abaixo: "Copia e cola" — chave PIX do comerciante em monospace
 - Botão copiar ("Copiar chave PIX")
 - Copy feedback: toast "Copiado!" ao lado
@@ -109,18 +128,18 @@ Mostrar eventos em ordem cronológica (mais recente no topo):
 | PENDING | Cobrança gerada | emittedAt | "Aguardando pagamento" |
 | PENDING | Cobrança enviada | (emittedAt + 1h) | "Responsável notificado por WhatsApp e e-mail" |
 | PAID | Pago | paidAt | "Recebido em DD/MM à HH:MM" |
-| OVERDUE | Vencida | (dueDate + 1d) | "Vencimento foi em DD/MM. Multa de atraso: 2% + 1% a.m. de juros" |
+| OVERDUE | Vencida | (dueDate + 1d) | "Vencimento foi em DD/MM. Multa 2% + 1% a.m. de juros" |
 | CANCELLED | Cancelada | (cancelled_at, se existir) | "Cancelada pela escola" |
 
-**Legenda:**
-- Ícone ✓ verde para PAID
-- Ícone ⚠ amarelo para OVERDUE
-- Ícone ✕ cinza para CANCELLED
-- Ícone 📤 azul para gerada/enviada
+**Legenda de ícones:**
+- ✓ verde para PAID
+- ⚠ amarelo para OVERDUE
+- ✕ cinza para CANCELLED
+- 📤 azul para gerada/enviada
 
 #### Ações (botões no rodapé)
 
-- **Reenviar cobrança** (sempre)
+- **Reenviar cobrança** (sempre ativa, exceto PAID/CANCELLED)
   - Clica → toast "Reenviando..." → webhook → sucesso "Responsável notificado de novo"
   - Se PAID ou CANCELLED: botão desabilitado
 
@@ -133,7 +152,7 @@ Mostrar eventos em ordem cronológica (mais recente no topo):
 
 ---
 
-## 3. Estados (status Invoice e como aparecem)
+## 3. Estados e transições (InvoiceStatus)
 
 ### Badge styling (tabela + timeline)
 
@@ -148,7 +167,19 @@ Mostrar eventos em ordem cronológica (mais recente no topo):
 
 **Nota especial BLOCKED e ERROR:**
 - Escola recebe notificação por e-mail de cada BLOCKED (precisa cadastrar responsável)
-- STATUS ERROR mostra badge provisoriamente até retry automático funcionar (não pede ação manual ainda no MVP)
+- STATUS ERROR mostra badge provisoriamente até retry automático funcionar
+
+**Transição de estados (via spec):**
+```
+[criacao pelo cron] → PENDING → PAID [terminal]
+                                ↓ (webhook PAYMENT_OVERDUE)
+                              OVERDUE
+                                ↓ (escola clica Cancelar)
+                              CANCELLED [terminal]
+                                
+Guardian sem asaasCustomerId → BLOCKED [nao entra em fluxo Asaas]
+Asaas retorna erro → ERROR [com retry dias 2 e 3]
+```
 
 ---
 
@@ -190,11 +221,13 @@ Mostrar eventos em ordem cronológica (mais recente no topo):
 
 ### RN-01: Criação automática (cron dia 1, 08h)
 
-Toda madrugada de 1º de mês, sistema rodará cron. Donadas escolares verão novo batch de Invoices em PENDING aparecer sem fazer nada.
+Toda madrugada de 1º de mês, sistema rodará cron. Donas escolares verão novo batch de Invoices em PENDING aparecer sem fazer nada.
 
 **UI:** nenhuma — aparecimento silencioso na tabela C3.
 
-### RN-02: Guardian sem asaasCustomerId
+---
+
+### RN-02: Guardian sem asaasCustomerId → BLOCKED
 
 Se Guardian não tem cadastro no Asaas (`asaasCustomerId IS NULL`), Invoice fica BLOCKED. Escola é notificada por e-mail.
 
@@ -203,17 +236,23 @@ Se Guardian não tem cadastro no Asaas (`asaasCustomerId IS NULL`), Invoice fica
 - C4: seção "Aviso" no topo: "❌ Responsável não está cadastrado no sistema de pagamento. [Link] Clique aqui para corrigir." (leva pra cadastro de Guardian, fora do escopo)
 - Boleto e PIX: hidden com mensagem "Será disponibilizado após cadastro do responsável"
 
+---
+
 ### RN-03: Idempotência do cron
 
 Se cron roda 2x no mesmo mês, não duplica Invoice. Sistema usa `idempotencyKey = enrollmentId:referenceMonth` para garantir.
 
 **UI:** nenhuma — dado técnico.
 
+---
+
 ### RN-07: autoBilling = false
 
-Se `BillingConfig.autoBilling = false`, escola emite cobranças manualmente.
+Se `BillingConfig.autoBilling = false`, escola emite cobranças manualmente (futuro).
 
 **UI (futuro, MVP não tem):** botão "Nova cobrança" em C3 que abre formulário de emissão manual.
+
+---
 
 ### RN-08: Desconto por Enrollment
 
@@ -226,6 +265,8 @@ Desconto:  -R$ 50,00
 Total:      R$ 1.250,00
 ```
 
+---
+
 ### RN-11: PAYMENT_OVERDUE webhook
 
 Quando vencimento passa e pagamento não chegou, Asaas envia `PAYMENT_OVERDUE`. Invoice muda para OVERDUE.
@@ -235,13 +276,17 @@ Quando vencimento passa e pagamento não chegou, Asaas envia `PAYMENT_OVERDUE`. 
 - Valor: mostra multa + juros calculados
 - Timeline: "Vencida em DD/MM. Multa 2% + 1% a.m. de juros"
 
+---
+
 ### RN-13: Cancelamento de Enrollment
 
 Se Enrollment é cancelada, todas suas Invoices PENDING devem ser canceladas no Asaas e marcadas CANCELLED.
 
 **UI:** botão "Cancelar cobrança" em C4 fica ativo (se PENDING). Clica → confirmação → DELETE Asaas → Invoice.status = CANCELLED.
 
-### RN-14 e RN-15: Primeira competência
+---
+
+### RN-14 e RN-15: Primeira competência (proporcional ou isenção)
 
 Quando Enrollment começa no meio do mês, primeira cobrança pode ser proporcional (RN-14) ou isenção (RN-15, se firstChargeMode = FREE_FIRST_MONTH).
 
@@ -249,29 +294,29 @@ Quando Enrollment começa no meio do mês, primeira cobrança pode ser proporcio
 
 ---
 
-## 6. Referência visual
+## 6. Referência visual (protótipos existentes)
 
-### Protótipos (Figma/Penpot)
+### Telas esperadas no Claude Design (já em andamento)
 
 **C0 — Dashboard (card vencimentos):**
-- Arquivo: `screens-c.jsx?v=9`, linhas 193-258
-- Layout: card azul com ícone, 5 linhas de cobranças, botão "Ver tudo"
+- Layout: card azul com ícone, até 5 linhas de cobranças, botão "Ver tudo"
+- Fonte na spec: `screens-c.jsx?v=9`, linhas 193-258
 
 **C3 — Lista de Cobranças:**
-- Arquivo: `screens-c.jsx?v=9`, linhas 409-471
 - Layout: abas (Todas/A vencer/Pagas/Vencidas), tabela com 7 colunas, filtro responsável/aluno, período
 - Interação: clica linha → C4
+- Fonte na spec: `screens-c.jsx?v=9`, linhas 409-471
 
 **C4 — Detalhe da Cobrança:**
-- Arquivo: `screens-c2.jsx`, linhas 19-183
 - Layout: cabeçalho (aluno + matéria + período), valor grande, abas Boleto/PIX, timeline, botões ação
+- Fonte na spec: `screens-c2.jsx`, linhas 19-183
 
 ### Componentes shadcn/ui
 
 - **Badge:** `<Badge>` com variant por status (default azul)
 - **Table:** `<Table>` com Sort headers
 - **Tabs:** `<Tabs>` para abas (Todas, A vencer, Pagas, Vencidas) e Boleto/PIX
-- **Button:** `<Button>` primário azul, secundário outline, destrutivo vermelho
+- **Button:** `<Button>` primário azul (#0467DB), secundário outline, destrutivo vermelho
 - **Input:** busca responsável/aluno com debounce
 - **Skeleton:** loading states tabela
 - **Toast:** feedback ações (copiar, cancelar, erro)
@@ -302,15 +347,46 @@ Quando Enrollment começa no meio do mês, primeira cobrança pode ser proporcio
 
 ---
 
-## Pendências de Design (P-01)
+## 7. Padrões para MVP-04 (NFS-e) e MVP-05 (Negativação)
 
-**Badges BLOCKED e ERROR sem cor/copy definida no protótipo:**
+**Esta tela (C4) é o hub:** as próximas duas peças aparecem como **seções dentro do detalhe da cobrança.**
 
-Recomendação implementação:
+**Padrão visual a estabelecer aqui para reuso:**
+
+- **Timeline:** componente padrão para histórico de eventos (PAID, OVERDUE, NFS-e emitida, negativação enviada, etc.)
+- **Abas:** padrão "Boleto" / "PIX" → será estendido em MVP-04 com aba "NFS-e" e MVP-05 com aba "Negativação"
+- **Badge de status:** mesmo sistema colorido → estender para status NFS-e (PENDING/EMITTED) e negativação (PENDING/SENT/RESOLVED)
+- **Botões de ação:** mesma altura, espaçamento, feedback (toast) → padrão vale pra ações NFS-e e negativação
+- **Modals de confirmação:** mesmo padrão → MVP-05 usará para confirmar envio de negativação
+
+---
+
+## Pendências de Design (P-01 da spec)
+
+**Badges BLOCKED e ERROR sem cor/copy definida no protótipo anterior:**
+
+Recomendação implementação (validada contra spec):
 - **BLOCKED:** badge amarelo `#FBBF24`, copy "Aguardando cadastro do responsável", ícone ⚠
-- **ERROR:** badge vermelho escuro `#991B1B`, copy "Falha na emissão. Tentando novamente...", ícone ⚠ ou 🔴
+- **ERROR:** badge vermelho escuro `#991B1B`, copy "Falha na emissão. Tentando novamente...", ícone 🔴
 
 Validar com design/UX antes de codificar C3 e C4.
+
+---
+
+## Checklist de Conciliação
+
+Antes de marcar o handoff como PRONTO:
+
+- [ ] C0 (dashboard) existe no protótipo? Se sim, confere campos (responsável, aluno, vencimento, valor, botão "Ver tudo")?
+- [ ] C3 (lista) existe? Se sim, tem as 7 colunas + abas (Todas/A vencer/Pagas/Vencidas) + filtros?
+- [ ] C4 (detalhe) existe? Se sim, tem valor grande, abas Boleto/PIX, timeline, botões ação?
+- [ ] Cores das badges (PENDING azul, PAID verde, OVERDUE vermelho, CANCELLED cinza, BLOCKED amarelo, ERROR vermelho escuro) batem com o protótipo?
+- [ ] Componentes shadcn/ui estão sendo usados conforme listado?
+- [ ] PII está mascarada (CPF, email, phone não aparecem)?
+- [ ] Breakpoints (375/768/1440) foram testados?
+- [ ] Estados especiais (vazio, loading, erro em C3) estão definidos?
+- [ ] Regras de UI (BLOCKED → aviso; OVERDUE → multa visível; desconto → linha separada em C4) estão implementadas?
+- [ ] Timeline usa ícones coerentes (✓ verde, ⚠ amarelo, ✕ cinza, 📤 azul)?
 
 ---
 

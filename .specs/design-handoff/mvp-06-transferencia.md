@@ -1,34 +1,50 @@
 # Design Handoff — Transferência de Saldo (Saque PIX)
 
 > **Fase:** MVP · **Ordem:** 06 · **Persona:** dona/orientadora
-> **Spec-fonte:** [`mvp-06-transferencia-saldo.md`](../mvp-06-transferencia-saldo.md) (fonte de verdade dos campos e regras)
-> **Marca:** Alfabeto azul `#0467DB` · shadcn/ui · pt-BR · reais na tela · PII mascarada · breakpoints 375/768/1440
+> **Spec-fonte:** [`mvp-06-transferencia-saldo.md`](../mvp-06-transferencia-saldo.md) — fonte de verdade dos campos e regras.
+> **Marca:** Alfabeto azul `#0467DB` · shadcn/ui · pt-BR · reais na tela · PII mascarada · breakpoints 375/768/1440.
 > **Tom:** "falamos como você fala" — informal, direto, zero jargão. A dona não é dev.
+
+## Como usar este handoff (conciliação com o protótipo existente)
+Já existe um protótipo do Education X em andamento no Claude Design. **Não recrie do zero.** Para este fluxo:
+1. Localize as telas deste fluxo que já existem no protótipo.
+2. Concilie com a spec abaixo: mantenha o que já bate, ajuste o que divergir, crie só o que faltar.
+3. Onde a spec e o protótipo conflitarem, **a spec vence**. Sinalize divergências ao Rafa.
 
 ---
 
 ## 1. Objetivo
 
-A dona acessa `/financeiro`, vê o saldo disponível (PIX/boleto liberado) separado do que está a liberar (cartão em D+X), e transfere via PIX para a conta bancária cadastrada da escola, fechando o ciclo financeiro. **Nenhuma transferência real sem confirmação explícita em modal.**
+Permitir que a escola veja o saldo disponível e transfira via PIX para a conta bancária cadastrada da própria escola, fechando o ciclo financeiro. **Nenhuma transferência real sem confirmação explícita em modal.**
+
+A dona acessa `/financeiro`, vê o saldo disponível (PIX/boleto liberado) separado do que está a liberar (cartão em D+X), e transfere via PIX. Dados **sempre reais** via GET /finance/balance (sem cache — dinheiro real). Transferência é criada em PENDING no sandbox até o webhook confirmar.
 
 ---
 
-## 2. Telas e Passos
+## 2. Telas e passos
 
 ### 2.1 Tela `/financeiro` — Card de Saldo
 
 **Card principal (azul Alfabeto `#0467DB`):**
-- **Valor grande + destaque:** `R$ XXX` (= `availableValue` em reais)
-  - Label acima: "Saldo disponível para saque"
+- **Valor grande + destaque:** `R$ XXX` (= `availableValue` em reais, GET /finance/balance)
+  - Font-size ≥ 24px, weight 700
+  - Label acima: "Saldo Disponível"
   - Subtítulo: "PIX / boleto liberado — em sua conta agora"
 - **Badge secundária:** "R$ YYY em cartão — libera em D+X"
-  - Muted/cinza
-  - Explica que existe valor bloqueado mas não faz parte do saque
-- **Botão "Transferir para banco"** (sólido, azul, clicar abre modal)
-- **Botão "Antecipar recebíveis"** (existe mas NÃO detalhar — pertence à `f2-03/Fase 2`)
+  - Cinza/muted (bg: #F0F0F0, text: #666)
+  - Educacional: separa "disponível agora" vs "a liberar"
+  - Dados: `notYetAvailableValue` de GET /finance/balance
+- **Botão "Transferir para banco"** (sólido, azul #0467DB, height ≥ 44px mobile)
+  - Abre modal de saque PIX
+  - **Desabilitado** se `BankAccount` não existe ou `availableValue == 0` (tooltip explicativo)
+- **Botão "Antecipar recebíveis"** (existe, mas não detalhar — pertence a `f2-03` Fase 2)
+
+**Dados & Cache:**
+- Chamada GET /finance/balance **na carga e ao abrir modal** (sem cache — dinheiro real)
+- Conversão: centavos → reais (divide por 100)
 
 **Responsividade:**
-- Mobile (375): card empilhado, valores em 18-20px
+- Mobile (375): card empilhado, valores em 18-20px, botões stacked
 - Tablet (768): side-by-side badge e valor
 - Desktop (1440): layout padrão
 
@@ -42,113 +58,178 @@ A dona acessa `/financeiro`, vê o saldo disponível (PIX/boleto liberado) separ
 **Seções internas:**
 
 1. **Campo de valor**
-   - Label: "Valor a transferir"
-   - Máscara monetária real (R$ XXXXX,XX)
-   - **Pré-preenchido** com `availableValue`
-   - Input editável
-   - Validação tempo real: aviso se > disponível ou ≤ 0
-   - Max allowed = `availableValue`
+   - Label: "Valor do resgate"
+   - Máscara monetária (R$ XXXXX,XX)
+   - **Pré-preenchido** com `availableValue` (GET /finance/balance)
+   - Input editável (height 40px, border 1px #CCC, padding 8px, font-size 16px)
+   - Validação tempo real: 
+     - Erro se `≤ 0`: "Insira um valor maior que zero"
+     - Erro se `> availableValue`: "Você não tem saldo suficiente. Máximo: R$ X,XX"
+   - Max = `availableValue`
+   - Botão "Confirmar resgate" desabilitado enquanto inválido
 
-2. **Card da conta destino (só leitura)**
-   - Layout: banco logo/ícone + textos
+2. **Card da conta destino (só leitura, disabled state)**
    - Banco: `bankName` (ex: "Banco Inter")
-   - Chave PIX: **MASCARADA** (ex: "12.345.678/0001-**" se CNPJ, "email@****ail.com" se e-mail)
-   - Tipo da chave: badge com `PixKeyType` (CNPJ | EMAIL | PHONE | EVP)
-   - Badge extra: "PIX na hora" (verde/destaque)
-   - Tudo cinza claro (disabled), nenhum campo editável
+   - Agência: `agency` mascarada (ex: "1234")
+   - Conta: `accountNumber` + `accountDigit` mascarada (ex: "****5678")
+   - **Chave PIX:** mascarada conforme `pixKeyType`:
+     - CNPJ: "12.345.678/0001-**"
+     - EMAIL: "user@****ail.com"
+     - PHONE: "+55 (9) 9****-****"
+     - EVP: "[chave criptografada]"
+   - Tipo da chave: badge com `pixKeyType` enum
+   - Badge extra: "PIX na hora" (verde/info)
+   - Todos os campos com background #F5F5F5, texto #666 (visualmente disabled)
 
 3. **Botões de ação**
-   - "Cancelar" (outline/secundário)
-   - "Confirmar resgate" (sólido, azul, só habilitado se valor > 0 e ≤ availableValue)
+   - "Cancelar" (outline/secundário, height ≥ 40px)
+   - "Confirmar resgate" (sólido, azul #0467DB, só habilitado se valor > 0 e ≤ availableValue)
 
 **Comportamento:**
-- Modal permanece aberto em caso de erro (permite corrigir valor e tentar novamente)
-- Sucesso: toast verde + modal fecha + saldo atualiza na página
+- **Erro:** toast vermelho + modal permanece aberto (permite corrigir valor e tentar novamente)
+- **Sucesso:** toast verde "Transferência iniciada! Você receberá em até 1 hora" + modal fecha + saldo do card atualiza (re-chama GET /finance/balance)
+- **Loading:** spinner no botão "Confirmar", campos desabilitados durante POST
 
 ---
 
 ## 3. Estados da UI
 
-| Estado | Condição | Visual | Interação |
+| Estado | Condição | Visual | Ação |
 |---|---|---|---|
-| **Normal** | `availableValue > 0`, conta cadastrada | Card azul, botão azul sólido | Clica, abre modal |
-| **Loading** | POST em progresso | Spinner no botão, campo off, modal não-interativo | Espera |
-| **Sucesso** | Transfer criada em PENDING | Toast verde "Resgate solicitado", modal fecha, saldo atualiza | Modal desaparece |
-| **Erro** | Asaas retorna erro ou validação falha | Toast vermelho (mensagem clara), modal permanece aberto | Corrige valor, tenta outra vez |
-| **Saldo zerado** | `availableValue = 0` | Card cinza/desabilitado, botão off | Tooltip: "Nenhum saldo disponível para saque no momento" |
-| **Sem conta bancária** | Nenhum `BankAccount` cadastrado | Botão "Transferir para banco" desabilitado | Tooltip: "Cadastre uma conta bancária primeiro" |
-| **Terminal (DONE/FAILED)** | Webhook `TRANSFER_DONE` ou `TRANSFER_FAILED` chegou | Transfer aparece no histórico (não aqui), saldo reflete estado real | Apenas leitura |
+| **Normal** | `availableValue > 0` + `BankAccount` existe | Card azul, botão azul sólido ativo | Clica "Transferir", abre modal |
+| **Modal pré-preenchido** | Modal aberto | Input mostra `availableValue`, botão "Confirmar" ativo | Input editável, validação tempo real |
+| **Loading** | POST /transfers em progresso | Spinner no botão "Confirmar", input + cancel desabilitados | Aguarda resposta Asaas |
+| **Sucesso** | POST retorna 201 + Transfer PENDING criada | Toast verde "Transferência iniciada! Você receberá em até 1 hora" | Modal fecha automático, saldo atualiza |
+| **Erro Asaas** | POST retorna 4xx/5xx | Toast vermelho (ex: "Erro ao processar. Tente novamente ou contate suporte") | Modal permanece aberto, valor mantido |
+| **Validação falha** | Valor inválido (≤0 ou >availableValue) | Borda vermelha input + msg de erro inline, botão "Confirmar" off | Usuário corrige valor |
+| **Saldo zerado** | `availableValue == 0` | Card com "R$ 0,00", botão "Transferir" desabilitado | Tooltip: "Saldo indisponível" |
+| **Sem conta bancária** | `BankAccount` não existe para a Unit | Botão "Transferir para banco" desabilitado | Tooltip: "Cadastre uma conta bancária primeiro" |
+| **Terminal (DONE/FAILED)** | Webhook `TRANSFER_DONE` ou `TRANSFER_FAILED` chega | Transfer em status DONE/FAILED (não renderiza aqui; histórico/painel financeiro) | Apenas leitura |
 
 ---
 
-## 4. Campos e Valores
+## 4. Campos, dados e integração
 
-| Campo | Origem | Tipo | Exibição | Mascaramento |
-|---|---|---|---|---|
-| Saldo disponível (principal) | `GET /finance/balance` → `availableValue` | number (reais) | R$ XXX,XX em 20-24px | Nenhum (monetário) |
-| Saldo cartão a liberar | `GET /finance/balance` → `notYetAvailableValue` | number (reais) | R$ YYY em badge muted | Nenhum (monetário) |
-| Banco | `BankAccount.bankName` | string | "Banco Inter" etc | Nenhum |
-| Chave PIX | `BankAccount.pixKey` (criptografada se CPF/PHONE) | string | Mascarada no card (ex: "12.345.678/0001-**") | Sim, se type = CPF ou PHONE |
-| Tipo da chave | `BankAccount.pixKeyType` | enum | Badge (CNPJ | EMAIL | PHONE | EVP) | Nenhum |
-| Valor a transferir | Input modal | number | Campo com máscara R$ XXXXX,XX | Máscara monetária |
+| Campo | Origem (API/DB) | Tipo | Unidade | Exibição na tela | Mascaramento |
+|---|---|---|---|---|---|
+| Saldo disponível (principal) | GET /finance/balance → `availableValue` | int | centavos → reais ÷100 | R$ XXX,XX em font-size 24px | Nenhum (monetário) |
+| Saldo cartão a liberar | GET /finance/balance → `notYetAvailableValue` | int | centavos → reais ÷100 | R$ YYY em badge muted | Nenhum (monetário) |
+| Banco | `BankAccount.bankName` | string | N/A | "Banco Inter" | Nenhum |
+| Agência | `BankAccount.agency` | string | N/A | Mascarada na conta destino | Sim, últimos 2 dígitos |
+| Conta | `BankAccount.accountNumber` + `accountDigit` | string | N/A | Mascarada (ex: ****5678) | Sim, últimos 4 dígitos |
+| Chave PIX | `BankAccount.pixKey` (criptografado se CPF/PHONE) | string | N/A | Mascarada conforme `pixKeyType` | Sim, conforme tipo (vide 2.2) |
+| Tipo da chave | `BankAccount.pixKeyType` | enum | N/A | Badge (CNPJ \| EMAIL \| PHONE \| EVP) | Nenhum |
+| Valor a transferir | Input modal | int | centavos (até POST) | Campo R$ XXXXX,XX | Máscara monetária |
+
+**API Contracts:**
+
+**GET `/api/financeiro/balance`** (chamado na carga + ao abrir modal)
+```json
+{
+  "availableValue": 98000,
+  "notYetAvailableValue": 27000
+}
+```
+
+**POST `/api/financeiro/transfers`** (confirmação do modal)
+```json
+Request: { "amountCents": 98000 }
+Response (201): { 
+  "id": "tra_xxx", 
+  "status": "PENDING", 
+  "asaasId": "tra_asaas_xxx",
+  "createdAt": "2026-07-03T..."
+}
+Response (4xx/5xx): { "error": "..." }
+```
+
+**GET `/api/financeiro/bank-account`** (preencher card destino)
+```json
+{
+  "id": "ba_xxx",
+  "bankName": "Banco Inter",
+  "agency": "1234",
+  "accountNumber": "567890",
+  "accountDigit": "1",
+  "pixKey": "[criptografado se CPF/PHONE]",
+  "pixKeyType": "CNPJ"
+}
+```
 
 ---
 
-## 5. Regras que Afetam a UI
+## 5. Regras que afetam a UI
 
-### Validação em tempo real
-- **Valor ≤ 0:** desabilita botão "Confirmar resgate" + aviso "Insira um valor maior que zero"
-- **Valor > availableValue:** desabilita botão + aviso "Valor não pode ser superior ao saldo disponível"
+### RN-02: Validação em tempo real (modal)
+- **Valor ≤ 0:** Borda vermelha input + erro inline "Insira um valor maior que zero" + botão "Confirmar resgate" desabilitado
+- **Valor > availableValue:** Borda vermelha + erro "Você não tem saldo suficiente. Máximo: R$ X,XX" + botão off
 
-### Confirmação obrigatória
-- Toda transferência passa por modal antes de chamada Asaas
-- Modal exibe conta destino **apenas em leitura** (não permite editar chave PIX neste fluxo)
+### RN-03: Confirmação obrigatória
+- **Toda transferência passa por modal antes de chamada Asaas** (nunca POST direto de botão)
+- Modal exibe conta destino **apenas em leitura** (cinza/disabled; neste fluxo não há edição de chave PIX)
 
-### Sem BankAccount cadastrada
-- Botão "Transferir para banco" fica off
-- Tooltip: "Cadastre uma conta bancária primeiro"
-- **Não esconde a página de saldo.** A UI fica disponível, só o botão desabilitado
+### RN-04: Sem BankAccount cadastrada
+- Botão "Transferir para banco" desabilitado + title tooltip "Cadastre uma conta bancária primeiro"
+- **Página de saldo permanece visível** (educacional — mostra que o fluxo existe, mas precisa configurar conta)
 
-### Saldo zerado
-- Card não desaparece (permanece cinza/muted)
-- Botão desabilitado com tooltip "Nenhum saldo disponível para saque no momento"
-- Educacional: mostra que o fluxo existe, mas não há dinheiro agora
+### RN-13: Saldo zerado
+- Card de saldo não desaparece (permanece visível com "R$ 0,00")
+- Botão "Transferir para banco" desabilitado + tooltip "Saldo indisponível"
+- Educacional: usuário vê que a funcionalidade existe, mas não há saldo agora
 
 ### Sandbox vs. Produção
-- **Sandbox:** Transfer criada em PENDING, Asaas mockado retorna sucesso
-- **Produção:** bloqueada até flag + confirmação explícita do Rafa (regra `asaas.md`)
+- **Sandbox:** POST /transfers cria Transfer em status PENDING; Asaas mockado retorna sucesso
+- **Produção:** bloqueada até flag Rafa + confirmação explícita (regra `asaas.md` — estrita para dinheiro real)
+- Verificar `process.env.ASAAS_SANDBOX` antes de chamar POST
 
 ---
 
-## 6. Referência Visual
+## 6. Referência visual (protótipo + marca)
 
-- **Protótipo:** `screens-fin.jsx` (UX reference, não fonte de campos — spec é a verdade)
-- **Card azul:** saldo grande + badge cartão
-- **Modal:** campo de valor centrado, card conta só-leitura, botões base-12
-- **Responsividade:** testar 375 / 768 / 1440px
-- **Brand:** shadcn/ui padrão + Alfabeto azul `#0467DB`
-
----
-
-## 7. Integração com o Restante do MVP
-
-- **D-01:** `BankAccount` é model separado (não campos em Unit). Permite múltiplas contas + `isDefault`.
-- **Antecipação de recebíveis:** vive em `f2-03`. Mesmo card financeiro tem botão "Antecipar recebíveis" mas não inclui neste design.
-- **Webhook TRANSFER_DONE:** handler em `/api/webhooks/asaas` atualiza `Transfer.status = DONE` + `confirmedAt`. Não bloqueia o fluxo do usuário (Transfer fica PENDING até webhook).
+- **Protótipo:** `screens-fin.jsx` (UX reference — concilie com spec abaixo)
+- **Card azul:** Alfabeto #0467DB, border-radius ≥ 8px, padding ≥ 16px
+- **Valores:** font-size 24px weight 700 (saldo disponível); 12px weight 400 (badge cartão)
+- **Botões:** height ≥ 44px (mobile), min-width 120px, fundo primário #0467DB, texto branco
+- **Input modal:** height 40px, border 1px #CCC, padding 8px, font-size 16px
+- **Toast:** bottom-right, bg verde/vermelho, duração 4s
+- **Responsividade:** 375 / 768 / 1440px testados
+- **Brand:** shadcn/ui padrão + Alfabeto #0467DB
+- **Acessibilidade:** WCAG 2.2, labels, contraste ≥ 4.5:1, tab order lógica
 
 ---
 
-## Checklist de Implementação
+## 7. Integração com MVP
 
-- [ ] Card saldo: `availableValue` grande + `notYetAvailableValue` em badge
-- [ ] Botão "Transferir para banco" abre modal (desabilitado se sem conta ou saldo zero)
-- [ ] Modal pré-preenche valor com `availableValue`
-- [ ] Validação tempo real: valor ≤ 0 ou > `availableValue` desabilita "Confirmar"
-- [ ] Card conta destino exibe banco + chave PIX mascarada + tipo + "PIX na hora"
-- [ ] POST /transfers cria Transfer em PENDING (sandbox)
-- [ ] Toast sucesso + modal fecha + saldo atualiza
-- [ ] Toast erro + modal permanece (permite corrigir)
-- [ ] Estados visuais: normal / loading / sucesso / erro / saldo zerado / sem conta
+- **D-01:** `BankAccount` é model separado (não em Unit). Permite múltiplas contas + `isDefault`.
+- **D-02:** TED é futuro; PIX é o único caminho neste MVP.
+- **D-05:** Centavos no app, reais na borda Asaas (`/100` ao enviar, `*100` ao receber).
+- **D-06:** Sandbox primeiro, produção só com flag Rafa + confirmação explícita (regra `asaas.md`, estrita para dinheiro).
+- **Antecipação de recebíveis:** vive em `f2-03` (Fase 2). Botão existe no card, não detalhar neste handoff.
+- **Webhook TRANSFER_DONE/FAILED:** handler em `/api/webhooks/asaas` atualiza `Transfer.status` + `confirmedAt`. Não bloqueia fluxo do usuário (Transfer fica PENDING até webhook).
+
+---
+
+## 8. Conciliação com protótipo — checklist
+
+Ao implementar, **usar este checklist e sinalizar divergências ao Rafa:**
+
+- [ ] Card saldo renderiza: `availableValue` grande + `notYetAvailableValue` em badge
+- [ ] Botão "Transferir para banco" abre modal (desabilitado se sem conta ou saldo zero + tooltip)
+- [ ] Modal abre com título "Resgatar saldo" + subtítulo PIX
+- [ ] Modal pré-preenche input com `availableValue` (chamada GET /finance/balance ao abrir)
+- [ ] Input validado tempo real: valor ≤ 0 ou > `availableValue` mostra erro + desabilita "Confirmar"
+- [ ] Card conta destino: banco + agência/conta mascaradas + chave PIX mascarada + tipo + "PIX na hora"
+- [ ] POST /transfers cria Transfer PENDING (sandbox; sempre validar env antes)
+- [ ] Sucesso: toast verde "Transferência iniciada!" + modal fecha + saldo atualiza (re-chama GET /finance/balance)
+- [ ] Erro: toast vermelho + modal permanece aberto (permite corrigir e tentar novamente)
+- [ ] Todos os estados visuais testados: normal / loading / sucesso / erro validação / saldo zero / sem conta
 - [ ] Responsivo 375 / 768 / 1440px
 - [ ] Acessibilidade: labels, contraste, tab order
-- [ ] Playwright E2E: `financeiro-saque`, `financeiro-saque-limite`, `financeiro-sem-conta`
+- [ ] E2E Playwright: `financeiro-saque`, `financeiro-saque-limite`, `financeiro-sem-conta`
+
+**Divergências encontradas:**
+- [ ] Campo/regra faltando no protótipo: ___________________
+- [ ] Visual diferente (cor/espaçamento/tipografia): ___________________
+- [ ] Fluxo diverge (ex: modal não pré-preenche): ___________________
+
+Se encontrar divergências, edite esta seção e avise Rafa.
