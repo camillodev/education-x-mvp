@@ -1,5 +1,7 @@
 # Spec — Nota Fiscal NFS-e + Regua de Lembretes
 
+> **⚠️ SUPERSEDED (2026-07-09):** régua/negativação agora em [mvp-045-regua-negativacao.md]. NFS-e (mvp-04) reclassificada P1 pós-core. Mantido como referência de contratos Asaas.
+
 > **Status:** rascunho (Claude, 2026-06-19)
 > **Fonte de verdade:** docs Asaas (`/reference/schedule-invoice.md`, `/docs/emitindo-notas-fiscais-de-servico.md`) + `prisma/schema.prisma` + protótipo (`prototipo/design-handoff/project/app/screens-c2.jsx`, `screens-c3.jsx`). Design = referencia UX, nao define campos.
 > **DS:** Alfabeto.
