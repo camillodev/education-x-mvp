@@ -50,6 +50,12 @@
         "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/test-runner-on-change.sh",
         "matcher": ["Edit", "Write", "MultiEdit"],
         "description": "Runs npm test suite after file changes (informative only)"
+      },
+      {
+        "name": "linear-mark-ticket",
+        "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/linear-mark-ticket.sh",
+        "matcher": "mcp__349e887c-3bc4-47b6-b34c-55ee32842997__(save_issue|update_issue)",
+        "description": "Marks the session as having an active Linear ticket once one is created/updated"
       }
     ],
     "UserPromptSubmit": [
@@ -57,6 +63,11 @@
         "name": "skill-activation",
         "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/skill-activation.sh",
         "description": "Reminds to use superpowers skill before coding on feature/bug/fix/refactor"
+      },
+      {
+        "name": "linear-ticket-guard",
+        "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/linear-ticket-guard.sh",
+        "description": "Reminds to activate/create a Linear EDU ticket before starting engineering work"
       }
     ],
     "Stop": [
@@ -71,6 +82,11 @@
         "name": "dependency-audit",
         "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/dependency-audit.sh",
         "description": "Checks npm dependencies for high-severity vulnerabilities at session start"
+      },
+      {
+        "name": "linear-active-ticket",
+        "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/linear-active-ticket.sh",
+        "description": "Reminds to check/activate a Linear EDU ticket at session start"
       }
     ]
   }

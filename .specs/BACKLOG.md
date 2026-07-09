@@ -1,17 +1,30 @@
-# BACKLOG — Education X MVP
+# BACKLOG — Education X
 
-> Backlog consolidado das specs 02–11 da Education X, fatiado em tasks de ≤400 linhas, cada uma com DoD binário (exit 0). Ordenado por **dependência de schema** (a cadeia de models manda), agrupado em 7 ondas. Cada task é um Task Contract independente, pronto pro board Multica → Claude Code.
+> Backlog consolidado das specs da Education X, fatiado em tasks de ≤400 linhas, cada uma com DoD binário (exit 0). Ordenado por **dependência de schema** (a cadeia de models manda), agrupado em ondas. Cada task é um Task Contract independente, pronto pro board Multica → Claude Code.
+
+> **Camada de FASE (corte de lançamento, decidido com Rafa em 2026-07-03):** as ondas abaixo são **ordem técnica** (dependência de schema), não fase de lançamento. A fase de lançamento é uma camada por cima:
+>
+> | Fase | Specs | O que é |
+> |---|---|---|
+> | **MVP** | `mvp-01` onboarding · `mvp-02` matrícula · `mvp-03` cobrança · `mvp-04` NFS-e+régua · `mvp-05` negativação (**cunha** — Spontee não tem) · `mvp-06` transferência-saldo | A espinha financeira. O que vende e valida. |
+> | **Fase 2** | `f2-01` painel · `f2-02` portal-responsável · `f2-03` antecipação · `f2-04` billing+importação+settings · `f2-05` contas-a-pagar · `f2-06` fluxo-caixa | Pós-validação. Só constrói se a dor puxar. |
+> | **Backlog** | `bkl-01` gestão-horários | 2º lançamento. Spec escrita, não construir. |
+>
+> **Fluxo original 08 (saque+antecipação) foi fatiado:** transferência de saldo → `mvp-06` (MVP); antecipação de recebíveis → `f2-03` (Fase 2).
+>
+> **Reconciliação de shape:** ver `DECISOES-SHAPE.md`. **Pricing:** ver `PRICING.md`.
 
 ---
 
 ## Decisões pendentes (Rafa decide antes de codar)
 
-- **[EDX-DEC-01] Pricing dos planos IX (Básico / Crescimento / Pro)** — `P0`. Hoje é **MOCK** na spec 09 (constantes `39900 / 59900 / 79900` centavos). Rafa precisa definir os valores reais antes de EDX-26/EDX-27 irem pra produção. Bloqueante pro billing da plataforma, não pra implementação (mock destrava o dev).
-- **[EDX-DEC-02] Conflito de shape do `Enrollment` (spec 02 vs 03)** — `P0`. **A spec 02 (Matrícula) é a DONA do shape.** Schema canônico = spec 02 Fatia 1: `plan` (enum `EnrollmentPlan`), `status` (enum `EnrollmentStatus`), `discountType?` / `discountValueBp?` / `discountValueCents?`, `agreedPriceCents`, `finalPriceCents`. A spec 03 propõe uma versão simplificada (`discountCents` único + `planType`) — **descartada**. A 03 apenas **referencia** Enrollment, não redefine. Billing (spec 03) lê `finalPriceCents` e aplica desconto via os campos da 02. Confirmar com Rafa que `EnrollmentPlan` cobre os planos de cobrança (MONTHLY/QUARTERLY/SEMIANNUAL/ANNUAL) — provavelmente sim, mesmos valores.
+- **[EDX-DEC-01] Pricing** — `P0`. **✅ DECIDIDO** (2026-07-03, ver `PRICING.md`). NÃO é 3 tiers (Básico/Crescimento/Pro). É **plano único R$ 150,00/mês (15000 centavos) até 150 alunos + R$ 1,00/aluno excedente (100 centavos)** + adicionais à la carte (régua R$ 109, NF R$ 30, app R$ 0,80/aluno, etc.), espelhando a Sponte. Gateway (boleto/PIX R$ 1,50, cartão ~2,5%) = preço Sponte; Asaas é custo interno (spread = margem). Substituir o mock `39900/59900/79900` por esse modelo na f2-04 (EDX-42/43).
+- **[EDX-DEC-07] Evento Asaas que dispara `Invoice.status = PAID`** — `P0`. **✅ DECIDIDO: `PAYMENT_RECEIVED`** (2026-07-03). Vale para EDX-11 (webhook cobrança, mvp-03) e EDX-15 (emissão NFS-e no recebimento, mvp-04). Não usar CONFIRMED.
+- **[EDX-DEC-02] Conflito de shape do `Enrollment` (spec mvp-02 vs 03)** — `P0`. **A spec mvp-02 (Matrícula) é a DONA do shape.** Schema canônico = spec mvp-02 Fatia 1: `plan` (enum `EnrollmentPlan`), `status` (enum `EnrollmentStatus`), `discountType?` / `discountValueBp?` / `discountValueCents?`, `agreedPriceCents`, `finalPriceCents`. A spec mvp-03 propõe uma versão simplificada (`discountCents` único + `planType`) — **descartada**. A 03 apenas **referencia** Enrollment, não redefine. Billing (spec mvp-03) lê `finalPriceCents` e aplica desconto via os campos da 02. Confirmar com Rafa que `EnrollmentPlan` cobre os planos de cobrança (MONTHLY/QUARTERLY/SEMIANNUAL/ANNUAL) — provavelmente sim, mesmos valores.
 - **[EDX-DEC-03] Fluxo manual — dupla aprovação** — `P1`. **DECIDIDO.** Fluxo manual usa **dupla aprovação**: orientador cadastra → Enrollment fica `PENDING_CONFIRMATION` → responsável recebe link por email → revisa e edita apenas dados pessoais (nome/CPF/email/telefone do responsável + nome/data de nascimento do aluno; matéria/plano/valor travados) → aceita termos → status passa a `AWAITING_SCHOOL_APPROVAL` → escola aprova → `ACTIVE`. A edição do responsável sobrescreve o que o orientador digitou nos dados pessoais. **Não é PENDING como default genérico — é fluxo de dupla aprovação intencional.**
-- **[EDX-DEC-04] NFS-e via proxy ou redirect direto do Asaas (spec 04/07)** — `P2`. A URL do PDF/XML do Asaas é exposta ao cliente ou proxificada pelo servidor? Recomendação: proxy com validação de sessão. Rafa decide se vale o custo.
-- **[EDX-DEC-05] Re-auth Clerk para ações fiscais/sensíveis (spec 09 / P-04)** — `P2`. Hoje **SKIP** (Admin já logado). Revisitar se Rafa exigir 2FA pra editar dados bancários/fiscais.
-- **[EDX-DEC-06] Módulo financeiro completo (contas a pagar + fluxo de caixa)** — `P1`. **DECIDIDO.** Specs 10 e 11 fecham o gap de paridade com a Sponte que os planos Business/Cofounder prometem. Escopo: contas a pagar **manual** (EdX nunca movimenta dinheiro de terceiros — franqueado paga por fora e marca como pago), fluxo de caixa **on-the-fly** (não persistido), categorias **flat** (não chart contábil), seed Kumon. **DRE e bill-pay Asaas ficam no roadmap** (a própria Sponte só tem DRE no roadmap). Regra de corretude do fluxo de caixa: **nunca somar itens PAID na projeção** (já estão no saldo Asaas — somar dobra o valor). `categoryId` opcional em Invoice (consistente com EDX-DEC-02: spec 02 é dona do Enrollment; este campo é aditivo, não-breaking). Bill-pay via Asaas documentado como roadmap com os 4 riscos mapeados (responsabilidade regulatória BCB, dinheiro fora do Asaas, compliance IP, dor real = visibilidade) — reavaliar só se cliente com >10 unidades pedir.
+- **[EDX-DEC-04] NFS-e via proxy ou redirect direto do Asaas (spec mvp-04/07)** — `P2`. A URL do PDF/XML do Asaas é exposta ao cliente ou proxificada pelo servidor? Recomendação: proxy com validação de sessão. Rafa decide se vale o custo.
+- **[EDX-DEC-05] Re-auth Clerk para ações fiscais/sensíveis (spec f2-04 / P-04)** — `P2`. Hoje **SKIP** (Admin já logado). Revisitar se Rafa exigir 2FA pra editar dados bancários/fiscais.
+- **[EDX-DEC-06] Módulo financeiro completo (contas a pagar + fluxo de caixa)** — `P1`. **DECIDIDO.** Specs 10 e 11 fecham o gap de paridade com a Sponte que os planos Business/Cofounder prometem. Escopo: contas a pagar **manual** (EdX nunca movimenta dinheiro de terceiros — franqueado paga por fora e marca como pago), fluxo de caixa **on-the-fly** (não persistido), categorias **flat** (não chart contábil), seed Kumon. **DRE e bill-pay Asaas ficam no roadmap** (a própria Sponte só tem DRE no roadmap). Regra de corretude do fluxo de caixa: **nunca somar itens PAID na projeção** (já estão no saldo Asaas — somar dobra o valor). `categoryId` opcional em Invoice (consistente com EDX-DEC-02: spec mvp-02 é dona do Enrollment; este campo é aditivo, não-breaking). Bill-pay via Asaas documentado como roadmap com os 4 riscos mapeados (responsabilidade regulatória BCB, dinheiro fora do Asaas, compliance IP, dor real = visibilidade) — reavaliar só se cliente com >10 unidades pedir.
 
 ---
 
@@ -20,7 +33,7 @@
 | ID | Onda | Título | Prio | Depende de |
 |----|------|--------|------|------------|
 | EDX-01 | 0 | Schema: Student + Enrollment (DONO do shape) | P0 | — |
-| EDX-02 | 0 | E2E do onboarding faltante (spec 01) | P1 | — |
+| EDX-02 | 0 | E2E do onboarding faltante (spec mvp-01) | P1 | — |
 | EDX-03 | 1 | API: fluxo link (GET + POST submit) | P1 | EDX-01 |
 | EDX-04 | 1 | UI mobile: fluxo link (4 passos + confirmação) | P1 | EDX-03 |
 | EDX-05 | 1 | UI desktop: fluxo manual (orientador, PENDING) | P1 | EDX-03 |
@@ -81,7 +94,7 @@
 
 ### EDX-01 · Schema: Student + Enrollment (DONO do shape)
 - **Spec 02 / Fatia 1 · P0 · Depende de: —**
-- **Objetivo:** Criar models `Student`, `Enrollment` + enums no schema Prisma. Este é o shape **canônico** do Enrollment (ver EDX-DEC-02) — a spec 03 só referencia.
+- **Objetivo:** Criar models `Student`, `Enrollment` + enums no schema Prisma. Este é o shape **canônico** do Enrollment (ver EDX-DEC-02) — a spec mvp-03 só referencia.
 - **Scope:**
   - enum `EnrollmentPlan` (MONTHLY, QUARTERLY, SEMIANNUAL, ANNUAL)
   - enum `EnrollmentStatus` (PENDING_CONFIRMATION, AWAITING_SCHOOL_APPROVAL, ACTIVE, CANCELLED, SUSPENDED)
@@ -94,12 +107,12 @@
   - Nenhuma integração Asaas
 - **DoD-comando:** `pnpm prisma migrate dev --name add-student-enrollment && pnpm typecheck`
 - **TDD (RED primeiro):** typecheck deve passar sem erros (Student e Enrollment ainda não existem antes da migration).
-- **Decisões adotadas:** Schema exato da seção 4 da spec 02. Tenant isolation via `unitId` (sem RLS). Valores sempre em centavos (Int). PII encrypted no Student (`nameEnc`, `birthDateEnc`). **Esta task é a fonte de verdade do Enrollment** — a versão simplificada da spec 03 (`discountCents`/`planType`) foi descartada.
+- **Decisões adotadas:** Schema exato da seção 4 da spec mvp-02. Tenant isolation via `unitId` (sem RLS). Valores sempre em centavos (Int). PII encrypted no Student (`nameEnc`, `birthDateEnc`). **Esta task é a fonte de verdade do Enrollment** — a versão simplificada da spec mvp-03 (`discountCents`/`planType`) foi descartada.
 - **Arquivos-alvo:** `prisma/schema.prisma`
 
-### EDX-02 · Escrever E2E do onboarding faltante (spec 01)
+### EDX-02 · Escrever E2E do onboarding faltante (spec mvp-01)
 - **Spec 01 (já implementada) · P1 · Depende de: —**
-- **Objetivo:** A spec 01 (onboarding) já está implementada, mas o teste Playwright está **vazio**. Escrever o E2E real do fluxo de 4 passos → `Unit` + `BillingConfig` + `Subject`. Este é o **smoke recomendado pro fluxo Multica → Claude Code**.
+- **Objetivo:** A spec mvp-01 (onboarding) já está implementada, mas o teste Playwright está **vazio**. Escrever o E2E real do fluxo de 4 passos → `Unit` + `BillingConfig` + `Subject`. Este é o **smoke recomendado pro fluxo Multica → Claude Code**.
 - **Scope:**
   - E2E Playwright cobrindo os 4 passos do onboarding
   - Assert: ao final, existem 1 `Unit`, 1 `BillingConfig` e ≥1 `Subject` persistidos
@@ -114,7 +127,7 @@
 
 ---
 
-## Onda 1 — Matrícula (resto da spec 02)
+## Onda 1 — Matrícula (resto da spec mvp-02)
 
 ### EDX-03 · API: fluxo link (GET + POST submit)
 - **Spec 02 / Fatia 2 · P1 · Depende de: EDX-01**
@@ -189,7 +202,7 @@
 
 ---
 
-## Onda 2 — Cobrança (spec 03)
+## Onda 2 — Cobrança (spec mvp-03)
 
 ### EDX-07 · Infra: Webhook Asaas base (receiver `/api/webhooks/asaas`)
 - **Spec 03 (infra cross-cutting) · P0 · Depende de: EDX-01**
@@ -301,7 +314,7 @@
 
 ---
 
-## Onda 3 — Fiscal (spec 04) + Negativação (spec 05)
+## Onda 3 — Fiscal (spec mvp-04) + Negativação (spec mvp-05)
 
 ### EDX-14 · NfseConfig + coleta alíquota ISS/regime
 - **Spec 04 / Fatia 4-A · P0 · Depende de: EDX-08**
@@ -314,7 +327,7 @@
 - **Not-Included:** Emissão da NFS-e, webhooks, UI de detalhe
 - **DoD-comando:** `pnpm typecheck && pnpm test:run`
 - **TDD (RED primeiro):** criar NfseConfig via POST, buscar via GET, atualizar; valida issRatePercent 0–10.
-- **Decisões adotadas:** Model separado (1:1 com Unit), Cascade onDelete. Migration desacoplada da spec 03. `issRatePercent` Float, `simplesNacional` default true.
+- **Decisões adotadas:** Model separado (1:1 com Unit), Cascade onDelete. Migration desacoplada da spec mvp-03. `issRatePercent` Float, `simplesNacional` default true.
 - **Arquivos-alvo:** `prisma/schema.prisma`, `prisma/migrations/<ts>_add_nfse_config.sql`, `src/lib/db.ts`, `src/app/api/units/[unitId]/nfse-config/route.ts`, `src/lib/validation/nfse.ts`, `src/components/settings/NfseConfigForm.tsx`
 
 ### EDX-15 · Emitir NFS-e ao receber pagamento
@@ -433,7 +446,7 @@
 
 ---
 
-## Onda 4 — Painel da Escola (spec 06) + Portal do Responsável (spec 07)
+## Onda 4 — Painel da Escola (spec f2-01) + Portal do Responsável (spec f2-02)
 
 ### EDX-23 · Migration: índices de agregação (dashboard)
 - **Spec 06 / Fatia 1 · P0 · Depende de: EDX-08, EDX-17**
@@ -526,7 +539,7 @@
   - `StatementTable` (25/50 por página), `StatementFilters`, `ReconcileButton`, `DivergenceBadge`, `PaymentDetail`
   - `nameEnc` descriptografado no servidor; sem `asaasApiKey` → "Reconciliação não configurada"
   - responsivo 375/768/1440, Alfabeto
-- **Not-Included:** CSV, integração de pagamento (spec 07)
+- **Not-Included:** CSV, integração de pagamento (spec f2-02)
 - **DoD-comando:** `pnpm typecheck && pnpm test:run src/components/statement`
 - **TDD (RED primeiro):** página 1 = 25 linhas; filtro PAID; Reconciliar → POST + divergências em badge; CPF nunca exibido, nome descriptografado.
 - **Decisões adotadas:** Rate limit Asaas → 400 "Período muito grande, máximo 31 dias ou 1000 registros". Sem `asaasApiKey` → config pendente, não bloqueia.
@@ -605,7 +618,7 @@
 
 ---
 
-## Onda 5 — Tesouraria (spec 08) + Billing-IX / CSV / Settings (spec 09)
+## Onda 5 — Tesouraria (mvp-06 saque + f2-03 antecipação) + Billing-IX / CSV / Settings (spec f2-04)
 
 ### EDX-35 · Schema: BankAccount + Transfer + Anticipation
 - **Spec 08 / Fatia 1 · P0 · Depende de: EDX-08**
@@ -697,7 +710,7 @@
 - **Not-Included:** Fila de retry, notificação ao usuário
 - **DoD-comando:** `pnpm dlx playwright test webhook-transfer webhook-anticipation --reporter=line`
 - **TDD (RED primeiro):** cada evento atualiza o status correto; duplicado (mesmo event.id) → 200 sem reprocessar; asaasId inexistente → 400/200; signature validada. Criar `test/api/webhooks-asaas.spec.ts`.
-- **Decisões adotadas:** Estende EDX-07 (RN-11/12). Idempotência via status terminal. Coordenar consolidação do event bus com spec 03.
+- **Decisões adotadas:** Estende EDX-07 (RN-11/12). Idempotência via status terminal. Coordenar consolidação do event bus com spec mvp-03.
 - **Arquivos-alvo:** `src/app/api/webhooks/asaas/route.ts`, `test/api/webhooks-asaas.spec.ts`, `src/lib/webhooks/asaas-handlers.ts`
 
 ### EDX-42 · Schema + service: PlatformInvoice + cobrança cartão
@@ -724,7 +737,7 @@
 - **Not-Included:** Lógica de cobrança (EDX-42), PDF renderizado, abas Dados/Taxas (EDX-45)
 - **DoD-comando:** `pnpm typecheck && pnpm dlx playwright test billing-platform --reporter=line`
 - **TDD (RED primeiro):** `/settings/plan` → card com planId='basico', preço '399.00', "Mudar de plano" abre modal com 4 opções.
-- **Decisões adotadas:** Pricing MOCK (EDX-DEC-01). SKIP re-auth Clerk (EDX-DEC-05). Reutiliza form Zod de cartão da spec 01. PDF stub 404.
+- **Decisões adotadas:** Pricing MOCK (EDX-DEC-01). SKIP re-auth Clerk (EDX-DEC-05). Reutiliza form Zod de cartão da spec mvp-01. PDF stub 404.
 - **Arquivos-alvo:** `src/components/settings/plan-tab.tsx`, `modals/change-plan-modal.tsx`, `change-card-modal.tsx`, `src/app/api/platform-invoices/[id]/pdf/route.ts`, `src/lib/services/billing.service.ts`, `tests/e2e/billing-platform.spec.ts`
 
 ### EDX-44 · Importação CSV (upload, validação, import atômico)
@@ -736,7 +749,7 @@
   - limite 5.000 linhas; stepper (dropzone / validação + correção / concluído)
   - import via `prisma.$transaction` (reutiliza Guardian por CPF — RN-15, reverte em falha)
   - download CSV de erros + modelo CSV
-- **Not-Included:** Billing (EDX-42/43), Settings (EDX-45), matrícula manual (spec 02)
+- **Not-Included:** Billing (EDX-42/43), Settings (EDX-45), matrícula manual (spec mvp-02)
 - **DoD-comando:** `pnpm typecheck && pnpm test:run && pnpm dlx playwright test csv-import --reporter=line`
 - **TDD (RED primeiro):** CSV 7 linhas (4 ok, 3 erro CPF) → `{totalRows:7, validRows:4, errorRows:3, errors:[...]}` — RED sem parser.
 - **Decisões adotadas:** Bloquear "Importar" com erros (P-02). CPF duplicado → reutilizar Guardian, criar Student/Enrollment novos (P-06). PII AES-256-GCM antes de persistir. `prisma.$transaction` (Guardian, Student batch, Enrollment batch).
@@ -787,7 +800,7 @@
   - model `Supplier` (id, unitId, name, documentEnc?, relations) — `@@index([unitId])`
   - model `Payable` (id, unitId, supplierId?, categoryId, description, amountCents, dueDate, status, paidAt?, paidAmountCents?, referenceMonth?, isRecurring, notes?, relations) — índices `[unitId,status]`, `[unitId,dueDate]`, `[unitId,categoryId]`, `[unitId,referenceMonth]`
   - relations em `Unit`: financialCategories, suppliers, payables
-  - `src/lib/seeds/financial-categories.ts` — array `KUMON_DEFAULT_CATEGORIES` (8 categorias DESPESA) + `seedDefaultCategories(unitId)`, invocado no `createUnit` (spec 01)
+  - `src/lib/seeds/financial-categories.ts` — array `KUMON_DEFAULT_CATEGORIES` (8 categorias DESPESA) + `seedDefaultCategories(unitId)`, invocado no `createUnit` (spec mvp-01)
   - Registrar `FinancialCategory`, `Supplier`, `Payable` em `TENANT_MODELS` (`src/lib/db.ts`)
 - **Not-Included:** services, API routes, UI, integração Asaas
 - **DoD-comando:** `pnpm prisma migrate dev --name add-payables && pnpm prisma generate && pnpm typecheck`
@@ -829,7 +842,7 @@
   - `(app)/financeiro/contas-pagar/page.tsx` + componentes PayableTable, PayableFilters, PayableForm, PayModal, SupplierInlineForm
   - badges: PENDING=cinza, OVERDUE=vermelho, PAID=verde, CANCELLED=riscado
   - responsivo 375/768/1440, Alfabeto DS
-- **Not-Included:** tela de config de categorias (futura), integração spec 11
+- **Not-Included:** tela de config de categorias (futura), integração spec f2-06
 - **DoD-comando:** `pnpm typecheck && pnpm dlx playwright test contas-pagar --reporter=line`
 - **TDD (RED primeiro):** criar despesa sem fornecedor → PENDING; marcar pago → PAID; filtrar por OVERDUE só mostra vencidas.
 - **Arquivos-alvo:** componentes acima, `tests/e2e/contas-pagar.spec.ts`
@@ -844,7 +857,7 @@
   - migration `add-invoice-category-cashflow-indexes`
 - **Not-Included:** service, UI, API
 - **DoD-comando:** `pnpm prisma migrate dev --name add-invoice-category-cashflow-indexes && pnpm prisma generate && pnpm typecheck`
-- **Decisões adotadas:** categoryId opcional por design (escola pode não categorizar). Consistente com EDX-DEC-02 (spec 02 dona do Enrollment; campo de Invoice é aditivo).
+- **Decisões adotadas:** categoryId opcional por design (escola pode não categorizar). Consistente com EDX-DEC-02 (spec mvp-02 dona do Enrollment; campo de Invoice é aditivo).
 - **Arquivos-alvo:** `prisma/schema.prisma`, migration
 
 ### EDX-52 · CashflowService: projeção on-the-fly + relatório mensal
@@ -861,11 +874,11 @@
 
 ### EDX-53 · API + UI: card de fluxo de caixa no painel
 - **Spec 11 / Fatia 3 · P1 · Depende de: EDX-52, EDX-51**
-- **Objetivo:** Expor projeção via rota e renderizar o card de fluxo de caixa integrado ao painel (spec 06).
+- **Objetivo:** Expor projeção via rota e renderizar o card de fluxo de caixa integrado ao painel (spec f2-01).
 - **Scope:**
   - `api/cashflow/projection/route.ts` (GET horizon 30/60/90), `api/cashflow/monthly-report/route.ts` (GET month YYYY-MM)
   - card no painel: saldo atual em destaque, seletor de horizonte, gráfico de linha (entradas/saídas/saldo projetado), tabela de movimentos futuros, relatório mensal por categoria
-  - componentes CashflowCard, CashflowChart, MovementTable, MonthlyReportTable; mesma lib de gráfico da spec 06
+  - componentes CashflowCard, CashflowChart, MovementTable, MonthlyReportTable; mesma lib de gráfico da spec f2-01
   - aviso inline se saldo Asaas indisponível; alerta se saldo projetado negativo
   - responsivo 375/768/1440, Alfabeto DS
 - **Not-Included:** exportação CSV, DailyBalanceSnapshot, join pesado Enrollment/Subject (usar Invoice.description)
@@ -878,4 +891,4 @@
 
 - **TENANT_MODELS (sem RLS):** todo model novo tenant-scoped (com `unitId`) **precisa ser registrado em `src/lib/db.ts` → `TENANT_MODELS`**. Não há RLS no Postgres — o isolamento de tenant é garantido em código. Models afetados nesta backlog: `Student`, `Enrollment`, `Invoice`, `Payment`, `Dunning`, `NfseConfig`, `CardToken`, `PortalSession`, `BankAccount`, `Transfer`, `Anticipation`, `PlatformInvoice`, `ImportJob`, `FinancialCategory`, `Supplier`, `Payable`. Confirmar a entrada em `TENANT_MODELS` no DoD de cada task de schema.
 - **Webhook Asaas é endpoint único:** `src/app/api/webhooks/asaas/route.ts` (criado em EDX-07) é estendido por EDX-11, EDX-15, EDX-16, EDX-22, EDX-41 e EDX-42. Não criar receivers paralelos — adicionar `case` ao switch.
-- **Primeiro ticket sugerido pro smoke Multica → Claude Code:** **EDX-02** (E2E do onboarding — spec 01 já implementada, Playwright vazio). É o caminho mais curto pra validar o pipeline de ponta a ponta antes de encarar a cadeia de schema.
+- **Primeiro ticket sugerido pro smoke Multica → Claude Code:** **EDX-02** (E2E do onboarding — spec mvp-01 já implementada, Playwright vazio). É o caminho mais curto pra validar o pipeline de ponta a ponta antes de encarar a cadeia de schema.

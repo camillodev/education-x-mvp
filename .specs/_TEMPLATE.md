@@ -1,5 +1,6 @@
 # Spec — <Nome do fluxo>
 
+> **Fase:** MVP | Fase 2 | Backlog · **Ordem:** NN
 > **Status:** rascunho | em revisão | fechada (quem + data)
 > **Fonte de verdade:** doc oficial Asaas (endpoints) + `prisma/schema.prisma` + decisões de produto + protótipo (`prototipo/design-handoff/...`, só UX).
 > **DS:** Alfabeto.

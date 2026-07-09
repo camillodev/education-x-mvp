@@ -80,4 +80,16 @@ cat templates/task-contract.md
 
 ---
 
+## Fechamento (Linear)
+
+Quando o **DoD-comando** rodar e der `exit 0`:
+
+1. `list_issue_statuses` do time EDU → encontre o status com `type: completed` (nunca hardcodar o ID).
+2. `update_issue` movendo o issue ativo pra esse status.
+3. `save_comment` no issue com: o que foi feito, o DoD-comando rodado, o exit code, e o hash do commit.
+
+**Nunca fechar/mover um issue sem `exit 0` do DoD-comando.** Se o DoD falhar, o issue continua "In Progress" e o trabalho continua.
+
+---
+
 **Uso Obrigatório:** Este skill é chamado AUTOMATICAMENTE antes de `dev-workflow`. Não pule esta etapa.
