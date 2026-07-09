@@ -1,5 +1,7 @@
 # Spec — Negativação SPC/Serasa (Fluxo 05)
 
+> **⚠️ SUPERSEDED (2026-07-09):** régua/negativação agora em [mvp-045-regua-negativacao.md]. NFS-e (mvp-04) reclassificada P1 pós-core. Mantido como referência de contratos Asaas.
+
 > **Status:** rascunho (Rafa + Claude, 2026-06-19)
 > **Fonte de verdade:** `src/lib/integration/asaas/types.ts` + `src/lib/integration/asaas/live-client.ts` + `prisma/schema.prisma` + protótipo (`prototipo/design-handoff/project/app/screens-d.jsx`, só UX).
 > **DS:** Alfabeto.
