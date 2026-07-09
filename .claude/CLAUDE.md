@@ -14,6 +14,15 @@ Builder portável para construir SaaS de alta qualidade com agentes Claude. Este
 - **Secrets só via env** (Zod no startup), nunca no client, nunca hardcoded.
 - **Verificação real antes de "pronto"** — rules-based (lint/typecheck/test) > visual > LLM-judge.
 
+## Loop Linear
+
+**Linear (time EDU) é a única casa de tarefas deste projeto.** Trello e Plane estão congelados — não migrar, não usar, não apagar.
+
+- Toda tarefa começa por um issue no Linear (time EDU, `teamId e5623300-f420-4627-ab05-1612f7b2f981`).
+- **WIP=1** — só um issue "In Progress" por vez. Se não existe issue pra tarefa, criar antes de codar.
+- Ao terminar com o **DoD-comando** em `exit 0`: mover o issue pra status `type: completed` (resolver o ID via `list_issue_statuses`, nunca hardcodar) e comentar o que foi feito + DoD + commit hash. Ver seção "Fechamento (Linear)" em `task-contract` skill.
+- Nunca fechar/mover issue sem `exit 0` do DoD.
+
 ## Fluxo (sem desvio)
 1. Humano fala em linguagem natural → Claude monta o **Task Contract** (pergunta 1-2 coisas pra fechar Scope e DoD).
 2. Ativa a task (WIP=1) — grava DoD onde os hooks leem.
