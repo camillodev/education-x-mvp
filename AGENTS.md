@@ -43,7 +43,6 @@ npm run test:e2e     # playwright
 4. `code-explorer` — mapeia o território do codebase relevante ao ticket/tarefa e devolve sumário destilado
 5. `code-implementer` — implementa o blueprint aprovado respeitando as regras de camada e tipo do repo
 6. `test-writer` — escreve teste que falha antes da mudança e passa depois, para os módulos tocados
-7. `debugger` — reproduz a falha reportada, encontra a causa raiz, aplica patch mínimo
 8. `code-reviewer` — audita o diff em busca de bug, violação de padrão e risco de qualidade, reportando só achados de alta confiança
 9. `security-auditor` — encontra vulnerabilidade OWASP, falha de isolamento multi-tenant, secret exposto e vazamento de PII antes de produção
 10. `silent-failure-hunter` — caça código que falha sem avisar: catch vazio, fallback silencioso, erro suprimido
@@ -61,3 +60,6 @@ npm run test:e2e     # playwright
 - `lessons/00-INDEX.md` — **não existe neste repo hoje** (verificado); se for criado, é o destino correto para onboarding/patterns/anti-patterns
 - `.specify/memory/constitution.md` — arquitetura, decisões congeladas
 - `CLAUDE.md` (raiz do projeto, sem `.claude/`) — instruções para Claude (já importa este arquivo via `@AGENTS.md`)
+
+<!-- harness-gardener: agentes detectados automaticamente -->
+- `debugger` — Reproduz falha, root cause, patch cirúrgico. Separado do implementador.
