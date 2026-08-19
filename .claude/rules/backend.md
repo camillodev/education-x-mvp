@@ -109,3 +109,27 @@ export async function calculateWithTax(price: number): Promise<number> {
 - ❌ `externalReference` gerado aleatoriamente (deve ser determinístico e único).
 - ❌ Rollback automático de operações Asaas — trate como eventual consistency.
 - ❌ Valores nunca convertidos (centavos vs reais misturados).
+
+## Performance
+
+- **`select`/`include` explícito sempre.** `findMany()` sem projeção traz todas as colunas —
+  inclusive as que forem adicionadas depois, sem ninguém revisar.
+- **N+1 é o erro mais caro e o mais fácil de cometer.** Query dentro de `for`/`map` = 1 + N
+  round-trips. As três saídas, em ordem de preferência:
+  1. `relationLoadStrategy: "join"` (1 query)
+  2. `include: { relacao: true }` (2 queries)
+  3. `where: { id: { in: [...] } }` em lote (2 queries)
+- **`Promise.all` no que é independente.** `await` sequencial de 3 chamadas que não dependem
+  entre si custa a soma; em paralelo custa o máximo.
+- Paginação sempre em listagem que cresce com o uso (cobranças, matrículas). `take` sem `skip`
+  usando cursor é mais estável que offset em tabela que recebe insert.
+- Antes de otimizar código: confirmar que a query tem índice (ver `database.md`).
+
+## Anti-padrões de performance
+
+- ❌ Query Prisma dentro de loop.
+- ❌ `await` em série no que podia ser `Promise.all`.
+- ❌ `findMany()` sem `take` em tabela que cresce sem limite.
+- ❌ Buscar a lista inteira pra contar no JS — `count()` faz isso no banco.
+- ❌ Instanciar `new PrismaClient()` por request — usar o singleton (já é regra na seção
+  "Prisma Client" acima; em serverless isso estoura o pool).
