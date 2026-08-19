@@ -17,19 +17,27 @@ deste repo nunca rodaram**, e o loop de auto-melhoria foi construído.
 
 ## 1. Segurança e inconsistências
 
-### 🔴 Crítico — os 14 hooks deste repo nunca executaram
+### 🔴 Crítico — os 14 hooks deste repo estavam registrados num formato não-oficial
 
-O `.claude/settings.json` registrava hooks no formato `{"name": ..., "path": ...}`. O formato
-oficial é `{"matcher": ..., "hooks": [{"type":"command","command":...}]}`. **O formato errado é
-silenciosamente ignorado** — sem erro, sem aviso.
+O `.claude/settings.json` deste repo registrava hooks como `{"name": ..., "path": ...}`. O
+formato oficial documentado é `{"matcher": ..., "hooks": [{"type":"command","command":...}]}`.
 
-Como foi provado: os scripts funcionam quando chamados direto (`dangerous-command-blocker`
-retorna `exit=2` com payload sintético), mas quando tentei rodar `rm -rf` numa pasta de teste,
-quem bloqueou foi o hook **global** (`~/.config/ai-tools/hooks/pre-tool-security.sh`) — o local,
-que existe exatamente pra isso, ficou mudo.
+**O que está provado:**
+- Formato A é o documentado como oficial pela referência do Claude Code.
+- Seu `~/.claude/settings.json` — cujos hooks **comprovadamente funcionam**, incluindo o que
+  bloqueou meus comandos nesta sessão — usa **31 entradas em formato A e zero em formato B**.
+- Os scripts locais funcionam quando chamados direto (`exit=2` com payload sintético). O
+  problema nunca foi o script.
 
-**Impacto:** `secret-scanner`, `dangerous-command-blocker`, `lint-gate-before-commit` e
-`critical-file-protection` estavam desligados desde que foram criados. A proteção era aparente.
+**O que NÃO consegui provar nesta sessão:** que o formato B é ignorado em runtime. Tentei montar
+um projeto de teste com hook em formato B e disparar por sessão headless — o `claude -p` falhou
+com "OAuth session expired", e um subagente herda o `CLAUDE_PROJECT_DIR` desta sessão, não o do
+projeto de teste. **Fica como verificação pendente pra você**, se quiser confirmar: registrar um
+hook trivial em formato B num projeto qualquer e ver se dispara.
+
+**Impacto (se a leitura estiver certa):** `secret-scanner`, `dangerous-command-blocker`,
+`lint-gate-before-commit` e `critical-file-protection` estavam inertes neste repo. De todo modo,
+**agora estão em formato A e comprovadamente ativos** — ver a prova acidental no Caso 1.
 
 ### 🟠 `Read(.env*)` no allow global contradizia seu CLAUDE.md
 
@@ -189,13 +197,42 @@ git -C ~/.claude/skills log --oneline -1
 
 ---
 
+## Revisão adversarial (o loop funcionando em si mesmo)
+
+Antes de te entregar, passei o trabalho por revisão crítica. Ela encontrou **3 defeitos meus da
+mesma classe que este PR existe pra eliminar**: algo que reporta sucesso sem fazer o trabalho.
+Registro porque é o melhor argumento a favor do desenho.
+
+1. **O gardener não se auto-melhorava — só dizia que sim.** O caminho `--aplicar` montava uma
+   string, nunca escrevia no `AGENTS.md` nem commitava, e ainda gravava `keep` no
+   `harness-experiments.tsv`. A memória do loop acumularia registros falsos. Meu teste não pegou
+   porque `detectar_drift()` retornava vazio (o `AGENTS.md` estava correto), então o caminho
+   nunca foi exercitado. **Corrigido e testado com drift fabricado:** removi `debugger` do
+   arquivo, rodei, o arquivo mudou de fato, o commit `571aab0` foi criado, e `git revert`
+   desfez.
+
+2. **O registro dos hooks e o sandbox viviam só num arquivo não versionado.** `settings.json` é
+   gitignored — `git revert` não desfaria nada disso, e outra sessão sobrescrevendo mataria o
+   trabalho sem diff. A receita reexecutável saiu do scratchpad da sessão (que morre com ela)
+   pra `~/.claude/scripts/harness-register-hooks.py`, agora versionada e idempotente.
+
+3. **O primeiro relatório do gardener tinha 24 propostas, ~22 delas ruído** — varria
+   `~/.claude/agents/` inteiro e apontava seus agentes pessoais (`will-tese-antropologia`,
+   `coda-coder`) como ociosos. Isso bateria na minha própria anti-métrica ("vira ritual que você
+   pula"). Limitado aos 10 de engenharia: agora são **2 propostas, ambas reais**.
+
 ## Estado do git
 
 | Repo | Commits | Pushado? |
 |---|---|---|
-| `education-x-mvp` | `e3043e5` (retorno) + `4d0bda2` (migração) | ❌ não |
-| `~/.claude` | `0b6852e` (hooks/telemetria) + `a8aff1f` (config) | — sem remote |
-| `~/.claude/skills` | `8fd8255` | — sem remote |
+| `education-x-mvp` | `e3043e5` (retorno) · `4d0bda2` (migração) · `8b11ea2` (este doc) · `571aab0`+`651c649` (teste do gardener e revert) | ❌ não |
+| `~/.claude` | `0b6852e` (hooks/telemetria) · `a8aff1f` (config) · `f30113b` (correções) | — sem remote |
+| `~/.claude/skills` | `8fd8255` · `c17439a` | — sem remote |
+
+⚠️ **`~/.claude/settings.json` NÃO está versionado** (gitignored, por conter preferências e
+potencialmente tokens). O registro dos 14 hooks e o `permissions.deny` vivem nele. O que é
+reversível por git é a **receita** (`harness-register-hooks.py`), não o arquivo. Backups
+automáticos ficam em `~/.claude/settings.json.bak-*`.
 
 Para abrir o PR quando você aprovar:
 
