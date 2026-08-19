@@ -2,6 +2,14 @@
 
 Plataforma de gestão financeira escolar (matrícula → cobrança → recebimento → nota fiscal → negativação). Multi-tenant: cada escola é uma `Unit` isolada. Primeiro mercado: franquias Kumon.
 
+## Contexto de produto/negócio (fonte viva: vault do Rafael)
+
+> Números e escopo abaixo são **snapshot do vault em 18/ago/2026**, não spec de billing congelada — o vault (`profissional/wiki/hot.md`, repo privado `second-brain`) muda mais rápido que este arquivo e é a fonte de verdade contínua **só pra contexto de negócio** (pricing vigente, ICP, prioridade comercial). Isso não muda a regra de "fonte ÚNICA de verdade" da seção "Docs do produto" abaixo — spec e arquitetura de código continuam vindo só de `docs/product/`, `docs/decisions/` e `specs/` deste repo, nunca do vault.
+
+- **Pricing (definido 31/jul, ainda não é doc "revisado" formal — ver `docs/strategy` deste repo pra status de revisão):** Básico = repasse Asaas + margem, teto 15% total; Pro = R$99/mês + **negativação + relatórios avançados** + contas a pagar/receber + gestão de funcionários + suporte prioritário WhatsApp. Isso importa pro código porque negativação e relatórios avançados são feature-gate do Pro, não do MVP Básico.
+- **MVP (revisado 31/jul):** negativação e relatórios avançados **saem do escopo inicial (Básico)** e viram gatilho de upgrade pro Pro, construídos na Fase 2 do roadmap — não implementar como parte do Básico. Fintech: cash-in via cartão Asaas com spread 5% já decidido (RFC no vault), mas o pricing de transação do Básico usa o teto de 15% total, não esse spread isolado.
+- **ICP:** franquias Kumon primeiro, expandindo depois pra qualquer franquia micro (dono decide, sem TI dedicado) — informa prioridade de feature (simplicidade > configurabilidade).
+
 ## Stack
 - **Next 16** (App Router, RSC) · **React 19** · **TypeScript strict**
 - **Prisma** + **Supabase PostgreSQL** (`sa-east-1`)
@@ -46,11 +54,11 @@ Plataforma de gestão financeira escolar (matrícula → cobrança → recebimen
 
 > **Convenção `WIP-`:** docs com prefixo `WIP-` NÃO estão prontos/validados — não tratar como verdade. Revisados de fato: `docs/strategy/ICP-FASEADO.md` e `docs/strategy/MARKET-SIZING.md`. Todo o resto de strategy/research é WIP (`WIP-GTM-PLAN`, `WIP-PRICING-STRATEGY`, `WIP-ALFA-BETA-STRATEGY`, `WIP-SUPORTE-WHATSAPP`, `WIP-DECK-DE-VENDAS`, `WIP-00-PERSONAS`, `WIP-HIPOTESES-VALIDACAO`). As 5 hipóteses críticas (H1/H6/H9/H12/H16) foram resolvidas em 13/jun e estão marcadas dentro de `WIP-HIPOTESES-VALIDACAO`.
 
-## Quando usar cada modelo (papéis — detalhe em `.claude/AGENTS.md`)
+## Quando usar cada modelo (papéis — detalhe em `AGENTS.md`)
 - **Sonnet** — orquestrador + construtor: coordena o pipeline E constrói a massa (telas, services, CRUD). *(Fable indisponível 14/jun — Sonnet acumula construção; ver AGENTS.md.)*
 - **Haiku** — mecânico: componentes dumb, columns, boilerplate de teste.
-- **Opus** — arquiteto/revisor: schema, auth/tenant, cripto, contratos Asaas, review crítico (via `advisor()` + subagent `coda-reviewer`). Só onde o custo do erro justifica.
-- **Pipeline completo de execução de tarefa:** `.claude/AGENTS.md` (auto-contido, não depende de skills globais).
+- **Opus** — arquiteto/revisor: schema, auth/tenant, cripto, contratos Asaas, review crítico (via `advisor()` + subagents `system-architect` e `security-auditor`). Só onde o custo do erro justifica.
+- **Pipeline completo de execução de tarefa:** `AGENTS.md` (auto-contido, não depende de skills globais).
 
 ## Workflow
 - Antes de propor config/sintaxe de lib externa: consultar `context7` (docs live; o cutoff do modelo pode estar defasado).

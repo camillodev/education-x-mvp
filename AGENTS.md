@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-Fábrica de SaaS com agentes embutidos. Config reutilizável + 7 subagents + skills de disciplina = novo SaaS em semanas. Stack: Next.js App Router, Supabase, Tailwind/shadcn, Zod, Vitest, Playwright.
+Fábrica de SaaS com agentes embutidos. Config reutilizável + 10 subagents + skills de disciplina = novo SaaS em semanas. Stack: Next.js App Router, Supabase, Tailwind/shadcn, Zod, Vitest, Playwright.
 
 ## Build & Test
 
@@ -36,22 +36,28 @@ npm run test:e2e     # playwright
 
 ## Agents & Skills
 
-**Subagents em `.claude/agents/`:**
-1. `ana-journal` — logging/auditing
-2. `bruno-api` — integrations Asaas/HubSpot
-3. `coda-coder` — engineering lead Sonnet
-4. `davi-agent-builder` — cria agentes novos
-5. `leo-devops` — infra/CI
-6. `julia-weekly` — síntese semanal
-7. `kai-secrets-rotation` — security
+**Subagents em `.claude/agents/`** (espelho global em `~/.claude/agents/`; histórico completo de decisão em `docs/PLANO-TIME-AGENTS.md`):
+1. `product-manager` — prioriza Backlog do Linear e mantém "A Fazer" com lote fixo pré-aprovado; cria issue nova quando item do roadmap não tem ticket
+2. `system-architect` — decide arquitetura fundacional irreversível: schema Prisma, isolamento de tenant, contrato de pagamento, escolha estrutural de lib
+3. `feature-architect` — desenha blueprint executável de uma feature dentro do padrão já estabelecido no repo (renomeia `code-architect`)
+4. `code-explorer` — mapeia o território do codebase relevante ao ticket/tarefa e devolve sumário destilado
+5. `code-implementer` — implementa o blueprint aprovado respeitando as regras de camada e tipo do repo
+6. `test-writer` — escreve teste que falha antes da mudança e passa depois, para os módulos tocados
+7. `debugger` — reproduz a falha reportada, encontra a causa raiz, aplica patch mínimo
+8. `code-reviewer` — audita o diff em busca de bug, violação de padrão e risco de qualidade, reportando só achados de alta confiança
+9. `security-auditor` — encontra vulnerabilidade OWASP, falha de isolamento multi-tenant, secret exposto e vazamento de PII antes de produção
+10. `silent-failure-hunter` — caça código que falha sem avisar: catch vazio, fallback silencioso, erro suprimido
 
-**Skills obrigatórias:**
-- `ix-core` (sempre primeiro)
-- `task-contract` (specification ritual)
-- `superpowers:*` (brainstorm/plan/verify/code-review)
+**Skills do projeto em `.claude/skills/`:**
+- `dev-workflow` — orquestrador do pipeline (tabela de gatilho, 4 gates, falha parcial, teto de 3 ciclos)
+- `task-contract` — ritual de especificação antes de codar
+- `agent-builder` — criar/auditar agente
+- `edx-spec`, `edx-adr`, `edx-homologacao`, `edx-datatable` — skills auto-contidas específicas do projeto
+
+**Skills globais herdadas (fora deste repo):** `ix-core`, `superpowers:*` (brainstorm/plan/verify/code-review) — carregadas pelo ambiente Claude Code do Rafael, não vivem em `.claude/skills/` deste projeto.
 
 ## Where to Learn
 
-- `lessons/00-INDEX.md` — onboarding, patterns, anti-patterns
+- `lessons/00-INDEX.md` — **não existe neste repo hoje** (verificado); se for criado, é o destino correto para onboarding/patterns/anti-patterns
 - `.specify/memory/constitution.md` — arquitetura, decisões congeladas
-- `.claude/CLAUDE.md` — instruções para Claude (já importa este arquivo)
+- `CLAUDE.md` (raiz do projeto, sem `.claude/`) — instruções para Claude (já importa este arquivo via `@AGENTS.md`)

@@ -54,8 +54,14 @@
       {
         "name": "linear-mark-ticket",
         "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/linear-mark-ticket.sh",
-        "matcher": "mcp__349e887c-3bc4-47b6-b34c-55ee32842997__(save_issue|update_issue)",
-        "description": "Marks the session as having an active Linear ticket once one is created/updated"
+        "matcher": "mcp__.*__(save_issue|update_issue)",
+        "description": "Marks the session as having an active Linear ticket once one is created/updated. Matcher uses a wildcard MCP server prefix (mcp__.*__) instead of the hardcoded connector install UUID (previously mcp__349e887c-3bc4-47b6-b34c-55ee32842997__) — the UUID is specific to this claude.ai account's Linear connector installation and changes if the connector is reconnected or the project runs under a different account. See .claude/rules/mcp-conectores.md for the full rationale."
+      },
+      {
+        "name": "no-edit-tests",
+        "path": "$CLAUDE_PROJECT_DIR/.claude/hooks/no-edit-tests.sh",
+        "matcher": ["Edit", "Write", "MultiEdit"],
+        "description": "Blocks edits to test files (*.spec.ts, *.test.ts, *.spec.tsx, *.test.tsx) while the code-implementer agent has an active turn, via a marker file the code-implementer sets/clears at start/end of its turn (same pattern as linear-mark-ticket.sh). NOT keyed on subagent identity: this repo's other hooks show the PreToolUse payload only carries session_id/transcript_path/cwd/tool_name/tool_input — no subagent_type or agent id field — so a hook cannot detect 'this call came from code-implementer' directly. It also is NOT keyed on session_id like linear-mark-ticket.sh, because it is unconfirmed whether a Task-spawned subagent shares the parent session_id (if it gets its own, a session_id-keyed marker set by the orchestrator would be invisible inside the subagent and the hook would silently never fire). The marker is a fixed per-project path instead. code-implementer (created in Phase 3) must set this marker when it starts and clear it when it finishes; until code-implementer exists, the marker is never set and this hook is a no-op (never blocks)."
       }
     ],
     "UserPromptSubmit": [
