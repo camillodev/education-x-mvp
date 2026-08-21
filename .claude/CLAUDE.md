@@ -18,17 +18,29 @@ Builder portável para construir SaaS de alta qualidade com agentes Claude. Este
 
 **Linear (time EDU) é a única casa de tarefas deste projeto.** Trello e Plane estão congelados — não migrar, não usar, não apagar.
 
-- Toda tarefa começa por um issue no Linear (time EDU, `teamId e5623300-f420-4627-ab05-1612f7b2f981`).
-- **WIP=1** — só um issue "In Progress" por vez. Se não existe issue pra tarefa, criar antes de codar.
-- Ao terminar com o **DoD-comando** em `exit 0`: mover o issue pra status `type: completed` (resolver o ID via `list_issue_statuses`, nunca hardcodar) e comentar o que foi feito + DoD + commit hash. Ver seção "Fechamento (Linear)" em `task-contract` skill.
-- Nunca fechar/mover issue sem `exit 0` do DoD.
+### Status do workflow (human-in-the-loop explícito)
+
+`Backlog` → `Todo` → `In Progress` → `In Review` → `Ready to Merge` → `Production`
+(fora da linha principal: `Blocked`, `Canceled`, `Duplicate`)
+
+- **`Backlog`** — ainda não aprovado pra ser implementado. Fonte de conteúdo: `.specs/BACKLOG.md`.
+- **`Todo`** — task já definida e priorizada, pronta pra puxar. Agente escolhe daqui, nunca do `Backlog` direto.
+- **`In Progress`** — agente codando. WIP=1 (só um issue aqui por vez).
+- **`In Review`** — PR aberto, esperando revisão/aprovação humana no GitHub.
+- **`Ready to Merge`** — **só o Rafa move pra cá**, depois de aprovar o PR no GitHub. O agente nunca move um issue pra `Ready to Merge` ou `Production` sozinho — é o gate humano do pipeline.
+- **`Production`** — merge feito manualmente por humano em `main`.
+
+- Toda tarefa começa por um issue no Linear (time EDU, `teamId e5623300-f420-4627-ab05-1612f7b2f981`), puxado de `Todo` (não de `Backlog`).
+- **WIP=1** — só um issue "In Progress" por vez. Se não existe issue pra tarefa, criar antes de codar (em `Backlog` se ainda não priorizado, ou `Todo` se já aprovado).
+- Ao terminar com o **DoD-comando** em `exit 0`: abrir o PR e mover o issue pra `In Review` (resolver o ID via `list_issue_statuses`, nunca hardcodar) e comentar o que foi feito + DoD + commit hash. Ver seção "Fechamento (Linear)" em `task-contract` skill.
+- **Nunca mover um issue pra `Ready to Merge` ou `Production`** — essas transições são exclusivamente humanas, feitas depois da aprovação/merge real no GitHub.
 
 ## Fluxo (sem desvio)
 1. Humano fala em linguagem natural → Claude monta o **Task Contract** (pergunta 1-2 coisas pra fechar Scope e DoD).
 2. Ativa a task (WIP=1) — grava DoD onde os hooks leem.
 3. Executa com disciplina: **startup-anchor** (`git log -5` + smoke) → **investigate-first** (lê antes de afirmar) → **recusa fora do Scope** (vira ticket novo).
-4. Reviewer roda o DoD-comando — aprova só se `exit 0` e Scope respeitado.
-5. Humano aprova o PR no GitHub (último gate).
+4. Reviewer roda o DoD-comando — aprova só se `exit 0` e Scope respeitado. Issue vai pra `In Review`.
+5. Humano aprova o PR no GitHub (último gate) → move o issue pra `Ready to Merge` → mergeia manualmente → move pra `Production`.
 
 ## Stack alvo
 Next.js App Router (RSC, TS strict) · Supabase (RLS) · Tailwind v4 + shadcn/ui · Zod (fonte de tipos) · Vitest (unit) · Playwright (E2E contra `build`, não dev). Server Actions > Route Handlers pra mutations.
