@@ -6,6 +6,8 @@ import {
   submitGuardianStep,
   GuardianOwnershipError,
   submitStudentsStep,
+  submitPlanStep,
+  StudentOwnershipError,
 } from '@/lib/services/enrollment.service'
 
 vi.mock('@/lib/crypto', () => ({
@@ -18,6 +20,10 @@ vi.mock('@/lib/db', () => {
   const guardianFindFirst = vi.fn()
   const studentDeleteMany = vi.fn()
   const studentCreate = vi.fn()
+  const studentFindMany = vi.fn()
+  const subjectFindMany = vi.fn()
+  const enrollmentDeleteMany = vi.fn()
+  const enrollmentCreate = vi.fn()
   return {
     prisma: {
       unit: { findUnique: vi.fn() },
@@ -31,6 +37,14 @@ vi.mock('@/lib/db', () => {
       student: {
         deleteMany: studentDeleteMany,
         create: studentCreate,
+        findMany: studentFindMany,
+      },
+      subject: {
+        findMany: subjectFindMany,
+      },
+      enrollment: {
+        deleteMany: enrollmentDeleteMany,
+        create: enrollmentCreate,
       },
     })),
   }
@@ -44,6 +58,14 @@ type MockForUnitDb = {
     findFirst: ReturnType<typeof vi.fn>
   }
   student: {
+    deleteMany: ReturnType<typeof vi.fn>
+    create: ReturnType<typeof vi.fn>
+    findMany: ReturnType<typeof vi.fn>
+  }
+  subject: {
+    findMany: ReturnType<typeof vi.fn>
+  }
+  enrollment: {
     deleteMany: ReturnType<typeof vi.fn>
     create: ReturnType<typeof vi.fn>
   }
@@ -170,5 +192,65 @@ describe('submitStudentsStep', () => {
       { studentId: 'student-1', subjectIds: ['subj-1', 'subj-2'] },
       { studentId: 'student-2', subjectIds: ['subj-1'] },
     ])
+  })
+})
+
+describe('submitPlanStep', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  const selection = [
+    { studentId: 'student-1', subjectIds: ['subj-1', 'subj-2'] },
+    { studentId: 'student-2', subjectIds: ['subj-1'] },
+  ]
+
+  it('cria 1 Enrollment por (student, subject) com agreedPriceCents derivado do Subject (R5a)', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.student.findMany.mockResolvedValue([{ id: 'student-1' }, { id: 'student-2' }])
+    db.subject.findMany.mockResolvedValue([
+      { id: 'subj-1', priceCents: 30000, quarterlyPriceCents: null, semiannualPriceCents: null, annualPriceCents: 24000 },
+      { id: 'subj-2', priceCents: 20000, quarterlyPriceCents: null, semiannualPriceCents: null, annualPriceCents: 16000 },
+    ])
+    db.enrollment.create.mockResolvedValue({ id: 'enr-x' })
+
+    const result = await submitPlanStep('unit-1', 'guardian-1', selection, 'ANNUAL')
+
+    expect(db.enrollment.deleteMany).toHaveBeenCalledWith({ where: { guardianId: 'guardian-1' } })
+    expect(db.enrollment.create).toHaveBeenCalledTimes(3) // 2 subjects (student-1) + 1 subject (student-2)
+    expect(db.enrollment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        unitId: 'unit-1',
+        guardianId: 'guardian-1',
+        studentId: 'student-1',
+        subjectId: 'subj-1',
+        plan: 'ANNUAL',
+        agreedPriceCents: 24000,
+        finalPriceCents: 24000,
+      }),
+    })
+    expect(result.totalCents).toBe(24000 + 16000 + 24000) // student-1: subj-1+subj-2, student-2: subj-1
+  })
+
+  it('lança StudentOwnershipError se algum studentId do cookie não pertence a este Guardian/unidade', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.student.findMany.mockResolvedValue([{ id: 'student-1' }]) // só 1 de 2 encontrado
+
+    await expect(submitPlanStep('unit-1', 'guardian-1', selection, 'ANNUAL')).rejects.toThrow(
+      StudentOwnershipError
+    )
+    expect(db.enrollment.create).not.toHaveBeenCalled()
+  })
+
+  it('lança erro se algum Subject não tem preço configurado para o plano escolhido (R3)', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.student.findMany.mockResolvedValue([{ id: 'student-1' }, { id: 'student-2' }])
+    db.subject.findMany.mockResolvedValue([
+      { id: 'subj-1', priceCents: 30000, quarterlyPriceCents: null, semiannualPriceCents: null, annualPriceCents: null },
+      { id: 'subj-2', priceCents: 20000, quarterlyPriceCents: null, semiannualPriceCents: null, annualPriceCents: 16000 },
+    ])
+
+    await expect(submitPlanStep('unit-1', 'guardian-1', selection, 'ANNUAL')).rejects.toThrow()
+    expect(db.enrollment.create).not.toHaveBeenCalled()
   })
 })

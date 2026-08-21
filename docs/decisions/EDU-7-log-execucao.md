@@ -100,7 +100,23 @@ Verificado manualmente com Playwright MCP contra dev server: token válido mostr
 
 ## EDU-12 — US4: Plano e valor
 
-(preencher ao concluir)
+**Feito:** `src/lib/validations/plan.ts` (`priceCentsForPlan` — deriva preço do campo correspondente do Subject, R5a; `availablePlans` — só planos com preço configurado em TODOS os subjects selecionados, R3; `economyPercent`), `submitPlanStep()` em `enrollment.service.ts` (cria os Enrollments finalmente), Server Action + `PlanForm.tsx` (Client Component com cards de plano) + page.
+
+**Confirmado nos campos de preço do Subject:** `priceCents`/`quarterlyPriceCents`/`semiannualPriceCents`/`annualPriceCents` já são o **valor mensal equivalente** daquele plano (não o total do período) — confirmado pelo comentário em `src/lib/validations/unit.ts` ("priceCents = valor mensal") e pela decisão #2 citada no design handoff ("Plano = período de fidelidade do contrato. Valor exibido sempre é o valor mensal."). `agreedPriceCents` no Enrollment é gravado como snapshot direto desse campo — sem conversão.
+
+**Enrollment nasce aqui (não em B3).** 1 Enrollment por combinação `(student, subject)` da seleção vinda do cookie de B3. Antes de escrever, revalida ownership de cada `studentId` contra `guardianId`+`unitId` (mesma defesa usada em `GuardianOwnershipError` — novo erro `StudentOwnershipError`, cookie nunca é fonte de verdade). `agreedPriceCents`/`finalPriceCents` sempre calculados no servidor via `priceCentsForPlan`, nunca aceitos do client (mesmo que o form envie um plano, o preço não vem dele).
+
+**Reenvio = delete-recreate** (mesmo padrão de B3): trocar de plano em B4 substitui os Enrollments anteriores, não acumula.
+
+**"Economize X%"** calculado como `(mensal - planoEscolhido) / mensal * 100`, arredondado — sem fórmula explícita na spec (só o AC "exibir economia vs. mensal" do EDU-12), decisão de implementação registrada aqui.
+
+**Testes:** `tests/unit/validations/plan.test.ts` (9, cálculo de preço/disponibilidade/economia) + `tests/unit/services/enrollment.service.test.ts` (+3 pra `submitPlanStep`) + `tests/integration/submit-plan-step.integration.test.ts` (3, banco real: `agreedPriceCents` correto, delete-recreate, `StudentOwnershipError` cross-guardian).
+
+**Verificado manualmente via Playwright MCP, fluxo completo B2→B3→B4:** com um Subject só com `priceCents` configurado, só o card MONTHLY aparece (R3 confirmado); resumo "1 aluno × 1 matéria = R$ 350,00 /mês" correto; submit cria Enrollment com `agreedPriceCents=35000` batendo com `Subject.priceCents` (confirmado via query direta) e redireciona pra B5.
+
+**DoD-comando:** `pnpm typecheck && pnpm test:run && pnpm test:integration` — verde (312 unit + 19 integration). `pnpm lint && pnpm build` também verdes.
+
+**Branch/PR:** `feature/mvp-02-matricula-b4-plano` (a partir de `feature/mvp-02-matricula-b3-aluno`).
 
 ## EDU-14 — US7: Escola cadastra o contrato
 

@@ -2,6 +2,7 @@ import { prisma, forUnit } from '../db'
 import { encrypt } from '../crypto'
 import { GuardianStepSchema, type GuardianStepInput } from '../validations/guardian'
 import type { StudentBlockOutput } from '../validations/student'
+import { priceCentsForPlan, type EnrollmentPlanValue } from '../validations/plan'
 import type { Guardian } from '@prisma/client'
 
 export class InvalidEnrollmentLinkError extends Error {
@@ -107,4 +108,75 @@ export async function submitStudentsStep(
   }
 
   return created
+}
+
+export class StudentOwnershipError extends Error {
+  readonly status = 403
+  constructor() {
+    super('Aluno não pertence a esta matrícula')
+    this.name = 'StudentOwnershipError'
+  }
+}
+
+export class PlanNotAvailableError extends Error {
+  readonly status = 422
+  constructor() {
+    super('Plano escolhido não está disponível para uma ou mais matérias')
+    this.name = 'PlanNotAvailableError'
+  }
+}
+
+export interface PlanStepResult {
+  totalCents: number
+}
+
+// B4 — cria os Enrollment(s), 1 por (student, subject) do cookie de seleção montado em B3.
+// Antes de escrever, revalida que TODO studentId pertence a este Guardian+unitId (mesma
+// defesa de GuardianOwnershipError — cookie não é confiável, é só um hint de UX).
+// agreedPriceCents/finalPriceCents são sempre calculados no servidor (R5a) — nunca
+// aceitos do client. Estratégia delete-recreate: reenvio de B4 substitui os Enrollments
+// anteriores (troca de plano não deveria acumular linhas órfãs).
+export async function submitPlanStep(
+  unitId: string,
+  guardianId: string,
+  selection: StudentSubjectSelection[],
+  plan: EnrollmentPlanValue
+): Promise<PlanStepResult> {
+  const db = forUnit(unitId)
+
+  const studentIds = selection.map((s) => s.studentId)
+  const foundStudents = await db.student.findMany({
+    where: { id: { in: studentIds }, guardianId },
+  })
+  if (foundStudents.length !== studentIds.length) throw new StudentOwnershipError()
+
+  const subjectIds = [...new Set(selection.flatMap((s) => s.subjectIds))]
+  const subjects = await db.subject.findMany({ where: { id: { in: subjectIds } } })
+  const subjectById = new Map(subjects.map((s) => [s.id, s]))
+
+  await db.enrollment.deleteMany({ where: { guardianId } })
+
+  let totalCents = 0
+  for (const { studentId, subjectIds: studentSubjectIds } of selection) {
+    for (const subjectId of studentSubjectIds) {
+      const subject = subjectById.get(subjectId)
+      const priceCents = subject ? priceCentsForPlan(subject, plan) : null
+      if (priceCents === null || priceCents === undefined) throw new PlanNotAvailableError()
+
+      await db.enrollment.create({
+        data: {
+          unitId,
+          guardianId,
+          studentId,
+          subjectId,
+          plan,
+          agreedPriceCents: priceCents,
+          finalPriceCents: priceCents,
+        },
+      })
+      totalCents += priceCents
+    }
+  }
+
+  return { totalCents }
 }
