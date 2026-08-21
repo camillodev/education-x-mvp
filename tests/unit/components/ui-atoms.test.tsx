@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 
 describe('Toggle', () => {
   it('reflects checked state via aria-checked', () => {
@@ -24,6 +25,27 @@ describe('Toggle', () => {
     const onChange = vi.fn()
     render(<Toggle checked={false} onChange={onChange} disabled aria-label="t" />)
     fireEvent.click(screen.getByRole('switch'))
+    expect(onChange).not.toHaveBeenCalled()
+  })
+})
+
+describe('Checkbox', () => {
+  it('reflects checked state via aria-checked', () => {
+    render(<Checkbox checked={true} onChange={() => {}} aria-label="c" />)
+    expect(screen.getByRole('checkbox')).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('calls onChange with the toggled value on click', () => {
+    const onChange = vi.fn()
+    render(<Checkbox checked={false} onChange={onChange} aria-label="c" />)
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(onChange).toHaveBeenCalledWith(true)
+  })
+
+  it('does not fire onChange when disabled', () => {
+    const onChange = vi.fn()
+    render(<Checkbox checked={false} onChange={onChange} disabled aria-label="c" />)
+    fireEvent.click(screen.getByRole('checkbox'))
     expect(onChange).not.toHaveBeenCalled()
   })
 })
