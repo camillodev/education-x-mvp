@@ -1,6 +1,7 @@
 import { prisma, forUnit } from '../db'
 import { encrypt } from '../crypto'
 import { GuardianStepSchema, type GuardianStepInput } from '../validations/guardian'
+import type { StudentBlockOutput } from '../validations/student'
 import type { Guardian } from '@prisma/client'
 
 export class InvalidEnrollmentLinkError extends Error {
@@ -72,4 +73,38 @@ export async function submitGuardianStep(
   if (!existing) throw new GuardianOwnershipError()
 
   return db.guardian.update({ where: { id: existingGuardianId }, data: guardianData })
+}
+
+export interface StudentSubjectSelection {
+  studentId: string
+  subjectIds: string[]
+}
+
+// B3 — grava Student(s) vinculados ao Guardian. Estratégia delete-recreate: mudar os
+// alunos invalida qualquer Enrollment futuro (plano ainda não existe nesse ponto do
+// fluxo — nasce em B4). Matérias não são gravadas aqui (Enrollment.subjectId só existe
+// com plan+preço, que vêm de B4) — retornamos studentId->subjectIds pro caller guardar
+// em cookie até B4 criar os Enrollments de fato.
+export async function submitStudentsStep(
+  unitId: string,
+  guardianId: string,
+  blocks: StudentBlockOutput[]
+): Promise<StudentSubjectSelection[]> {
+  const db = forUnit(unitId)
+
+  await db.student.deleteMany({ where: { guardianId } })
+
+  const created: StudentSubjectSelection[] = []
+  for (const block of blocks) {
+    const [nameEnc, birthDateEnc] = await Promise.all([
+      encrypt(block.name),
+      encrypt(block.birthDate.toISOString()),
+    ])
+    const student = await db.student.create({
+      data: { unitId, guardianId, nameEnc, birthDateEnc },
+    })
+    created.push({ studentId: student.id, subjectIds: block.subjectIds })
+  }
+
+  return created
 }

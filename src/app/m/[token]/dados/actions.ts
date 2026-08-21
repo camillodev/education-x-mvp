@@ -5,8 +5,7 @@ import { redirect } from 'next/navigation'
 import type { Route } from 'next'
 import { resolveEnrollmentLink, submitGuardianStep } from '@/lib/services/enrollment.service'
 import { GuardianStepSchema } from '@/lib/validations/guardian'
-
-const GUARDIAN_COOKIE = 'edu_matricula_guardian_id'
+import { GUARDIAN_COOKIE } from './cookie'
 
 export interface GuardianStepFormState {
   errors: Partial<Record<'name' | 'cpf' | 'email' | 'phone' | 'type', string>>

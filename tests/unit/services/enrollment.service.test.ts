@@ -5,6 +5,7 @@ import {
   InvalidEnrollmentLinkError,
   submitGuardianStep,
   GuardianOwnershipError,
+  submitStudentsStep,
 } from '@/lib/services/enrollment.service'
 
 vi.mock('@/lib/crypto', () => ({
@@ -15,6 +16,8 @@ vi.mock('@/lib/db', () => {
   const guardianCreate = vi.fn()
   const guardianUpdate = vi.fn()
   const guardianFindFirst = vi.fn()
+  const studentDeleteMany = vi.fn()
+  const studentCreate = vi.fn()
   return {
     prisma: {
       unit: { findUnique: vi.fn() },
@@ -24,6 +27,10 @@ vi.mock('@/lib/db', () => {
         create: guardianCreate,
         update: guardianUpdate,
         findFirst: guardianFindFirst,
+      },
+      student: {
+        deleteMany: studentDeleteMany,
+        create: studentCreate,
       },
     })),
   }
@@ -35,6 +42,10 @@ type MockForUnitDb = {
     create: ReturnType<typeof vi.fn>
     update: ReturnType<typeof vi.fn>
     findFirst: ReturnType<typeof vi.fn>
+  }
+  student: {
+    deleteMany: ReturnType<typeof vi.fn>
+    create: ReturnType<typeof vi.fn>
   }
 }
 
@@ -130,5 +141,34 @@ describe('submitGuardianStep', () => {
     ).rejects.toThrow(GuardianOwnershipError)
     expect(db.guardian.update).not.toHaveBeenCalled()
     expect(db.guardian.create).not.toHaveBeenCalled()
+  })
+})
+
+describe('submitStudentsStep', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  const blocks = [
+    { name: 'João Silva', birthDate: new Date(2015, 2, 15), subjectIds: ['subj-1', 'subj-2'] },
+    { name: 'Ana Silva', birthDate: new Date(2018, 5, 10), subjectIds: ['subj-1'] },
+  ]
+
+  it('delete-recreate: apaga Students anteriores do Guardian e cria os novos, retornando studentId->subjectIds', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.student.create
+      .mockResolvedValueOnce({ id: 'student-1' })
+      .mockResolvedValueOnce({ id: 'student-2' })
+
+    const result = await submitStudentsStep('unit-1', 'guardian-1', blocks)
+
+    expect(db.student.deleteMany).toHaveBeenCalledWith({ where: { guardianId: 'guardian-1' } })
+    expect(db.student.create).toHaveBeenNthCalledWith(1, {
+      data: { unitId: 'unit-1', guardianId: 'guardian-1', nameEnc: 'enc:João Silva', birthDateEnc: expect.any(String) },
+    })
+    expect(result).toEqual([
+      { studentId: 'student-1', subjectIds: ['subj-1', 'subj-2'] },
+      { studentId: 'student-2', subjectIds: ['subj-1'] },
+    ])
   })
 })
