@@ -45,3 +45,7 @@ npm-debug.log*
 
 # Clerk E2E auth state (token de sessão — nunca commitar)
 playwright/.clerk/
+
+# markers de hook (per-session/per-ticket, nunca versionar)
+.claude/.code-implementer-active
+.claude/.gate3-confirmed

@@ -31,7 +31,7 @@ git checkout -b feature/onboarding-admin-crud
 Ferramenta **interna** → **NÃO** segue o protótipo do cliente. **Reusar o estilo e os componentes do wizard existente** (Alfabeto). Lista = tabela simples no mesmo estilo.
 
 ## Pipeline obrigatório (agent-workflow — já aplicado no repo)
-- Skill `task-contract` (escopo travado) → `superpowers:writing-plans` (≥3 arquivos) → `superpowers:test-driven-development` (RED primeiro) → `code-architect` desenha → implementa → `code-reviewer` (≥80) → `superpowers:verification-before-completion`.
+- Skill `task-contract` (escopo travado) → `superpowers:writing-plans` (≥3 arquivos) → `superpowers:test-driven-development` (RED primeiro) → `feature-architect` desenha (renomeado de `code-architect`, ver `docs/PLANO-TIME-AGENTS.md`) → implementa → `code-reviewer` (≥80) → `superpowers:verification-before-completion`.
 - Hooks ativos enforçam: `no-edit-tests`, `pr-contract-and-size` (≤400 linhas), `verification-loop-required`.
 - **DoD-comando:** `pnpm typecheck && pnpm test:run && pnpm test:integration && pnpm dlx playwright test escolas`
 
