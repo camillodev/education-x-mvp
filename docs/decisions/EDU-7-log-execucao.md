@@ -30,7 +30,13 @@
 
 **DoD-comando:** `pnpm typecheck && pnpm test:run && pnpm test:integration` — verde (274 unit + 8 integration passando). `pnpm lint && pnpm build` também verdes (warnings pré-existentes em arquivos não tocados, não bloqueantes).
 
-**Branch/PR:** `feature/mvp-02-matricula-schema`
+**Branch/PR:** `feature/mvp-02-matricula-schema` (PR #27, ainda aberto)
+
+**Correção adicionada depois da 1ª entrega (mesmo PR, commit separado):** ao começar o EDU-9 (B1, boas-vindas em `/m/[token]`), identifiquei que faltava campo de schema para o token do link — nenhuma spec modela explicitamente esse token, e `Unit.confirmationToken` já é usado pelo fluxo de onboarding da escola (semântica diferente: expira, é de uso único). Adicionado `Unit.enrollmentLinkToken String? @unique` — nullable (ALTER TABLE ADD COLUMN NOT NULL falharia em tabela com linhas; `@default(cuid())` do Prisma é client-side, não gera default de banco), com **backfill via SQL** (`UPDATE units SET enrollmentLinkToken = gen_random_uuid()::text WHERE enrollmentLinkToken IS NULL`) para as escolas já existentes não ficarem com link quebrado. Gerado em `createSchool()` (`onboarding.service.ts`) junto com o `confirmationToken`, então toda escola nova já nasce com o link pronto, sem precisar de UI nova.
+
+Migration `20260821015529_add_enrollment_link_token`, mesmo caminho não-destrutivo do EDU-8 original (`migrate diff --script` → `db execute` → `migrate resolve --applied`).
+
+**Gap sinalizado, não resolvido aqui (fora do escopo do EDU-7):** nenhum subticket do épico dá à escola uma tela para *ver ou copiar* seu link de matrícula (`/m/[enrollmentLinkToken]`). Sem isso o fluxo é inalcançável em produção mesmo depois dos 8 blocos prontos — vale abrir ticket separado no backlog.
 
 ## EDU-9 — US1: Boas-vindas
 

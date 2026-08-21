@@ -166,6 +166,17 @@ describe('createSchool', () => {
     expect(updateCall.data.status).toBeUndefined()
   })
 
+  it('gera enrollmentLinkToken estável (link público de matrícula) na criação da escola', async () => {
+    const mp = prisma as unknown as MockPrisma
+    await createSchool(baseInput, BASE_URL)
+
+    const createCall = mp.unit.create.mock.calls[0][0]
+    expect(createCall.data.enrollmentLinkToken).toBeDefined()
+    expect(typeof createCall.data.enrollmentLinkToken).toBe('string')
+    // Diferente do confirmationToken (que expira) — sem TTL associado
+    expect(createCall.data.enrollmentLinkToken).not.toBe(createCall.data.confirmationToken)
+  })
+
   it('envia e-mail de confirmação com link contendo o token', async () => {
     await createSchool(baseInput, BASE_URL)
 

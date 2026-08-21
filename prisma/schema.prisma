@@ -90,6 +90,9 @@ model Unit {
   confirmationTokenExpiresAt DateTime?
   confirmedAt                DateTime?
 
+  // Link público e estável de matrícula (/m/[token]) — não expira, rotacionável
+  enrollmentLinkToken String? @unique
+
   // Asaas subconta
   asaasAccountId String?
   asaasApiKeyEnc String? // AES-256-GCM: iv:authTag:ciphertext
