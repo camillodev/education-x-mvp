@@ -1,3 +1,4 @@
+import './tests/load-env.cjs'
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
@@ -31,7 +32,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: process.env.CI ? "pnpm build && pnpm start" : "pnpm dev",
+    command: process.env.CI ? "pnpm build && pnpm start" : "pnpm dev --hostname 127.0.0.1",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
