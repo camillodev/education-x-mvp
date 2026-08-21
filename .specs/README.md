@@ -2,7 +2,7 @@
 
 Specs técnicas por fluxo. Cada uma define **quais dados o produto precisa** para a operação acontecer, derivados de baixo pra cima (piso = payload real do Asaas), confrontados com o schema Prisma e as decisões de produto. O design é referência de UX, não fonte de verdade dos campos.
 
-> **Como a spec vive no workflow:** a spec é o artefato upstream que alimenta o pipeline de 7 passos do `.claude/AGENTS.md`. Ela termina em fatiamento de Task Contracts (skill `task-contract`), cada fatia vira 1 PR ≤400 linhas com DoD binário.
+> **Como a spec vive no workflow:** a spec é o artefato upstream que alimenta o pipeline de 7 passos do `AGENTS.md`. Ela termina em fatiamento de Task Contracts (skill `task-contract`), cada fatia vira 1 PR ≤400 linhas com DoD binário.
 
 ## Nomenclatura: `fase-NN-nome`
 

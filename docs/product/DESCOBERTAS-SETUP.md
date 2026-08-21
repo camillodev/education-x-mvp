@@ -2,7 +2,7 @@
 > Versão 1.0 · 13/jun/2026 · De onde veio cada decisão da Fase 0, e quem seguir pra ser um dev + Claude profissional.
 > Pesquisa: 4 frentes paralelas (docs oficiais Anthropic · setups reais de campo/Reddit · Clean Architecture/ADRs · especialistas a seguir).
 
-> ⚠️ **CORREÇÃO 14/jun/2026:** a descoberta nº 3 ("reaproveitar > recriar — apontar pras skills globais `ix-*`") foi **revista por portabilidade**. O projeto NÃO reaproveita do `~/.claude` global — tudo é auto-contido no repo (skills `edx-asaas`/`edx-datatable`, pipeline em `.claude/AGENTS.md`). O princípio "não duplicar conteúdo de lib" continua válido (isso o `context7` resolve), mas "reaproveitar do global" foi trocado por "auto-contido no repo" — porque o global não existe na máquina de outro dev.
+> ⚠️ **CORREÇÃO 14/jun/2026:** a descoberta nº 3 ("reaproveitar > recriar — apontar pras skills globais `ix-*`") foi **revista por portabilidade**. O projeto NÃO reaproveita do `~/.claude` global — tudo é auto-contido no repo (skills `edx-asaas`/`edx-datatable`, pipeline em `AGENTS.md`). O princípio "não duplicar conteúdo de lib" continua válido (isso o `context7` resolve), mas "reaproveitar do global" foi trocado por "auto-contido no repo" — porque o global não existe na máquina de outro dev.
 
 ---
 
