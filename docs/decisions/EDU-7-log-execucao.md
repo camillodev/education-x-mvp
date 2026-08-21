@@ -40,7 +40,24 @@ Migration `20260821015529_add_enrollment_link_token`, mesmo caminho não-destrut
 
 ## EDU-9 — US1: Boas-vindas
 
-(preencher ao concluir)
+**Feito:** `src/lib/services/enrollment.service.ts` (`resolveEnrollmentLink`, `InvalidEnrollmentLinkError`) + rota `src/app/m/[token]/page.tsx` — 100% leitura, Server Component, resolve `unitId` via `Unit.enrollmentLinkToken`, exibe nome da escola, erro cheio se token inválido, `prefilledStudentName` opcional via query param. Reusa `Card`/`buttonVariants` do design system, zero hex cru.
+
+**⚠️ BLOQUEADO — precisa de aprovação humana antes de mergear:** ao testar no browser, descobri que `src/middleware.ts` já antecipava este fluxo (comentário "link de matrícula pública (responsável)") mas com o path **errado**: `/matricula(.*)` em vez de `/m(.*)` — nenhuma rota do épico usa `/matricula`, todas as specs (mvp-02, design-handoff) definem `/m/[token]`. Com o path errado, o middleware do Clerk intercepta `/m/[token]` como rota protegida e redireciona pro `/sign-in`, quebrando o requisito explícito da spec ("fluxo de link não exige login do responsável", mvp-02:521).
+
+Correção necessária (não aplicada ainda — hook `critical-file-protection.sh` bloqueia edição de `middleware.ts` sem confirmação humana explícita, por ser arquivo de auth):
+```diff
+- '/matricula(.*)',            // link de matrícula pública (responsável)
++ '/m(.*)',                    // link de matrícula pública (responsável) — /m/[token]
++ '/api/enrollment(.*)',       // API do fluxo de matrícula pública (token prova o destinatário)
+```
+
+Sem essa correção, a rota `/m/[token]` fica inacessível sem login em produção — bloqueia não só EDU-9 mas todo o fluxo B1-B6 dos blocos seguintes. **Rafa: preciso da sua confirmação pra aplicar esse diff em `src/middleware.ts`.**
+
+**Testes:** `tests/unit/services/enrollment.service.test.ts` (RED→GREEN, token válido resolve `{unitId, unitName}`, token inválido lança `InvalidEnrollmentLinkError`).
+
+**DoD-comando:** `pnpm typecheck` verde. `pnpm test:run` verde. Playwright/E2E real e verificação visual completa **pendente** até a correção do middleware ser aprovada (sem ela, todo acesso a `/m/[token]` redireciona pro sign-in, então não há como provar o AC "abro o link e vejo boas-vindas" ponta-a-ponta ainda).
+
+**Branch/PR:** `feature/mvp-02-matricula-b1-boas-vindas` (branch a partir de `feature/mvp-02-matricula-schema` — PR ainda não aberto, aguardando resolução do bloqueio acima antes de declarar o bloco pronto).
 
 ## EDU-10 — US2: Dados do responsável
 
