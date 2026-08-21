@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { handleError } from '@/lib/errors/handle'
 import { DuplicateCnpjError, UnitNotFoundError } from '@/lib/services/onboarding.service'
+import { GuardianNotFoundError } from '@/lib/services/approval.service'
 
 describe('handleError', () => {
   beforeEach(() => vi.spyOn(console, 'error').mockImplementation(() => {}))
@@ -36,6 +37,11 @@ describe('handleError', () => {
 
   it('mapeia UnitNotFoundError para NOT_FOUND', () => {
     const out = handleError(new UnitNotFoundError(), { route: 'PATCH /x' })
+    expect(out.code).toBe('NOT_FOUND')
+  })
+
+  it('mapeia GuardianNotFoundError para NOT_FOUND', () => {
+    const out = handleError(new GuardianNotFoundError(), { route: 'POST /x' })
     expect(out.code).toBe('NOT_FOUND')
   })
 })

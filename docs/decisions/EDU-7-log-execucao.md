@@ -169,4 +169,29 @@ Verificado manualmente com Playwright MCP contra dev server: token válido mostr
 
 ## EDU-15 — US8: Aprovação da escola + Asaas
 
-(preencher ao concluir)
+**Feito:** tela `/matriculas` (orientador-only) lista matrículas em `PENDING_SCHOOL_APPROVAL`, agrupadas por Guardian (busca por responsável/aluno, tabela padrão `DataTable`/`Person`/`Badge`). Aprovar chama `POST /api/matriculas/[guardianId]/aprovar`, recusar chama `POST /api/matriculas/[guardianId]/recusar`. `approveEnrollment`/`rejectEnrollment`/`listPendingEnrollments` em novo `approval.service.ts`.
+
+**Decisão de arquitetura confirmada via `advisor()` antes de codar — unidade de aprovação é o Guardian, não o Enrollment:** `submitAcceptanceStep` (EDU-13) já move TODOS os Enrollments de um Guardian pra `PENDING_SCHOOL_APPROVAL` de uma vez — 1 `TermsAcceptance` cobre a matrícula inteira da família. Se aprovar/recusar fosse por Enrollment individual, a escola poderia aprovar a Matemática do João e deixar o Português pendente sob o mesmo aceite (incoerente), e a criação do customer Asaas dispararia mais de uma vez pro mesmo responsável. `approveEnrollment`/`rejectEnrollment` recebem `guardianId` e usam `updateMany({ where: { guardianId } })` pra mover todos juntos.
+
+**Idempotência do Asaas — 3 níveis, nessa ordem (evita duplicar customer):**
+1. `Guardian.asaasCustomerId` já gravado → pula Asaas inteiramente, só transiciona status.
+2. Senão, `findCustomerByCpfCnpj(cpf)` no Asaas — cobre o caso de uma tentativa anterior ter criado o customer mas a escrita no banco ter falhado/caído (recuperação de estado perdido).
+3. Só então `createCustomer`.
+
+CPF vem de `decrypt(guardian.cpfEnc)` — mesmo formato (dígitos crus) usado na criação do Guardian em EDU-10. `createCustomer` chamado com `{ name, cpfCnpj, externalReference: guardian.id }`, conforme o contrato da spec (seção 5).
+
+**`getAsaasClient(apiKey)` usa a API key da SUBCONTA da escola** (`Unit.asaasApiKeyEnc`, decriptada na rota antes de chamar o service), não o master client — cada escola tem sua própria conta Asaas desde o onboarding (EDU-8 e anteriores). Primeiro uso desse padrão no repo (onboarding só usa `getMasterAsaasClient()` pra criar subcontas).
+
+**`rejectEnrollment` grava `cancelledAt`, não só muda `status`:** o campo `Enrollment.cancelledAt` já existe no schema desde EDU-8 (antecipado pra F2, índice `@@index([unitId, cancelledAt])` já presente) — setá-lo junto com `status: CANCELLED` evita um estado inconsistente (cancelado mas sem timestamp) que F2 provavelmente vai precisar ler.
+
+**Guard novo `guardOrientador`** em `src/lib/api/guard.ts` (ao lado do já existente `guardAdmin`) — mesmo padrão (retorna o contexto se autorizado, ou a `NextResponse` de erro pronta), usado pelas 3 rotas novas. `GuardianNotFoundError` mapeado em `src/lib/errors/handle.ts` (`mapKnown`) pra manter o padrão único de tratamento de erro do repo.
+
+**Limitação de verificação conhecida — terceira ocorrência do mesmo gap (EDU-9, EDU-14, agora EDU-15):** `/matriculas` também é orientador-only, mesmo problema de não existir login real desse role em produção nem no usuário de teste Clerk configurado no repo. Compensado com testes de integração contra o Asaas mock client real (não só mockado em unit) cobrindo o fluxo completo: `submitGuardianStep` → `submitStudentsStep` → `submitPlanStep` → `submitAcceptanceStep` → `approveEnrollment`/`rejectEnrollment`, provando o comportamento fim-a-fim contra banco real. Vale um ticket de follow-up pro épico: nenhuma tela hoje dá à escola um jeito de logar como `orientador` nem de ver seu link de matrícula (`/m/[enrollmentLinkToken]`) — ambos os gaps documentados ao longo deste épico (EDU-8, EDU-9, EDU-14) bloqueiam o fluxo inteiro em produção até serem resolvidos.
+
+**Instabilidade de rede durante os testes (não é bug de código):** 2 testes de `approval.integration.test.ts` (2 chamadas completas de `approveEnrollment` num mesmo teste) estouraram o timeout padrão de 20s em duas rodadas diferentes, com falhas em pontos diferentes a cada rodada — sintoma de lentidão intermitente do pooler Supabase (mesmo padrão já observado nesta sessão em outros pontos, "Transient DB connection errors"), não de lógica incorreta (confirmado: mesma suíte, mesmo código, passou 100% limpa numa terceira rodada). Aumentado o timeout desses 2 testes especificamente para 40s (terceiro argumento do `it()`), sem alterar o timeout global do arquivo.
+
+**Testes:** `tests/unit/services/approval.service.test.ts` (6 — cria customer com payload correto, reaproveita `asaasCustomerId` já gravado, reaproveita customer achado por CPF, `GuardianNotFoundError`, lista agrupada por Guardian, reject com `cancelledAt`) + `tests/unit/api/matriculas-pendentes.route.test.ts` (3) + `tests/unit/api/matriculas-aprovar.route.test.ts` (3) + `tests/unit/api/matriculas-recusar.route.test.ts` (2) + `tests/unit/hooks/use-pending-enrollments.test.ts` (4, filtro puro) + `tests/unit/errors/handle.test.ts` (+1, `GuardianNotFoundError`) + `tests/integration/approval.integration.test.ts` (5, banco real + Asaas mock: cria customer e ativa Enrollments, não duplica customer em 2 aprovações, reject com `cancelledAt` sem tocar Asaas, lista agrupada corretamente, matrícula aprovada some da lista).
+
+**DoD-comando:** `pnpm typecheck && pnpm test:run && pnpm test:integration` — verde (341 unit + 28 integration). `pnpm lint && pnpm build` também verdes.
+
+**Branch/PR:** `feature/mvp-02-matricula-b8-aprovacao` (a partir de `feature/mvp-02-matricula-b5-aceite`).
