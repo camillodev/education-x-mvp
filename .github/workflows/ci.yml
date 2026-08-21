@@ -54,6 +54,8 @@ jobs:
     if: github.base_ref == 'main' || github.ref == 'refs/heads/main'
 
 
+    if: github.base_ref == 'main' || github.ref == 'refs/heads/main'
+
     # Postgres efêmero por run — padrão de mercado pra E2E com banco.
     # Isolado, descartável, nunca toca dev/prod. Migrations + seed rodam contra ele.
     services:
