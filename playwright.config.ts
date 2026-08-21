@@ -17,18 +17,27 @@ export default defineConfig({
     { name: "setup", testMatch: /global\.setup\.ts/ },
     {
       name: "375px",
+      testIgnore: /matricula.*\.spec\.ts/,
       use: { ...devices["iPhone SE"], viewport: { width: 375, height: 812 }, storageState: "playwright/.clerk/user.json" },
       dependencies: ["setup"],
     },
     {
       name: "768px",
+      testIgnore: /matricula.*\.spec\.ts/,
       use: { ...devices["iPad Mini"], viewport: { width: 768, height: 1024 }, storageState: "playwright/.clerk/user.json" },
       dependencies: ["setup"],
     },
     {
       name: "1440px",
+      testIgnore: /matricula.*\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 }, storageState: "playwright/.clerk/user.json" },
       dependencies: ["setup"],
+    },
+    // Fluxo de matrícula (/m/[token]) é público, sem login — sem storageState, sem dependência de setup.
+    {
+      name: "matricula-mobile",
+      testMatch: /matricula.*\.spec\.ts/,
+      use: { ...devices["iPhone SE"], viewport: { width: 375, height: 812 } },
     },
   ],
   webServer: {
