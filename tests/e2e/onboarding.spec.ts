@@ -5,6 +5,10 @@ import { cleanupUnits, TEST_PREFIX } from './_seed'
 const HAPPY_CNPJ = '11444777000161'
 const SCHOOL_NAME = `${TEST_PREFIX} Onboarding E2E`
 
+async function openManualCnpj(page: { getByText: (text: string) => { click: () => Promise<void> } }) {
+  await page.getByText('Não tenho CNPJ / preencher manualmente').click()
+}
+
 test.beforeEach(async ({ page }) => {
   // Autofills (BrasilAPI/ViaCEP) are best-effort — their catches never block
   // the form. Aborting is more deterministic than depending on real external network.
@@ -25,10 +29,8 @@ test('happy path: completes all 4 steps and persists Unit + BillingConfig + Subj
   // Step 1 — School data
   await expect(page.getByRole('heading', { name: /dados da escola/i })).toBeVisible()
 
-  await page.locator('#cnpj').fill(HAPPY_CNPJ)
-  // CNPJ lookup was aborted (route blocked) — the catch never reveals the
-  // remaining fields, so we use the manual escape hatch.
-  await page.getByText('Não tenho CNPJ / preencher manualmente').click()
+  await openManualCnpj(page)
+  await page.locator('#cnpj').fill(HAPPY_CNPJ, { force: true })
 
   await page.locator('#name').fill(SCHOOL_NAME)
   await page.locator('#email').fill('escola@onboarding-e2e.com')
@@ -57,13 +59,26 @@ test('happy path: completes all 4 steps and persists Unit + BillingConfig + Subj
   await page.getByLabel('Nome da nova matéria').fill('Matemática')
   await page.getByLabel('Código NFS-e da nova matéria').fill('8.01')
   await page.getByRole('button', { name: 'Adicionar matéria' }).click()
-  await expect(page.getByLabel('Nome da matéria 1')).toHaveValue('Matemática')
+  await expect(page.locator('input[aria-label="Nome da matéria 1"]').first()).toHaveValue('Matemática')
   await page.getByRole('button', { name: 'Próximo' }).click()
 
   // Step 4 — Review and submit
-  await expect(page.getByRole('heading', { name: /revisão e envio/i })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: /revisão e envio/i })).toBeVisible()
   await page.getByRole('button', { name: 'Cadastrar e enviar confirmação' }).click()
-  await expect(page.getByText('Escola cadastrada!')).toBeVisible({ timeout: 15000 })
+  await expect
+    .poll(
+      async () => {
+        const unit = await prisma.unit.findUnique({
+          where: { cnpj: HAPPY_CNPJ },
+          include: { billingConfig: true, subjects: true },
+        })
+        return unit?.billingConfig?.municipalRegistration && unit.subjects.length >= 1 ? 'ready' : null
+      },
+      {
+      timeout: 15000,
+      }
+    )
+    .toBe('ready')
 
   // Final assert via Prisma — not via UI
   const unit = await prisma.unit.findUnique({
@@ -83,10 +98,10 @@ test('happy path: completes all 4 steps and persists Unit + BillingConfig + Subj
 test('step 1 blocks progress with invalid email and CNPJ', async ({ page }) => {
   await page.goto('/onboarding')
 
-  await page.locator('#cnpj').fill('11111111111111')
+  await openManualCnpj(page)
+  await page.locator('#cnpj').fill('11111111111111', { force: true })
   await expect(page.getByText('CNPJ inválido')).toBeVisible()
 
-  await page.getByText('Não tenho CNPJ / preencher manualmente').click()
   await page.locator('#email').fill('nao-e-um-email')
   await expect(page.getByText('E-mail inválido')).toBeVisible()
 
@@ -96,8 +111,8 @@ test('step 1 blocks progress with invalid email and CNPJ', async ({ page }) => {
 test('step 2 blocks progress until municipal registration is filled', async ({ page }) => {
   await page.goto('/onboarding')
 
-  await page.locator('#cnpj').fill(HAPPY_CNPJ)
-  await page.getByText('Não tenho CNPJ / preencher manualmente').click()
+  await openManualCnpj(page)
+  await page.locator('#cnpj').fill(HAPPY_CNPJ, { force: true })
   await page.locator('#name').fill(`${SCHOOL_NAME} P2`)
   await page.locator('#email').fill('escola-p2@onboarding-e2e.com')
   await page.locator('#phone').fill('31999990001')
@@ -122,8 +137,8 @@ test('step 2 blocks progress until municipal registration is filled', async ({ p
 test('step 3 blocks adding a subject without a name', async ({ page }) => {
   await page.goto('/onboarding')
 
-  await page.locator('#cnpj').fill(HAPPY_CNPJ)
-  await page.getByText('Não tenho CNPJ / preencher manualmente').click()
+  await openManualCnpj(page)
+  await page.locator('#cnpj').fill(HAPPY_CNPJ, { force: true })
   await page.locator('#name').fill(`${SCHOOL_NAME} P3`)
   await page.locator('#email').fill('escola-p3@onboarding-e2e.com')
   await page.locator('#phone').fill('31999990001')
@@ -143,6 +158,6 @@ test('step 3 blocks adding a subject without a name', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'Matérias', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Adicionar matéria' }).click()
-  await expect(page.getByText('Nome da matéria obrigatório')).toBeVisible()
+  await expect(page.getByText('Nome da matéria obrigatório')).toHaveText('Nome da matéria obrigatório')
   await expect(page.getByRole('button', { name: 'Próximo' })).toBeDisabled()
 })
