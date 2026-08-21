@@ -8,10 +8,15 @@ import {
   submitStudentsStep,
   submitPlanStep,
   StudentOwnershipError,
+  submitAcceptanceStep,
 } from '@/lib/services/enrollment.service'
 
 vi.mock('@/lib/crypto', () => ({
   encrypt: vi.fn(async (v: string) => `enc:${v}`),
+}))
+
+vi.mock('@/lib/services/contract.service', () => ({
+  getUnitContract: vi.fn(),
 }))
 
 vi.mock('@/lib/db', () => {
@@ -24,9 +29,12 @@ vi.mock('@/lib/db', () => {
   const subjectFindMany = vi.fn()
   const enrollmentDeleteMany = vi.fn()
   const enrollmentCreate = vi.fn()
+  const enrollmentUpdateMany = vi.fn()
+  const termsAcceptanceCreate = vi.fn()
   return {
     prisma: {
       unit: { findUnique: vi.fn() },
+      termsAcceptance: { create: termsAcceptanceCreate },
     },
     forUnit: vi.fn(() => ({
       guardian: {
@@ -45,12 +53,16 @@ vi.mock('@/lib/db', () => {
       enrollment: {
         deleteMany: enrollmentDeleteMany,
         create: enrollmentCreate,
+        updateMany: enrollmentUpdateMany,
       },
     })),
   }
 })
 
-type MockPrisma = { unit: { findUnique: ReturnType<typeof vi.fn> } }
+type MockPrisma = {
+  unit: { findUnique: ReturnType<typeof vi.fn> }
+  termsAcceptance: { create: ReturnType<typeof vi.fn> }
+}
 type MockForUnitDb = {
   guardian: {
     create: ReturnType<typeof vi.fn>
@@ -68,6 +80,7 @@ type MockForUnitDb = {
   enrollment: {
     deleteMany: ReturnType<typeof vi.fn>
     create: ReturnType<typeof vi.fn>
+    updateMany: ReturnType<typeof vi.fn>
   }
 }
 
@@ -252,5 +265,64 @@ describe('submitPlanStep', () => {
 
     await expect(submitPlanStep('unit-1', 'guardian-1', selection, 'ANNUAL')).rejects.toThrow()
     expect(db.enrollment.create).not.toHaveBeenCalled()
+  })
+})
+
+describe('submitAcceptanceStep', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('registra TermsAcceptance (timestamp+IP+guardianId) e move os Enrollments do Guardian para PENDING_SCHOOL_APPROVAL', async () => {
+    const { getUnitContract } = await import('@/lib/services/contract.service')
+    vi.mocked(getUnitContract).mockResolvedValue({
+      id: 'tv-1',
+      body: 'texto do contrato',
+      version: '1.0',
+      isCustom: false,
+    })
+
+    const mp = prisma as unknown as MockPrisma
+    mp.termsAcceptance.create.mockResolvedValue({ id: 'ta-1' })
+
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.enrollment.updateMany.mockResolvedValue({ count: 2 })
+
+    await submitAcceptanceStep('unit-1', 'guardian-1', '203.0.113.10')
+
+    expect(getUnitContract).toHaveBeenCalledWith('unit-1')
+    expect(mp.termsAcceptance.create).toHaveBeenCalledWith({
+      data: {
+        unitId: 'unit-1',
+        guardianId: 'guardian-1',
+        termsVersionId: 'tv-1',
+        ip: '203.0.113.10',
+      },
+    })
+    expect(db.enrollment.updateMany).toHaveBeenCalledWith({
+      where: { guardianId: 'guardian-1' },
+      data: { status: 'PENDING_SCHOOL_APPROVAL' },
+    })
+  })
+
+  it('lança NoEnrollmentError se o Guardian não tem nenhum Enrollment pra enviar', async () => {
+    const { getUnitContract } = await import('@/lib/services/contract.service')
+    vi.mocked(getUnitContract).mockResolvedValue({
+      id: 'tv-1',
+      body: 'texto',
+      version: '1.0',
+      isCustom: false,
+    })
+
+    const mp = prisma as unknown as MockPrisma
+    mp.termsAcceptance.create.mockResolvedValue({ id: 'ta-1' })
+
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.enrollment.updateMany.mockResolvedValue({ count: 0 })
+
+    const { NoEnrollmentError } = await import('@/lib/services/enrollment.service')
+    await expect(submitAcceptanceStep('unit-1', 'guardian-1', '203.0.113.10')).rejects.toThrow(
+      NoEnrollmentError
+    )
   })
 })

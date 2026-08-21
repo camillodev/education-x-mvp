@@ -1,10 +1,7 @@
 import { describe, it, expect, afterEach, afterAll } from 'vitest'
 import { prisma } from '@/lib/db'
 import { getUnitContract, saveUnitContract, EmptyContractBodyError } from '@/lib/services/contract.service'
-import { TERMS_DOCUMENTS } from '@/lib/terms/content'
 import { cleanupUnits, TEST_PREFIX } from './_setup'
-
-const FALLBACK_BODY = TERMS_DOCUMENTS.find((t) => t.kind === 'ESCOLA_RESPONSAVEL')!.body
 
 async function cleanupContracts() {
   await prisma.termsVersion.deleteMany({ where: { unitId: { startsWith: TEST_PREFIX } } })
@@ -35,13 +32,16 @@ async function seedUnit(suffix: string) {
 }
 
 describe('contract.service (integração — banco real)', () => {
-  it('escola sem contrato próprio recebe o texto global (fallback)', async () => {
+  it('escola sem contrato próprio recebe a versão global (fallback) com id real', async () => {
     const unit = await seedUnit('01')
 
     const result = await getUnitContract(unit.id)
 
     expect(result.isCustom).toBe(false)
-    expect(result.body).toBe(FALLBACK_BODY)
+    expect(result.id).toBeTruthy()
+    // id real referenciável por TermsAcceptance.termsVersionId (FK obrigatória)
+    const globalRow = await prisma.termsVersion.findUnique({ where: { id: result.id } })
+    expect(globalRow?.unitId).toBeNull()
   })
 
   it('salvar grava uma NOVA versão (append-only) e getUnitContract retorna a mais recente', async () => {
@@ -68,7 +68,7 @@ describe('contract.service (integração — banco real)', () => {
 
     const resultB = await getUnitContract(unitB.id)
     expect(resultB.isCustom).toBe(false)
-    expect(resultB.body).toBe(FALLBACK_BODY)
+    expect(resultB.body).not.toBe('Contrato exclusivo da escola A')
   })
 
   it('rejeita corpo vazio sem gravar nada', async () => {

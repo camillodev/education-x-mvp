@@ -188,9 +188,10 @@ model Guardian {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  unit        Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  students    Student[]
-  enrollments Enrollment[]
+  unit             Unit               @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  students         Student[]
+  enrollments      Enrollment[]
+  termsAcceptances TermsAcceptance[]
 
   @@index([unitId])
   @@map("guardians")
@@ -273,13 +274,16 @@ model TermsVersion {
 model TermsAcceptance {
   id             String   @id @default(cuid())
   unitId         String
+  guardianId     String? // null = aceite da escola no onboarding (confirmSchool); preenchido = aceite do responsável na matrícula
   termsVersionId String
   ip             String
   acceptedAt     DateTime @default(now())
 
   unit         Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  guardian     Guardian?    @relation(fields: [guardianId], references: [id], onDelete: Cascade)
   termsVersion TermsVersion @relation(fields: [termsVersionId], references: [id])
 
   @@index([unitId])
+  @@index([guardianId])
   @@map("terms_acceptances")
 }

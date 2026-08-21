@@ -1,5 +1,4 @@
 import { prisma } from '../db'
-import { getTermsByKind } from '../terms/content'
 
 const CONTRACT_KIND = 'ESCOLA_RESPONSAVEL' as const
 
@@ -11,24 +10,40 @@ export class EmptyContractBodyError extends Error {
   }
 }
 
+export class NoContractVersionError extends Error {
+  readonly status = 500
+  constructor() {
+    super('Nenhuma versão de contrato disponível (nem custom, nem global)')
+    this.name = 'NoContractVersionError'
+  }
+}
+
 export interface UnitContract {
+  id: string
   body: string
   version: string
   isCustom: boolean
 }
 
+// Toda TermsAcceptance precisa apontar pra uma TermsVersion real (FK obrigatória) —
+// por isso o fallback busca a versão global no banco (seed-ESCOLA_RESPONSAVEL-*, unitId
+// null) em vez do texto estático de TERMS_DOCUMENTS: garante um id de verdade pra referenciar.
 export async function getUnitContract(unitId: string): Promise<UnitContract> {
   const custom = await prisma.termsVersion.findFirst({
     where: { unitId, kind: CONTRACT_KIND },
     orderBy: { createdAt: 'desc' },
   })
-
   if (custom) {
-    return { body: custom.body, version: custom.version, isCustom: true }
+    return { id: custom.id, body: custom.body, version: custom.version, isCustom: true }
   }
 
-  const fallback = getTermsByKind(CONTRACT_KIND)
-  return { body: fallback?.body ?? '', version: fallback?.version ?? '1.0', isCustom: false }
+  const global = await prisma.termsVersion.findFirst({
+    where: { unitId: null, kind: CONTRACT_KIND },
+    orderBy: { createdAt: 'desc' },
+  })
+  if (!global) throw new NoContractVersionError()
+
+  return { id: global.id, body: global.body, version: global.version, isCustom: false }
 }
 
 export async function saveUnitContract(unitId: string, body: string): Promise<UnitContract> {
@@ -44,5 +59,5 @@ export async function saveUnitContract(unitId: string, body: string): Promise<Un
     },
   })
 
-  return { body: created.body, version: created.version, isCustom: true }
+  return { id: created.id, body: created.body, version: created.version, isCustom: true }
 }

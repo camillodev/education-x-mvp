@@ -3,6 +3,7 @@ import { encrypt } from '../crypto'
 import { GuardianStepSchema, type GuardianStepInput } from '../validations/guardian'
 import type { StudentBlockOutput } from '../validations/student'
 import { priceCentsForPlan, type EnrollmentPlanValue } from '../validations/plan'
+import { getUnitContract } from './contract.service'
 import type { Guardian } from '@prisma/client'
 
 export class InvalidEnrollmentLinkError extends Error {
@@ -179,4 +180,38 @@ export async function submitPlanStep(
   }
 
   return { totalCents }
+}
+
+export class NoEnrollmentError extends Error {
+  readonly status = 422
+  constructor() {
+    super('Nenhuma matrícula pendente encontrada para enviar')
+    this.name = 'NoEnrollmentError'
+  }
+}
+
+// B5 — registra o aceite do contrato (timestamp+IP+guardianId) e envia a matrícula:
+// muda todos os Enrollments do Guardian de PENDING_CONFIRMATION para
+// PENDING_SCHOOL_APPROVAL. Não chama Asaas aqui — isso só acontece após a escola
+// aprovar (EDU-15). termsVersionId sempre aponta pro texto REALMENTE exibido ao
+// responsável (custom da escola OU fallback global via getUnitContract), nunca um
+// texto estático — preserva a prova legal do que foi de fato aceito.
+export async function submitAcceptanceStep(
+  unitId: string,
+  guardianId: string,
+  ip: string
+): Promise<void> {
+  const contract = await getUnitContract(unitId)
+
+  await prisma.termsAcceptance.create({
+    data: { unitId, guardianId, termsVersionId: contract.id, ip },
+  })
+
+  const db = forUnit(unitId)
+  const { count } = await db.enrollment.updateMany({
+    where: { guardianId },
+    data: { status: 'PENDING_SCHOOL_APPROVAL' },
+  })
+
+  if (count === 0) throw new NoEnrollmentError()
 }
