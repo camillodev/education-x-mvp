@@ -296,8 +296,11 @@ export async function confirmSchool(token: string, ip: string): Promise<Unit> {
     throw new InvalidConfirmationTokenError()
   }
 
-  // Pegar a versão mais recente de CADA kind de termo.
+  // Pegar a versão mais recente de CADA kind de termo global da plataforma (unitId null).
+  // Contratos por-escola (ESCOLA_RESPONSAVEL, unitId preenchido) não entram aqui —
+  // são aceitos pelo responsável no fluxo de matrícula, não pela escola no onboarding.
   const allVersions = await prisma.termsVersion.findMany({
+    where: { unitId: null },
     orderBy: { createdAt: 'desc' },
   })
   const latestByKind = new Map<string, (typeof allVersions)[number]>()
