@@ -84,10 +84,16 @@ describe('forUnit — lógica de injeção de unitId', () => {
   })
 
   it('modelos não-tenant não recebem injeção (Unit, TermsVersion)', () => {
-    const TENANT_MODELS = ['subject', 'guardian', 'billingconfig', 'termsacceptance']
+    const TENANT_MODELS = ['subject', 'guardian', 'billingconfig', 'termsacceptance', 'student', 'enrollment']
     expect(TENANT_MODELS.includes('unit')).toBe(false)
     expect(TENANT_MODELS.includes('termsversion')).toBe(false)
     expect(TENANT_MODELS.includes('subject')).toBe(true)
     expect(TENANT_MODELS.includes('guardian')).toBe(true)
+  })
+
+  it('Student e Enrollment (matrícula) fazem parte do isolamento de tenant', async () => {
+    const { TENANT_MODELS } = await import('../../../src/lib/db')
+    expect(TENANT_MODELS).toContain('student')
+    expect(TENANT_MODELS).toContain('enrollment')
   })
 })

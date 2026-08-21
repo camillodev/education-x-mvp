@@ -9,7 +9,14 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Modelos com isolamento de tenant via unitId
-const TENANT_MODELS = ['subject', 'guardian', 'billingconfig', 'termsacceptance']
+export const TENANT_MODELS = [
+  'subject',
+  'guardian',
+  'billingconfig',
+  'termsacceptance',
+  'student',
+  'enrollment',
+]
 
 export function forUnit(unitId: string) {
   return prisma.$extends({

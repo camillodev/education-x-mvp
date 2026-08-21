@@ -36,6 +36,27 @@ enum TermsKind {
   PRIVACY
 }
 
+enum GuardianType {
+  FATHER
+  MOTHER
+  LEGAL_GUARDIAN
+}
+
+enum EnrollmentPlan {
+  MONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+}
+
+enum EnrollmentStatus {
+  PENDING_CONFIRMATION
+  PENDING_SCHOOL_APPROVAL
+  ACTIVE
+  CANCELLED
+  SUSPENDED
+}
+
 // ─── Tenant ───────────────────────────────────────────────────────────────────
 
 model Unit {
@@ -80,6 +101,8 @@ model Unit {
   billingConfig    BillingConfig?
   subjects         Subject[]
   guardians        Guardian[]
+  students         Student[]
+  enrollments      Enrollment[]
   termsAcceptances TermsAcceptance[]
 
   @@map("units")
@@ -136,7 +159,8 @@ model Subject {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unit        Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  enrollments Enrollment[]
 
   @@index([unitId])
   @@map("subjects")
@@ -145,9 +169,11 @@ model Subject {
 // ─── People ───────────────────────────────────────────────────────────────────
 
 model Guardian {
-  id     String @id @default(cuid())
-  unitId String
-  name   String
+  id         String        @id @default(cuid())
+  unitId     String
+  name       String
+  type       GuardianType?
+  selfPayer  Boolean       @default(true)
 
   // PII encrypted with AES-256-GCM — never plaintext in DB
   cpfEnc   String?
@@ -159,10 +185,69 @@ model Guardian {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unit        Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  students    Student[]
+  enrollments Enrollment[]
 
   @@index([unitId])
   @@map("guardians")
+}
+
+model Student {
+  id           String   @id @default(cuid())
+  unitId       String
+  guardianId   String
+  // PII encrypted with AES-256-GCM — never plaintext in DB
+  nameEnc      String
+  birthDateEnc String
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  unit        Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  guardian    Guardian     @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  enrollments Enrollment[]
+
+  @@index([unitId])
+  @@index([guardianId])
+  @@map("students")
+}
+
+model Enrollment {
+  id         String            @id @default(cuid())
+  unitId     String
+  guardianId String
+  studentId  String
+  subjectId  String
+
+  plan               EnrollmentPlan
+  agreedPriceCents    Int
+  discountType        DiscountType?
+  discountValueBp     Int?
+  discountValueCents  Int?
+  finalPriceCents     Int
+  status              EnrollmentStatus @default(PENDING_CONFIRMATION)
+  confirmationToken   String?          @unique
+
+  // Campos antecipados para F2/F3 (cobrança/dunning) — mesma tabela, spec SCHEMA-CONSOLIDADO.md
+  customDueDay      Int?
+  isFirstChargeDone Boolean   @default(false)
+  dunningPaused     Boolean   @default(false)
+  startedAt         DateTime?
+  cancelledAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  unit     Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  guardian Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject  Subject  @relation(fields: [subjectId], references: [id])
+
+  @@index([unitId, status])
+  @@index([unitId, cancelledAt])
+  @@map("enrollments")
 }
 
 // ─── Terms ────────────────────────────────────────────────────────────────────
