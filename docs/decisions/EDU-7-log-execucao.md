@@ -56,6 +56,8 @@ Verificado manualmente com Playwright MCP contra dev server: token válido mostr
 
 **DoD-comando:** `pnpm typecheck && pnpm test:run` — verde (277 testes).
 
+**Nota operacional (autorizada pelo Rafa, 2026-08-21):** o hook `playwright-required.sh` (pre-push) exige marcadores gravados só pelo plugin `playwright@claude-plugins-official`, que não está conectado nesta sessão — só o MCP `playwright` solto (mesmas ferramentas, servidor diferente). Verificação visual real foi feita nos 3 breakpoints (375/768/1440) via `mcp__playwright__*` antes de cada push deste épico — sem erros de console, layout correto. Como o hook não reconhece esse caminho, uso `PLAYWRIGHT_SKIP=1` (bypass documentado no próprio hook) nos pushes, com autorização explícita do Rafa pro restante desta sessão.
+
 **Branch/PR:** `feature/mvp-02-matricula-b1-boas-vindas` (branch a partir de `feature/mvp-02-matricula-schema`).
 
 ## EDU-10 — US2: Dados do responsável
