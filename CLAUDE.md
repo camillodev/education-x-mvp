@@ -45,7 +45,7 @@ Plataforma de gestão financeira escolar (matrícula → cobrança → recebimen
 - `specs/prototipo/design-handoff/` — protótipo aprovado (fonte pixel-perfect de layout/fluxo). O HTML standalone é o artefato renderizável aprovado; os `.jsx` soltos são apoio de lógica (podem divergir — o standalone manda).
 
 **Referência (consultar quando relevante):**
-- `docs/product/ROADMAP.md` · `docs/product/ESTIMATIVA-bottom-up.md` · `docs/product/DEVOPS.md` · `docs/product/DESCOBERTAS-SETUP.md`
+- `docs/product/ROADMAP.md` · `docs/product/ESTIMATIVA-bottom-up.md` · `docs/product/DEVOPS.md`
 - `docs/strategy/` e `docs/research/` — negócio, não orienta código diretamente
 - `docs/api-contracts/` — payloads reais Asaas (descobertos via MCP)
 - `docs/DISCREPANCIAS-roadmap-vs-prototipo.md` — onde roadmap e protótipo divergem
