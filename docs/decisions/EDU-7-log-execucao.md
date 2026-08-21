@@ -82,7 +82,21 @@ Verificado manualmente com Playwright MCP contra dev server: token válido mostr
 
 ## EDU-11 — US3: Aluno(s) e matérias
 
-(preencher ao concluir)
+**Feito:** `src/lib/validations/student.ts` (`parseBirthDate` — parser seguro DD/MM/AAAA por round-trip, evita ambiguidade de engine e datas tipo 31/02; `StudentBlockSchema`/`StudentsStepSchema` com limite 1-5), `submitStudentsStep()` em `enrollment.service.ts`, Server Action (`aluno/actions.ts`), form dinâmico (`StudentsForm.tsx`, blocos de aluno com Chips de matéria), page (`aluno/page.tsx`).
+
+**Decisão de arquitetura (validada via advisor):** `Student` é gravado no banco em B3, mas a **seleção de matérias fica em cookie** (`edu_matricula_students`, httpOnly, só ids) até B4 — `Enrollment.plan`/`agreedPriceCents`/`finalPriceCents` são campos obrigatórios no schema e só existem quando o plano é escolhido (B4/EDU-12). Confirmado pelos ACs dos próprios subtickets: EDU-11 diz "grava Student(s)", EDU-12 diz "**cria** Enrollment(s) com plan e agreedPriceCents" — Enrollment nasce em B4, não em B3.
+
+**Estratégia de reenvio: delete-recreate.** Reenviar B3 (ex: usuário aperta voltar) apaga todos os `Student`s do Guardian e recria do zero — mudar os alunos invalida qualquer escolha de plano anterior (UX correta: se o conjunto de alunos muda, o cálculo de B4 também muda). `onDelete: Cascade` de Student→Enrollment é seguro neste ponto porque nenhum Enrollment existe ainda antes de B4 rodar.
+
+**Reuso:** `Chip` (multi-seleção de matéria), `Field`/`Input` do DS. Nova máscara `maskBirthDate` adicionada a `dados-masks.ts` (mesmo padrão de `maskCpf`/`maskPhone`, sem duplicar).
+
+**Testes:** `tests/unit/validations/student.test.ts` (12, incluindo casos adversos de data: 31/02, mês 13, formato errado, idade implausível) + `tests/unit/services/enrollment.service.test.ts` (+1 pra `submitStudentsStep`) + `tests/integration/submit-students-step.integration.test.ts` (2, banco real: PII criptografada, delete-recreate não duplica).
+
+**Verificado manualmente via Playwright MCP (fluxo completo B2→B3):** submit de B2 seta cookie e chega em B3; preencher 1 aluno + matéria e enviar persiste Student no banco (confirmado via query direta) e redireciona pra B4 (404 esperado, ainda não implementada); clicar 4x em "Adicionar outro aluno" chega a 5 blocos, botão some, mensagem de limite exata da spec aparece.
+
+**DoD-comando:** `pnpm typecheck && pnpm test:run && pnpm test:integration` — verde (300 unit + 15 integration).
+
+**Branch/PR:** `feature/mvp-02-matricula-b3-aluno` (a partir de `feature/mvp-02-matricula-b2-dados`).
 
 ## EDU-12 — US4: Plano e valor
 
