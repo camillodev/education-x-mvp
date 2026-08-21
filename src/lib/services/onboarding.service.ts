@@ -64,9 +64,10 @@ export async function createSchool(
     throw new InvalidPlanError()
   }
 
-  // 3. Gerar token de confirmação
+  // 3. Gerar token de confirmação + token estável do link público de matrícula (/m/[token])
   const confirmationToken = randomUUID()
   const confirmationTokenExpiresAt = new Date(Date.now() + CONFIRMATION_TTL_MS)
+  const enrollmentLinkToken = randomUUID()
 
   // 4. Criar Unit + BillingConfig + Subjects em transação atômica (status PENDING)
   const unit = await prisma.$transaction(async (tx) => {
@@ -93,6 +94,7 @@ export async function createSchool(
         responsiblePhone: data.responsiblePhone,
         confirmationToken,
         confirmationTokenExpiresAt,
+        enrollmentLinkToken,
         status: 'PENDING',
       },
     })
