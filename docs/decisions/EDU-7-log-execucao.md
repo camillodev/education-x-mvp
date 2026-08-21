@@ -62,7 +62,23 @@ Verificado manualmente com Playwright MCP contra dev server: token válido mostr
 
 ## EDU-10 — US2: Dados do responsável
 
-(preencher ao concluir)
+**Feito:** `src/lib/validations/guardian.ts` (`GuardianStepSchema`, Zod), `submitGuardianStep()` em `enrollment.service.ts` (cria/atualiza Guardian criptografado), Server Action `src/app/m/[token]/dados/actions.ts`, form client `GuardianForm.tsx`, page `src/app/m/[token]/dados/page.tsx`.
+
+**Decisão de arquitetura (validada via advisor):** estado do fluxo de matrícula em progresso (Guardian → Student → Enrollment através de B2-B6) é carregado via **cookie httpOnly** (`edu_matricula_guardian_id`, `sameSite: lax`, `path: /m`), não via query param/URL — evitar que o `guardianId` na URL vire vetor de escrita cross-guardian dentro do mesmo tenant (troca de id no cookie httpOnly não é acessível a JS do client; troca via curl é bloqueada pela re-verificação de ownership no service). `submitGuardianStep` sempre revalida: se `existingGuardianId` não pertence à `unitId` resolvida do token (via `forUnit(unitId).guardian.findFirst`), lança `GuardianOwnershipError` em vez de criar/atualizar — nunca vaza nem "adota" silenciosamente.
+
+**Confirmado:** a seção "API Endpoints" da spec `mvp-02-matricula.md` (linha ~577, `POST /api/enrollment/link/[token]/submit` como submit único terminal) está desatualizada — contradiz R14/EDU-13 (Asaas só após aprovação da escola) e o "Natural" de cada subticket, que exige persistência incremental por passo. Seguido o desenho dos subtickets (fonte de verdade mais recente), não a seção de endpoints da spec original.
+
+**Idempotência:** reenvio do mesmo `guardianId` (ex: usuário aperta voltar e reenvia B2) faz `update`, não `create` — testado em integração.
+
+**UX corrigida durante verificação visual:** os inputs `name`/`email` inicialmente eram uncontrolled — ao errar a validação, o Server Action re-renderiza o form e o React limpa esses campos (usuário perderia o que digitou). Convertidos para controlados (`useState`), consistente com `cpf`/`phone`/`type` que já eram. Também removida validação HTML5 nativa (`type="email"`, `required`) dos inputs — o browser mostrava balão em inglês antes da Server Action rodar; agora toda validação passa pela Server Action com mensagens em pt-BR da spec.
+
+**Testes:** `tests/unit/validations/guardian.test.ts` (7, schema Zod puro) + `tests/unit/services/enrollment.service.test.ts` (+3 pra `submitGuardianStep`, mock) + `tests/integration/submit-guardian-step.integration.test.ts` (3, banco real: PII criptografada e não-plaintext, idempotência update-not-duplicate, `GuardianOwnershipError` cross-tenant sem vazamento).
+
+**Verificado manualmente via Playwright MCP:** submit válido cria Guardian criptografado no banco (confirmado via query direta + `decrypt()`) e redireciona pra `/m/[token]/aluno`; submit inválido mostra 4 erros inline em pt-BR com valores preservados nos campos; máscaras de CPF/telefone aplicam em tempo real.
+
+**DoD-comando:** `pnpm typecheck && pnpm test:run && pnpm test:integration` — verde (287 unit + 14 integration).
+
+**Branch/PR:** `feature/mvp-02-matricula-b2-dados` (a partir de `feature/mvp-02-matricula-b1-boas-vindas`).
 
 ## EDU-11 — US3: Aluno(s) e matérias
 
