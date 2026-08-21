@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import type { Route } from 'next'
 import { Card } from '@/components/ui/Card'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -50,7 +49,7 @@ export default async function MatriculaBoasVindasPage({ params, searchParams }: 
           Vamos matricular seu filho ou filha em poucos passos, direto pelo celular.
         </p>
         <Link
-          href={`/m/${token}/dados` as Route}
+          href={`/m/${token}/dados`}
           className={cn(buttonVariants({ size: 'lg' }), 'mt-6 w-full')}
         >
           Começar matrícula
