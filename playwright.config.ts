@@ -16,15 +16,30 @@ export default defineConfig({
     // Faz login real no Clerk uma vez e salva a sessão; os demais projects a reusam.
     { name: "setup", testMatch: /global\.setup\.ts/ },
     {
+      // browserName fixado em chromium: os presets "iPhone SE"/"iPad Mini" usam WebKit por
+      // padrão, e o ITP do WebKit bloqueia o cookie cross-site que o handshake de dev-instance
+      // do Clerk precisa pra sincronizar __clerk_db_jwt entre localhost e *.accounts.dev — isso
+      // trava toda navegação autenticada num loop infinito de redirect pro /sign-in. Chromium
+      // não tem essa restrição. isMobile/hasTouch do preset são preservados via spread.
       name: "375px",
       testIgnore: /matricula.*\.spec\.ts/,
-      use: { ...devices["iPhone SE"], viewport: { width: 375, height: 812 }, storageState: "playwright/.clerk/user.json" },
+      use: {
+        ...devices["iPhone SE"],
+        browserName: "chromium",
+        viewport: { width: 375, height: 812 },
+        storageState: "playwright/.clerk/user.json",
+      },
       dependencies: ["setup"],
     },
     {
       name: "768px",
       testIgnore: /matricula.*\.spec\.ts/,
-      use: { ...devices["iPad Mini"], viewport: { width: 768, height: 1024 }, storageState: "playwright/.clerk/user.json" },
+      use: {
+        ...devices["iPad Mini"],
+        browserName: "chromium",
+        viewport: { width: 768, height: 1024 },
+        storageState: "playwright/.clerk/user.json",
+      },
       dependencies: ["setup"],
     },
     {
