@@ -1,7 +1,7 @@
 # Plano Técnico — Education X (MVP)
 > Versão 1.0 · Junho 2026 · **Documento técnico para o Claude Code implementar.**
 > Para o resumo sem jargão (acompanhamento com coach), ver [ROADMAP.md](ROADMAP.md).
-> Alinhado a: SYSTEM-DESIGN.md · DEVOPS.md · `.claude/rules/` (regras de código versionadas no repo) · `.claude/AGENTS.md` (pipeline + modelos)
+> Alinhado a: SYSTEM-DESIGN.md · DEVOPS.md · `.claude/rules/` (regras de código versionadas no repo) · `AGENTS.md` (pipeline + modelos)
 
 ## Como usar este documento
 

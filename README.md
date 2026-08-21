@@ -58,10 +58,10 @@ prisma/           # schema + migrations
 tests/            # unit / integration / e2e
 ```
 
-> **Portabilidade:** todo o setup vive no repo. Não depende de skills/agents globais em `~/.claude` — qualquer dev, em qualquer máquina, continua o projeto só com `git clone` + `pnpm install`.
+> **Setup:** skills e regras específicas do projeto (`.claude/rules/`, `.claude/skills/edx-*`) vivem no repo. Os 10 agentes de execução (`code-implementer`, `code-reviewer`, etc.) são globais em `~/.claude/agents/` — outro dev precisa desse setup além de `git clone` + `pnpm install`.
 
 ## Como o Claude trabalha aqui
-Leia **`.claude/AGENTS.md`** — define o pipeline de execução de tarefa (contexto → plano → docs → execução TDD → verificação E2E → review → ship) e quais modelos usar (Sonnet orquestra/constrói · Haiku mecaniza · Opus revisa o crítico).
+Leia **`AGENTS.md`** — define o pipeline de execução de tarefa (contexto → plano → docs → execução TDD → verificação E2E → review → ship) e quais modelos usar (Sonnet orquestra/constrói · Haiku mecaniza · Opus revisa o crítico).
 
 ## Regras essenciais (detalhe em `CLAUDE.md` + `.claude/rules/`)
 - TDD · 500 linhas/arquivo · valores em **centavos** (reais só na borda Asaas e na exibição)
