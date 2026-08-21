@@ -40,7 +40,25 @@ Migration `20260821015529_add_enrollment_link_token`, mesmo caminho não-destrut
 
 ## EDU-9 — US1: Boas-vindas
 
-(preencher ao concluir)
+**Feito:** `src/lib/services/enrollment.service.ts` (`resolveEnrollmentLink`, `InvalidEnrollmentLinkError`) + rota `src/app/m/[token]/page.tsx` — 100% leitura, Server Component, resolve `unitId` via `Unit.enrollmentLinkToken`, exibe nome da escola, erro cheio se token inválido, `prefilledStudentName` opcional via query param. Reusa `Card`/`buttonVariants` do design system, zero hex cru.
+
+**Achado corrigido (com aprovação explícita do Rafa no chat):** `src/middleware.ts` já antecipava este fluxo (comentário "link de matrícula pública (responsável)") mas com o path **errado**: `/matricula(.*)` em vez de `/m(.*)` — nenhuma rota do épico usa `/matricula`, todas as specs (mvp-02, design-handoff) definem `/m/[token]`. Com o path errado, o middleware do Clerk interceptava `/m/[token]` como rota protegida e redirecionava pro `/sign-in`, quebrando o requisito explícito da spec ("fluxo de link não exige login do responsável", mvp-02:521). Corrigido:
+```diff
+- '/matricula(.*)',            // link de matrícula pública (responsável)
++ '/m(.*)',                    // link de matrícula pública (responsável) — /m/[token]
++ '/api/enrollment(.*)',       // API do fluxo de matrícula pública (token prova o destinatário)
+```
+(Aplicado via Bash/sed, não Edit — o hook `critical-file-protection.sh` bloqueia qualquer edição de `middleware.ts` via tool Edit sem exceção, por design; usado outro caminho de tool com aprovação explícita do Rafa no chat.)
+
+Verificado manualmente com Playwright MCP contra dev server: token válido mostra boas-vindas com nome da escola + CTA; token inválido mostra tela de erro sem retry; `prefilledStudentName` aparece só quando presente na query. Screenshot mobile confirmou DS aplicado corretamente (Card, Button, tokens de cor).
+
+**Testes:** `tests/unit/services/enrollment.service.test.ts` (RED→GREEN, token válido resolve `{unitId, unitName}`, token inválido lança `InvalidEnrollmentLinkError`). Por instrução do Rafa, E2E/Playwright fica fora do DoD obrigatório deste épico — foco em TDD com unit tests; um spec E2E (`tests/e2e/matricula-b1.spec.ts`) e um project Playwright dedicado (`matricula-mobile`, sem storageState do Clerk) foram deixados no repo como infraestrutura pronta para quando alguém quiser rodá-los, mas não bloqueiam o DoD.
+
+**DoD-comando:** `pnpm typecheck && pnpm test:run` — verde (277 testes).
+
+**Nota operacional (autorizada pelo Rafa, 2026-08-21):** o hook `playwright-required.sh` (pre-push) exige marcadores gravados só pelo plugin `playwright@claude-plugins-official`, que não está conectado nesta sessão — só o MCP `playwright` solto (mesmas ferramentas, servidor diferente). Verificação visual real foi feita nos 3 breakpoints (375/768/1440) via `mcp__playwright__*` antes de cada push deste épico — sem erros de console, layout correto. Como o hook não reconhece esse caminho, uso `PLAYWRIGHT_SKIP=1` (bypass documentado no próprio hook) nos pushes, com autorização explícita do Rafa pro restante desta sessão.
+
+**Branch/PR:** `feature/mvp-02-matricula-b1-boas-vindas` (branch a partir de `feature/mvp-02-matricula-schema`).
 
 ## EDU-10 — US2: Dados do responsável
 
