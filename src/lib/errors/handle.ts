@@ -6,6 +6,7 @@ import {
   InvalidPlanError,
   AsaasProvisionError,
 } from '@/lib/services/onboarding.service'
+import { GuardianNotFoundError } from '@/lib/services/approval.service'
 
 export interface ErrorContext {
   /** Identificação da origem, ex: 'PATCH /api/escolas/[unitId]'. */
@@ -79,6 +80,9 @@ function mapKnown(error: unknown): Omit<HandledError, 'detail'> {
   }
   if (error instanceof UnitNotFoundError) {
     return { message: 'Escola não encontrada.', code: 'NOT_FOUND', status: 404 }
+  }
+  if (error instanceof GuardianNotFoundError) {
+    return { message: 'Matrícula não encontrada.', code: 'NOT_FOUND', status: 404 }
   }
   if (error instanceof InvalidPlanError) {
     return { message: 'Plano inválido ou desconto maior que o preço.', code: 'INVALID_PLAN', status: 400 }
