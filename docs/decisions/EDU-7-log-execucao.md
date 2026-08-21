@@ -120,7 +120,28 @@ Verificado manualmente com Playwright MCP contra dev server: token válido mostr
 
 ## EDU-14 — US7: Escola cadastra o contrato
 
-(preencher ao concluir)
+**Feito:** tela `Configurações > Contrato` (`/configuracoes/contrato`, grupo `(app)`), acessível só ao role `orientador` (`getUnitContext()`, não `requireAdmin()`). Escola edita o texto do contrato `ESCOLA_RESPONSAVEL`; salvar grava uma nova `TermsVersion` (append-only, nunca update in place — preserva o texto exato que cada `TermsAcceptance` referenciou no passado).
+
+**Decisão de schema (gap idêntico ao `enrollmentLinkToken` em EDU-8/EDU-9 — `TermsVersion` não suportava customização por escola):** adicionado `unitId String?` (nullable) ao model `TermsVersion` — mixed-tenancy deliberado, não acidental:
+- `unitId = null` → versão **global** da plataforma (`IX_ESCOLA`, `PRIVACY`, e o `ESCOLA_RESPONSAVEL` padrão em `TERMS_DOCUMENTS`, usado como fallback).
+- `unitId` preenchido → contrato **próprio** de uma escola (só `ESCOLA_RESPONSAVEL`).
+- Índice `@@index([unitId, kind, createdAt])` — suporta a leitura "versão mais recente por escola+kind".
+- **Deliberadamente NÃO adicionado a `TENANT_MODELS`** (`src/lib/db.ts`): `forUnit()` injetaria/filtraria `unitId` sempre, o que tornaria as linhas globais (`unitId: null`) invisíveis em leitura e forçaria um `unitId` errado em escrita. O service (`contract.service.ts`) escopa manualmente via `where: { unitId, kind }`.
+- Migration `20260821030000_add_terms_version_unit_id` — coluna nullable, sem backfill necessário (aplicada via `migrate diff --script` → `db execute` → `migrate resolve --applied`, mesmo padrão não-destrutivo das duas migrations anteriores).
+
+**Bug pré-existente corrigido (bloqueante, achado via `advisor()` antes de codar):** `confirmSchool()` em `onboarding.service.ts` buscava a versão mais recente de cada `kind` via `findMany` **sem filtrar por `unitId`**. A partir do momento em que passassem a existir `TermsVersion` por-escola (`unitId` preenchido) para `ESCOLA_RESPONSAVEL`, a query pegaria a mais recente **de qualquer escola**, e uma escola A no onboarding poderia acabar registrando aceite do contrato de uma escola B — silenciosamente, sem erro. Corrigido para `where: { unitId: null }`: o onboarding da escola só aceita os termos **globais** da plataforma (`IX_ESCOLA`, `PRIVACY`); o contrato `ESCOLA_RESPONSAVEL` por-escola é aceito pelo responsável no fluxo de matrícula (EDU-13), não pela escola no onboarding.
+
+**Fallback:** `getUnitContract(unitId)` retorna a versão custom mais recente da escola se existir; senão cai no texto padrão de `TERMS_DOCUMENTS` (`getTermsByKind('ESCOLA_RESPONSAVEL')`). Isso resolve a pendência do design handoff ("confirmar com dev antes de assumir" pra contrato vazio) sem bloquear B5 (EDU-13): toda escola sempre tem *algum* texto de contrato pra mostrar ao responsável, mesmo sem nunca ter customizado.
+
+**Gap de design system:** não existia `Textarea` — criado `src/components/ui/Textarea.tsx` seguindo os mesmos tokens/padrão do `Input.tsx` existente (borda, foco, erro). Adição in-scope (mesma lógica do `checkbox.tsx` previsto pra EDU-13), não recriação.
+
+**Limitação de verificação conhecida e documentada (mesma classe do link `/m/[token]` em EDU-9):** não existe hoje nenhum caminho de login real para o role `orientador` em produção — o grupo `(app)` só tem telas admin (`/escolas`, `/onboarding`), e o único usuário de teste Clerk configurado no repo (`tests/e2e/global.setup.ts`) é comprovadamente `admin` (o setup verifica acesso a `/escolas`, rota admin). `DISABLE_CLERK` faz bypass só dentro de `getUnitContext()`, não no `clerkMiddleware` que protege `(app)` — logar como orientador via Playwright MCP não era viável sem alterar `src/middleware.ts` (fora de escopo) ou usar o usuário admin real (que a tela corretamente rejeitaria com `ForbiddenError`, não provando nada sobre a UI). Verificação real feita via: `pnpm build` (rota `/configuracoes/contrato` compila limpo, 2.66 kB / 290 kB First Load JS) + `pnpm lint` limpo nos arquivos novos + typecheck + toda a lógica de negócio (fallback, append-only, isolamento entre escolas, corpo vazio) coberta por integration tests contra o banco real.
+
+**Testes:** `tests/unit/services/contract.service.test.ts` (4 — versão custom, fallback global, save append-only, corpo vazio) + `tests/integration/contract.integration.test.ts` (4, banco real — fallback quando sem contrato próprio, append-only com leitura da mais recente, isolamento entre escola A/B, rejeição de corpo vazio sem gravar).
+
+**DoD-comando:** `pnpm typecheck && pnpm test:run && pnpm test:integration` — verde (316 unit + 20 integration). `pnpm lint && pnpm build` também verdes.
+
+**Branch/PR:** `feature/mvp-02-matricula-contrato-settings` (a partir de `feature/mvp-02-matricula-b4-plano`).
 
 ## EDU-13 — US5: Aceite do contrato e envio
 

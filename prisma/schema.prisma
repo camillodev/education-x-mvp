@@ -257,6 +257,7 @@ model Enrollment {
 
 model TermsVersion {
   id      String    @id @default(cuid())
+  unitId  String? // null = versão global da plataforma (IX_ESCOLA, PRIVACY); preenchido = contrato próprio da escola (ESCOLA_RESPONSAVEL)
   kind    TermsKind
   version String // e.g. "1.0"
   body    String    @db.Text
@@ -265,6 +266,7 @@ model TermsVersion {
 
   acceptances TermsAcceptance[]
 
+  @@index([unitId, kind, createdAt])
   @@map("terms_versions")
 }
 
