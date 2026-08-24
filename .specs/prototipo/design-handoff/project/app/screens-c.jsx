@@ -132,11 +132,7 @@ const ExtratoTab = () => {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <span style={{ fontSize: 13, color: "var(--color-text-subtle)" }}>{filtered.length} lançamento{filtered.length !== 1 ? "s" : ""}</span>
         {pages > 1 && (
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <Button variant="secondary" size="sm" iconLeft="chevron-left" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>Anterior</Button>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-muted)" }}>{page + 1} / {pages}</span>
-            <Button variant="secondary" size="sm" iconRight="chevron-right" disabled={page >= pages - 1} onClick={() => setPage((p) => p + 1)}>Próxima</Button>
-          </div>
+          <Pagination page={page} pages={pages} onChange={setPage} />
         )}
       </div>
     </div>
@@ -301,17 +297,13 @@ const RelatorioCobranca = () => (
       <Metric label="Recebido" value={brl(38400)} sub="97% do emitido" trend="up" icon="check-circle-2" accent="var(--badge-success-fg)" iconBg="var(--badge-success-bg)" />
       <Metric label="Pago no prazo" value="92%" sub="acima de maio" trend="up" icon="calendar-check" accent="var(--color-primary)" iconBg="var(--color-primary-soft)" />
     </div>
-    <ReportCard title="Recebimento" sub="Faturamento recebido · 6 meses" badge="2026">
-      <StoryBanner icon="rocket" color="var(--badge-success-fg)" bg="var(--badge-success-bg)">
-        Seu faturamento acumulou <strong>R$ 7.200</strong> de aumento desde janeiro e segue firme no topo neste mês.</StoryBanner>
-      <div style={{ marginTop: 12 }}>
-        <RichBars data={CHART_6M}
-          fmt={(v) => "R$ " + (v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "k"}
-          deltaFmt={(c, p) => { const x = (c - p) / p * 100; return (x >= 0 ? "+" : "") + x.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%"; }}
-          goodWhen="up" accent="var(--color-primary)" avg={35500} avgLabel="Média R$ 35,5k"
-          tip={(d) => ({ title: d.label + ": " + brl(d.value), body: d.highlight ? "Você recebeu 97% do que foi emitido no mês — excelente consistência." : "Faturamento recebido neste mês." })} />
-      </div>
-    </ReportCard>
+    <ChartCard title="Recebimento" sub="Faturamento recebido · 6 meses"
+      banner={<StoryBanner icon="rocket" color="var(--badge-success-fg)" bg="var(--badge-success-bg)">Seu faturamento acumulou <strong>R$ 7.200</strong> de aumento desde janeiro e segue firme no topo neste mês.</StoryBanner>}
+      data={CHART_6M}
+      fmt={(v) => "R$ " + (v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "k"}
+      deltaFmt={(c, p) => { const x = (c - p) / p * 100; return (x >= 0 ? "+" : "") + x.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%"; }}
+      goodWhen="up" accent="var(--color-primary)" avg={35500} avgLabel="Média R$ 35,5k"
+      tip={(d) => ({ title: d.label + ": " + brl(d.value), body: d.highlight ? "Você recebeu 97% do que foi emitido no mês — excelente consistência." : "Faturamento recebido neste mês." })} />
   </div>
 );
 const RelatorioInadimplencia = () => (
@@ -321,16 +313,13 @@ const RelatorioInadimplencia = () => (
       <Metric label="Em aberto" value={brl(1200)} sub="3 cobranças vencidas" icon="clock" accent="var(--badge-warning-fg)" iconBg="var(--badge-warning-bg)" />
       <Metric label="Recuperado no mês" value={brl(2280)} sub="6 regularizações" trend="up" icon="rotate-ccw" accent="var(--badge-success-fg)" iconBg="var(--badge-success-bg)" />
     </div>
-    <ReportCard title="Atrasos por mês" sub="% das cobranças em atraso · 6 meses" badge="Caindo" badgeVariant="success">
-      <StoryBanner icon="shield-check" color="var(--badge-success-fg)" bg="var(--badge-success-bg)">
-        A inadimplência segue em <strong>queda controlada</strong>, protegendo o caixa do seu negócio.</StoryBanner>
-      <div style={{ marginTop: 12 }}>
-        <RichLine data={REL_INADIMPLENCIA}
-          fmt={(v) => v.toLocaleString("pt-BR", { minimumFractionDigits: 1 }) + "%"}
-          accent="var(--badge-danger-fg)" goodWhen="down" endTag="−26% desde Jan"
-          tip={(d) => ({ title: "Atrasos em " + d.label + ": " + d.value.toLocaleString("pt-BR", { minimumFractionDigits: 1 }) + "%", body: d.highlight ? "Isso representa só R$ 1.200 em aberto — risco de caixa muito baixo." : "Percentual de cobranças em atraso no mês." })} />
-      </div>
-    </ReportCard>
+    <ChartCard title="Atrasos por mês" sub="% das cobranças em atraso · 6 meses" defaultKind="linha"
+      banner={<StoryBanner icon="shield-check" color="var(--badge-success-fg)" bg="var(--badge-success-bg)">A inadimplência segue em <strong>queda controlada</strong>, protegendo o caixa do seu negócio.</StoryBanner>}
+      data={REL_INADIMPLENCIA}
+      fmt={(v) => v.toLocaleString("pt-BR", { minimumFractionDigits: 1 }) + "%"}
+      deltaFmt={(c, p) => (c - p >= 0 ? "+" : "") + (c - p).toLocaleString("pt-BR", { minimumFractionDigits: 1 }) + " p.p."}
+      accent="var(--badge-danger-fg)" goodWhen="down" endTag="−26% desde Jan"
+      tip={(d) => ({ title: "Atrasos em " + d.label + ": " + d.value.toLocaleString("pt-BR", { minimumFractionDigits: 1 }) + "%", body: d.highlight ? "Isso representa só R$ 1.200 em aberto — risco de caixa muito baixo." : "Percentual de cobranças em atraso no mês." })} />
   </div>
 );
 const RelatorioCrescimento = () => (
@@ -340,16 +329,12 @@ const RelatorioCrescimento = () => (
       <Metric label="Receita por mês" value={brl(38400)} sub="+4,2% vs. mês anterior" trend="up" icon="trending-up" accent="var(--badge-success-fg)" iconBg="var(--badge-success-bg)" />
       <Metric label="Mensalidade média" value={brl(457)} sub="por aluno" icon="circle-dollar-sign" accent="var(--color-primary)" iconBg="var(--color-primary-soft)" />
     </div>
-    <ReportCard title="Alunos ativos" sub="Base matriculada · 6 meses" badge="+18% no período" badgeVariant="success">
-      <StoryBanner icon="sprout" color="var(--badge-success-fg)" bg="var(--badge-success-bg)">
-        Sua base cresce de forma constante: você ganhou <strong>13 alunos líquidos</strong> nos últimos 6 meses.</StoryBanner>
-      <div style={{ marginTop: 12 }}>
-        <RichBars data={REL_ALUNOS} fmt={(v) => v}
-          deltaFmt={(c, p) => (c - p >= 0 ? "+" : "") + (c - p)}
-          goodWhen="up" accent="var(--color-primary)"
-          tip={(d) => ({ title: d.label + ": " + d.value + " alunos ativos", body: d.highlight ? "Sua maior base histórica registrada até hoje." : "Total de alunos ativos no mês." })} />
-      </div>
-    </ReportCard>
+    <ChartCard title="Alunos ativos" sub="Base matriculada · 6 meses"
+      banner={<StoryBanner icon="sprout" color="var(--badge-success-fg)" bg="var(--badge-success-bg)">Sua base cresce de forma constante: você ganhou <strong>13 alunos líquidos</strong> nos últimos 6 meses.</StoryBanner>}
+      data={REL_ALUNOS} fmt={(v) => v}
+      deltaFmt={(c, p) => (c - p >= 0 ? "+" : "") + (c - p)}
+      goodWhen="up" accent="var(--color-primary)"
+      tip={(d) => ({ title: d.label + ": " + d.value + " alunos ativos", body: d.highlight ? "Sua maior base histórica registrada até hoje." : "Total de alunos ativos no mês." })} />
   </div>
 );
 const RelatorioCancelamentos = () => (
@@ -359,17 +344,13 @@ const RelatorioCancelamentos = () => (
       <Metric label="Alunos que ficaram" value="98,4%" sub="nos últimos 12 meses" trend="up" icon="heart" accent="var(--badge-success-fg)" iconBg="var(--badge-success-bg)" />
       <Metric label="Reativações" value="1" sub="voltou este mês" trend="up" icon="rotate-ccw" accent="var(--color-primary)" iconBg="var(--color-primary-soft)" />
     </div>
-    <ReportCard title="Cancelamentos por mês" sub="% de alunos que saíram · 6 meses" badge="Em queda (melhor)" badgeVariant="success">
-      <StoryBanner icon="heart-handshake" color="var(--badge-success-fg)" bg="var(--badge-success-bg)">
-        Sua retenção está excelente (<strong>98,4%</strong>). Os alunos estão satisfeitos e escolhendo ficar.</StoryBanner>
-      <div style={{ marginTop: 12 }}>
-        <RichBars data={REL_CHURN}
-          fmt={(v) => v.toLocaleString("pt-BR", { minimumFractionDigits: 1 }) + "%"}
-          deltaFmt={(c, p) => (c - p >= 0 ? "+" : "") + (c - p).toLocaleString("pt-BR", { minimumFractionDigits: 1 }) + " p.p."}
-          goodWhen="down" accent="var(--color-success)"
-          tip={(d) => ({ title: "Cancelamentos em " + d.label + ": " + d.value.toLocaleString("pt-BR", { minimumFractionDigits: 1 }) + "%", body: d.highlight ? "Apenas 2 saídas. Com 1 reativação, a perda real foi de 1 aluno." : "Percentual de alunos que saíram no mês." })} />
-      </div>
-    </ReportCard>
+    <ChartCard title="Cancelamentos por mês" sub="% de alunos que saíram · 6 meses"
+      banner={<StoryBanner icon="heart-handshake" color="var(--badge-success-fg)" bg="var(--badge-success-bg)">Sua retenção está excelente (<strong>98,4%</strong>). Os alunos estão satisfeitos e escolhendo ficar.</StoryBanner>}
+      data={REL_CHURN}
+      fmt={(v) => v.toLocaleString("pt-BR", { minimumFractionDigits: 1 }) + "%"}
+      deltaFmt={(c, p) => (c - p >= 0 ? "+" : "") + (c - p).toLocaleString("pt-BR", { minimumFractionDigits: 1 }) + " p.p."}
+      goodWhen="down" accent="var(--color-success)"
+      tip={(d) => ({ title: "Cancelamentos em " + d.label + ": " + d.value.toLocaleString("pt-BR", { minimumFractionDigits: 1 }) + "%", body: d.highlight ? "Apenas 2 saídas. Com 1 reativação, a perda real foi de 1 aluno." : "Percentual de alunos que saíram no mês." })} />
   </div>
 );
 
@@ -513,9 +494,7 @@ const VENC_ROWS = [
   { resp: "Tânia Barros", alunos: ["Maitê", "Noah", "Liz", "Caio"], venc: "22/06", valor: 1680, forma: "Boleto" },
 ];
 
-const C0Dashboard = ({ go, toast, initialTab = "visao" }) => {
-  const legacyToNew = { cobranca: "relatorios", inadimplencia: "relatorios", crescimento: "relatorios", cancelamentos: "relatorios", financeiro: "visao" };
-  const [tab, setTab] = useState(legacyToNew[initialTab] || initialTab);
+const C0Dashboard = ({ go, toast }) => {
   const [exp, setExp] = useState(false);
   // Próximos vencimentos: busca / filtro / paginação
   const [vQ, setVQ] = useState("");
@@ -549,33 +528,12 @@ const C0Dashboard = ({ go, toast, initialTab = "visao" }) => {
   return (
   <Shell screen="c0" go={go} showMonth title="Dashboard" subtitle="Visão da unidade Kumon Camargos"
     actions={<Button variant="secondary" iconLeft="download" onClick={() => setExp(true)}>Exportar</Button>}>
-    <div style={{ marginBottom: 22, overflowX: "auto", paddingBottom: 2 }}>
-      <Segmented key={tab} value={tab} onChange={setTab} options={DASH_TABS} />
-    </div>
-
-    {tab === "relatorios" && (
-      <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-        <RelatorioCobranca />
-        <div style={{ height: 1, background: "var(--color-border-muted)" }} />
-        <RelatorioInadimplencia />
-        <div style={{ height: 1, background: "var(--color-border-muted)" }} />
-        <RelatorioCrescimento />
-        <div style={{ height: 1, background: "var(--color-border-muted)" }} />
-        <RelatorioCancelamentos />
-      </div>
-    )}
-    {tab === "extrato" && <ExtratoTab />}
-
-    {tab === "visao" && (
     <>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18, marginBottom: 26 }}>
       <Metric label="Recebido no mês" value={brl(38400)} sub="+4,2% vs. maio" trend="up" icon="wallet" accent="var(--badge-success-fg)" iconBg="var(--badge-success-bg)" />
       <Metric label="A vencer" value={brl(12600)} sub="28 cobranças" icon="clock" accent="var(--badge-warning-fg)" iconBg="var(--badge-warning-bg)" />
       <Metric label="Vencido" value={brl(1200)} sub="3 em atraso" trend="down" icon="alert-circle" accent="var(--badge-danger-fg)" iconBg="var(--badge-danger-bg)" />
       <Metric label="Alunos ativos" value="84" sub="+5 este mês" trend="up" icon="users" accent="var(--color-primary)" iconBg="var(--color-primary-soft)" />
-    </div>
-    <div style={{ marginBottom: 18 }}>
-      <FinanceiroBody toast={toast} />
     </div>
     <Card style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ padding: "18px 22px 0" }}>
@@ -650,18 +608,49 @@ const C0Dashboard = ({ go, toast, initialTab = "visao" }) => {
       </div>
     </Card>
     </>
-    )}
     <ExportModal open={exp} onClose={() => setExp(false)} toast={toast} what="relatório" />
   </Shell>
   );
 };
+
+const REP_TABS = [
+  { value: "cobranca", label: "Cobrança" },
+  { value: "inadimplencia", label: "Inadimplência" },
+  { value: "crescimento", label: "Crescimento" },
+  { value: "cancelamentos", label: "Cancelamentos" },
+];
+const RelatoriosPage = ({ go, toast }) => {
+  const [exp, setExp] = useState(false);
+  const [tab, setTab] = useState("cobranca");
+  return (
+    <Shell screen="rep" go={go} showMonth title="Relatórios" subtitle="Desempenho financeiro e de matrículas da unidade"
+      actions={<Button variant="secondary" iconLeft="download" onClick={() => setExp(true)}>Exportar</Button>}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ overflowX: "auto", paddingBottom: 2 }}>
+          <Segmented value={tab} onChange={setTab} options={REP_TABS} />
+        </div>
+        {tab === "cobranca" && <RelatorioCobranca />}
+        {tab === "inadimplencia" && <RelatorioInadimplencia />}
+        {tab === "crescimento" && <RelatorioCrescimento />}
+        {tab === "cancelamentos" && <RelatorioCancelamentos />}
+      </div>
+      <ExportModal open={exp} onClose={() => setExp(false)} toast={toast} what="relatório" />
+    </Shell>
+  );
+};
+
+const ExtratoPage = ({ go }) => (
+  <Shell screen="ext" go={go} showMonth title="Extrato" subtitle="Todas as entradas e saídas da conta">
+    <ExtratoTab />
+  </Shell>
+);
 
 /* ─── C1 Matrículas (todos os pagantes) ────────────────────────────────── */
 const LinkMatriculaModal = ({ open, onClose, toast }) => {
   const [copied, setCopied] = useState(false);
   const [tel, setTel] = useState("");
   const [email, setEmail] = useState("");
-  const link = "educationx.app/matricula/kumon-camargos?ref=fr2026";
+  const link = "educationhub.app/matricula/kumon-camargos?ref=fr2026";
   if (!open) return null;
   return (
     <Modal open={open} onClose={onClose} width={480}>
@@ -703,11 +692,12 @@ const C1Pendentes = ({ go, setSel }) => {
   const showToast = (msg, type) => { setToast({ msg, type }); setTimeout(() => setToast(null), 2600); };
   const counts = {
     todas: MATRICULAS.length,
+    aguardando: MATRICULAS.filter((m) => m.status === "aguardando").length,
     ativas: MATRICULAS.filter((m) => m.status === "ativa").length,
     pendentes: MATRICULAS.filter((m) => m.status === "pendente").length,
     canceladas: MATRICULAS.filter((m) => m.status === "cancelada").length,
   };
-  const filteredByStatus = MATRICULAS.filter((m) => filter === "todas" ? true : filter === "ativas" ? m.status === "ativa" : filter === "pendentes" ? m.status === "pendente" : m.status === "cancelada");
+  const filteredByStatus = MATRICULAS.filter((m) => filter === "todas" ? true : filter === "aguardando" ? m.status === "aguardando" : filter === "ativas" ? m.status === "ativa" : filter === "pendentes" ? m.status === "pendente" : m.status === "cancelada");
   const q = search.trim().toLowerCase();
   const allRows = !q ? filteredByStatus : filteredByStatus.filter((m) =>
     m.pagante.toLowerCase().includes(q) || m.aluno.toLowerCase().includes(q) ||
@@ -724,8 +714,9 @@ const C1Pendentes = ({ go, setSel }) => {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
         <Segmented value={filter} onChange={(v) => { setFilter(v); setPage(0); }} options={[
           { value: "todas", label: "Todas", count: counts.todas },
-          { value: "ativas", label: "Ativas", count: counts.ativas },
+          { value: "aguardando", label: "Aguardando", count: counts.aguardando },
           { value: "pendentes", label: "Pendentes", count: counts.pendentes },
+          { value: "ativas", label: "Ativas", count: counts.ativas },
           { value: "canceladas", label: "Cancelados", count: counts.canceladas },
         ]} />
         <div style={{ width: 320, maxWidth: "100%" }}>
@@ -753,7 +744,15 @@ const C1Pendentes = ({ go, setSel }) => {
             <Td><span style={{ fontWeight: 600 }}>{m.plano}</span><div style={{ fontSize: 12.5, color: "var(--color-text-subtle)" }}>{brl(m.valor)}{m.plano !== "Mensal" ? " total" : "/mês"}</div></Td>
             <Td>
               {m.status === "pendente"
-                ? <Badge variant="warning" dot>Pendente</Badge>
+                ? <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
+                    <Badge variant="warning" dot>Aguardando sua aprovação</Badge>
+                    {m.editado && m.editado.length > 0 && (
+                      <span style={{ fontSize: 11.5, color: "var(--color-primary)", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <Icon name="pencil-line" size={12} />Editada pelo responsável</span>
+                    )}
+                  </div>
+                : m.status === "aguardando"
+                  ? <Badge variant="info" dot>Aguardando responsável</Badge>
                 : m.status === "cancelada"
                   ? <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" }}>
                       <Badge variant="neutral" dot>Cancelada</Badge>
@@ -764,6 +763,8 @@ const C1Pendentes = ({ go, setSel }) => {
             <Td align="right">
               {m.status === "pendente"
                 ? <Button size="sm" iconRight="chevron-right" onClick={() => { setSel(m.id); go("c2"); }}>Revisar</Button>
+                : m.status === "aguardando"
+                  ? <Button variant="secondary" size="sm" iconLeft="send" onClick={() => showToast(`Link reenviado para ${m.pagante}`, "info")}>Reenviar link</Button>
                 : m.status === "cancelada"
                   ? <Button variant="tertiary" size="sm" iconLeft="eye" onClick={() => { setSel(m.id); go("c2"); }}>Ver</Button>
                   : <Button variant="tertiary" size="sm" iconLeft="pencil" onClick={() => { setSel(m.id); go("c2"); }}>Editar</Button>}
@@ -774,11 +775,7 @@ const C1Pendentes = ({ go, setSel }) => {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 16 }}>
         <span style={{ fontSize: 13, color: "var(--color-text-subtle)" }}>{allRows.length} matrícula{allRows.length !== 1 ? "s" : ""}{q ? " encontrada" + (allRows.length !== 1 ? "s" : "") : ""}</span>
         {pages > 1 && (
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <Button variant="secondary" size="sm" iconLeft="chevron-left" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>Anterior</Button>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-muted)" }}>{safePage + 1} / {pages}</span>
-            <Button variant="secondary" size="sm" iconRight="chevron-right" disabled={safePage >= pages - 1} onClick={() => setPage(safePage + 1)}>Próxima</Button>
-          </div>
+          <Pagination page={safePage} pages={pages} onChange={setPage} />
         )}
       </div>
       <LinkMatriculaModal open={linkOpen} onClose={() => setLinkOpen(false)} toast={showToast} />
@@ -794,7 +791,8 @@ const Row2c2 = ({ children }) => <div style={{ display: "grid", gridTemplateColu
 const C2Revisar = ({ go, sel, toast }) => {
   const m = MATRICULAS.find((x) => x.id === sel) || PENDENTES[0];
   const isApproval = m.status === "pendente";
-  const [modal, setModal] = useState(null); // 'recusar'
+  const [modal, setModal] = useState(null); // 'recusar' | 'aprovar'
+  const [aprovando, setAprovando] = useState(false);
   const [resp, setResp] = useState({ pagante: m.pagante, cpf: m.cpf, email: m.email, tel: m.tel });
   const [alunos, setAlunos] = useState([{ aluno: m.aluno, nascimento: m.nascimento, materias: [...m.materias], plano: m.plano, desconto: false, descontoTipo: "percent", descontoVal: "0" }]);
   const setRespField = (k) => (e) => setResp({ ...resp, [k]: e.target.value });
@@ -822,6 +820,14 @@ const C2Revisar = ({ go, sel, toast }) => {
         </Card>
         )}
 
+        {isApproval && m.editado && m.editado.length > 0 && (
+        <Card style={{ padding: 16, display: "flex", alignItems: "flex-start", gap: 12, background: "var(--color-toast-info-bg)", border: "1px solid var(--color-primary-soft)" }}>
+          <Icon name="pencil-line" size={19} color="var(--color-primary)" style={{ flexShrink: 0, marginTop: 1 }} />
+          <span style={{ fontSize: 13.5, color: "var(--color-text-muted)", lineHeight: 1.55 }}>
+            O responsável <strong style={{ color: "var(--color-text)" }}>editou {m.editado.join(" e ")}</strong> ao confirmar — confira se foi correção legítima ou erro de digitação do cadastro original.</span>
+        </Card>
+        )}
+
         {m.selfPayer && (
           <Card style={{ padding: 14, display: "flex", alignItems: "center", gap: 11, background: "var(--color-primary-softer)", border: "1px solid var(--color-primary-soft)" }}>
             <Icon name="user-check" size={18} color="var(--color-primary)" />
@@ -834,7 +840,8 @@ const C2Revisar = ({ go, sel, toast }) => {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <Row2c2>
               <Field label="Nome" required><Input value={resp.pagante} onChange={setRespField("pagante")} leadingIcon="user" /></Field>
-              <Field label="CPF"><Input value={resp.cpf} onChange={setRespField("cpf")} inputMode="numeric" /></Field>
+              <Field label="CPF" hint="Sempre mascarado — o dado completo só vai criptografado ao Asaas">
+                <Input value={maskCpf(resp.cpf)} disabled leadingIcon="lock" onChange={() => {}} /></Field>
             </Row2c2>
             <Row2c2>
               <Field label="E-mail" required><Input value={resp.email} onChange={setRespField("email")} type="email" leadingIcon="mail" /></Field>
@@ -925,7 +932,7 @@ const C2Revisar = ({ go, sel, toast }) => {
         {isApproval ? (
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <Button variant="danger-outline" iconLeft="x" onClick={() => setModal("recusar")}>Recusar</Button>
-            <Button size="lg" iconLeft="check" onClick={() => { toast("Matrícula aprovada — 1ª cobrança será emitida no fechamento", "success"); go("c1"); }}>Aprovar matrícula</Button>
+            <Button size="lg" iconLeft="check" onClick={() => setModal("aprovar")}>Aprovar matrícula</Button>
           </div>
         ) : (
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
@@ -934,6 +941,22 @@ const C2Revisar = ({ go, sel, toast }) => {
           </div>
         )}
       </div>
+      <Modal open={modal === "aprovar"} onClose={() => !aprovando && setModal(null)}>
+        <div style={{ padding: 26 }}>
+          <div style={{ width: 46, height: 46, borderRadius: 11, background: "var(--color-primary-soft)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+            <Icon name="check-circle-2" size={22} color="var(--color-primary)" /></div>
+          <h3 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>Aprovar matrícula?</h3>
+          <p style={{ margin: "8px 0 16px", fontSize: 14, color: "var(--color-text-muted)", lineHeight: 1.55 }}>
+            Ao aprovar, criamos o cadastro de cobrança no Asaas para <strong style={{ color: "var(--color-text)" }}>{resp.pagante}</strong> e a matrícula fica ativa — a 1ª cobrança sai no próximo fechamento.</p>
+          <div style={{ padding: "10px 14px", borderRadius: "var(--radius-md)", background: "var(--color-surface)", fontSize: 12.5, color: "var(--color-text-muted)", marginBottom: 20, lineHeight: 1.5 }}>
+            Se o responsável já tem cadastro de cobrança, ele é reaproveitado — nada é duplicado.</div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <Button variant="tertiary" disabled={aprovando} onClick={() => setModal(null)}>Cancelar</Button>
+            <Button iconLeft="check" disabled={aprovando} onClick={() => { setAprovando(true); setTimeout(() => { setAprovando(false); setModal(null); toast(`Matrícula aprovada. ${resp.pagante} já pode ser cobrado.`, "success"); go("c1"); }, 1100); }}>
+              {aprovando ? "Criando cadastro no Asaas…" : "Aprovar"}</Button>
+          </div>
+        </div>
+      </Modal>
       <Modal open={modal === "recusar"} onClose={() => setModal(null)}>
         <div style={{ padding: 26 }}>
           <div style={{ width: 46, height: 46, borderRadius: 11, background: "var(--color-danger-soft)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
@@ -953,10 +976,13 @@ const C2Revisar = ({ go, sel, toast }) => {
 
 /* ─── C3 Lista de cobranças ────────────────────────────────────────────── */
 const C3Cobrancas = ({ go, setSel, initialTab = "cobrancas" }) => {
-  const [tab, setTab] = useState(initialTab);
+  const isNeg = initialTab === "negativacao";
   const [filter, setFilter] = useState("todas");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
+  const [emitir, setEmitir] = useState(null); // 'avulsa' | 'lote'
+  const [toastC3, setToastC3] = useState(null);
+  const showToastC3 = (msg, type) => { setToastC3({ msg, type }); setTimeout(() => setToastC3(null), 3600); };
   const PER_PAGE = 6;
   const counts = {
     todas: COBRANCAS.length,
@@ -975,22 +1001,18 @@ const C3Cobrancas = ({ go, setSel, initialTab = "cobrancas" }) => {
   const rows = allRows.slice(safePage * PER_PAGE, (safePage + 1) * PER_PAGE);
   const negCount = INADIMPLENTES.filter((i) => i.status === "elegivel").length;
   return (
-    <Shell screen="c3" go={go}
-      title="Cobranças"
-      subtitle={tab === "cobrancas" ? "Mensalidades e cobranças avulsas da unidade" : "Você decide quem negativar, caso a caso — a lei é garantida pelo sistema"}>
+    <Shell screen={isNeg ? "d0" : "c3"} go={go}
+      title={isNeg ? "Régua & negativação" : "Cobranças"}
+      subtitle={isNeg ? "Lembrete, avisos e negativação automática no SPC/Serasa — tudo no prazo configurado" : "Mensalidades e cobranças avulsas da unidade"}>
+      {isNeg ? <NegativacaoBody go={go} setSel={setSel} /> : (
+      <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
         <MonthPicker />
-        {tab === "cobrancas" && <Button iconLeft="plus" onClick={() => go("c5")}>Nova cobrança extra</Button>}
+        <div style={{ display: "flex", gap: 10 }}>
+          <Button variant="secondary" iconLeft="receipt" onClick={() => setEmitir("avulsa")}>Emitir avulsa</Button>
+          <Button iconLeft="layers" onClick={() => setEmitir("lote")}>Emitir em lote</Button>
+        </div>
       </div>
-      <div style={{ marginBottom: 22 }}>
-        <Segmented key={tab} value={tab} onChange={setTab} options={[
-          { value: "cobrancas", label: "Cobranças" },
-          { value: "negativacao", label: "Negativação", count: negCount || undefined },
-        ]} />
-      </div>
-
-      {tab === "negativacao" ? <NegativacaoBody go={go} setSel={setSel} /> : (
-      <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
         <div style={{ width: 300, maxWidth: "100%" }}>
           <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} placeholder="Buscar por responsável ou aluno…" leadingIcon="search" />
@@ -1003,28 +1025,37 @@ const C3Cobrancas = ({ go, setSel, initialTab = "cobrancas" }) => {
         ]} />
       </div>
       <DataTable cols={[
-        { label: "Responsável" }, { label: "Aluno" }, { label: "Valor", align: "right" }, { label: "Vencimento" }, { label: "Status" }, { label: "", align: "right" },
+        { label: "Responsável" }, { label: "Aluno" }, { label: "Matéria" }, { label: "Valor", align: "right" }, { label: "Vencimento" }, { label: "Status" }, { label: "", align: "right" },
       ]}>
         {rows.map((c) => (
           <TrHover key={c.id} onClick={() => { setSel(c.id); go("c4"); }}>
             <Td><Person name={c.resp} /></Td>
             <Td><span style={{ color: "var(--color-text-muted)" }}>{c.aluno}</span></Td>
+            <Td><span style={{ color: "var(--color-text-muted)", fontSize: 13.5 }}>{c.materia || "—"}</span></Td>
             <Td align="right"><span style={{ fontWeight: 700 }}>{brl(c.valor)}</span></Td>
             <Td><span style={{ color: c.status === "vencida" ? "var(--badge-danger-fg)" : "var(--color-text-muted)", fontWeight: c.status === "vencida" ? 600 : 400 }}>
               {c.venc}{c.atraso ? ` · ${c.atraso}d atraso` : ""}</span></Td>
             <Td><StatusBadge status={c.status} /></Td>
-            <Td align="right"><Button variant="tertiary" size="sm" iconLeft="eye" onClick={(e) => { e.stopPropagation(); setSel(c.id); go("c4"); }}>Visualizar</Button></Td>
+            <Td align="right">
+              {c.status === "erro"
+                ? <Button size="sm" iconLeft="refresh-cw" title="Tentar emitir esta cobrança novamente no Asaas" onClick={(e) => { e.stopPropagation(); showToastC3("Tentando emitir novamente…", "info"); }}>Reemitir</Button>
+                : <Button variant="tertiary" size="sm" iconLeft="eye" onClick={(e) => { e.stopPropagation(); setSel(c.id); go("c4"); }}>Visualizar</Button>}
+            </Td>
           </TrHover>
         ))}
+        {rows.length === 0 && (
+          <tr><td colSpan={7} style={{ padding: "36px 20px", textAlign: "center", fontSize: 13.5, color: "var(--color-text-subtle)" }}>
+            {cq || filter !== "todas" ? "Nenhuma cobrança encontrada com esses filtros." : "Nenhuma cobrança emitida ainda. As cobranças do mês são geradas automaticamente todo dia 1."}
+          </td></tr>
+        )}
       </DataTable>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 16 }}>
         <span style={{ fontSize: 13, color: "var(--color-text-subtle)" }}>{allRows.length} cobrança{allRows.length !== 1 ? "s" : ""}</span>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <Button variant="secondary" size="sm" iconLeft="chevron-left" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>Anterior</Button>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-muted)" }}>{safePage + 1} / {pages}</span>
-          <Button variant="secondary" size="sm" iconRight="chevron-right" disabled={safePage >= pages - 1} onClick={() => setPage(safePage + 1)}>Próxima</Button>
-        </div>
+        <Pagination page={safePage} pages={pages} onChange={setPage} />
       </div>
+      <EmitirAvulsaModal open={emitir === "avulsa"} onClose={() => setEmitir(null)} toast={showToastC3} />
+      <EmitirLoteModal open={emitir === "lote"} onClose={() => setEmitir(null)} toast={showToastC3} />
+      <Toast toast={toastC3} />
       </>
       )}
     </Shell>
@@ -1032,6 +1063,8 @@ const C3Cobrancas = ({ go, setSel, initialTab = "cobrancas" }) => {
 };
 
 window.C0Dashboard = C0Dashboard;
+window.RelatoriosPage = RelatoriosPage;
+window.ExtratoPage = ExtratoPage;
 window.C1Pendentes = C1Pendentes;
 window.C2Revisar = C2Revisar;
 window.C3Cobrancas = C3Cobrancas;

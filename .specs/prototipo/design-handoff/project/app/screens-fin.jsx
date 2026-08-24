@@ -1,15 +1,10 @@
-/* Financeiro — saldo disponível para saque, recebíveis (PIX vs cartão D+X),
- * extrato e antecipação de recebíveis via taxa Education X. */
+/* Saldo — modais de transferência PIX e antecipação de recebíveis.
+ * O card de saldo em si vive no Dashboard (C0), ao lado dos KPIs de cobrança
+ * (financeiro deixou de ser item próprio de navegação). */
 
-const ORIGEM_ICON = { PIX: "qr-code", Boleto: "barcode", Cartão: "credit-card", Saque: "arrow-up-right", Antecipação: "zap" };
-
-const FinanceiroBody = ({ toast }) => {
-  const [saqueOpen, setSaqueOpen] = useState(false);
-  const [antecipOpen, setAntecipOpen] = useState(false);
+const SaldoModals = ({ saqueOpen, setSaqueOpen, antecipOpen, setAntecipOpen, toast }) => {
   const [sel, setSel] = useState(RECEBIVEIS.map((r) => r.id)); // recebíveis marcados p/ antecipar
-
-  // Antecipação: taxa Education X ~ 1,99% a.m. proporcional aos dias até liberar
-  const TAXA_MES = 0.0199;
+  const TAXA_MES = 0.0199; // taxa EducationHub, proporcional aos dias até liberar
   const escolhidos = RECEBIVEIS.filter((r) => sel.includes(r.id));
   const brutoTotal = escolhidos.reduce((s, r) => s + r.bruto, 0);
   const taxaTotal = escolhidos.reduce((s, r) => s + r.bruto * TAXA_MES * (r.dias / 30), 0);
@@ -18,27 +13,6 @@ const FinanceiroBody = ({ toast }) => {
 
   return (
     <>
-
-      {/* Saldo atual — card principal, full width */}
-      <Card style={{ padding: 26, background: "var(--color-primary)", color: "#fff", marginBottom: 18 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
-          <div>
-            <div style={{ fontSize: 12.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", opacity: 0.85 }}>Saldo atual</div>
-            <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: "-0.02em", marginTop: 8, lineHeight: 1 }}>{brl(SALDO.disponivel)}</div>
-          </div>
-          <Icon name="wallet" size={28} style={{ opacity: 0.9 }} />
-        </div>
-        <div style={{ display: "flex", gap: 12, marginTop: 24, flexWrap: "wrap" }}>
-          <Button size="lg" iconLeft="arrow-up-right" onClick={() => setSaqueOpen(true)}
-            style={{ background: "#fff", color: "var(--color-primary)" }}>Transferir para banco</Button>
-          <Button size="lg" iconLeft="zap" onClick={() => setAntecipOpen(true)}
-            style={{ background: "transparent", color: "#fff", border: "1.5px solid rgba(255,255,255,0.55)", boxShadow: "none" }}>Antecipar recebíveis</Button>
-        </div>
-      </Card>
-
-      {/* Extrato — movido para aba própria no Dashboard */}
-
-      {/* Modal saque */}
       <Modal open={saqueOpen} onClose={() => setSaqueOpen(false)}>
         <div style={{ padding: 26 }}>
           <h3 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>Resgatar saldo</h3>
@@ -57,7 +31,6 @@ const FinanceiroBody = ({ toast }) => {
         </div>
       </Modal>
 
-      {/* Modal antecipação */}
       <Modal open={antecipOpen} onClose={() => setAntecipOpen(false)} width={560}>
         <div style={{ padding: 26 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 6 }}>
@@ -65,7 +38,7 @@ const FinanceiroBody = ({ toast }) => {
             <h3 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>Antecipar recebíveis</h3>
           </div>
           <p style={{ margin: "0 0 18px", fontSize: 13.5, color: "var(--color-text-muted)", lineHeight: 1.5 }}>
-            Receba hoje o que está preso no cartão. A taxa de antecipação Education X (1,99% a.m.) incide proporcional aos dias até a liberação.</p>
+            Receba hoje o que está preso no cartão. A taxa de antecipação EducationHub (1,99% a.m.) incide proporcional aos dias até a liberação.</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
             {RECEBIVEIS.map((r) => {
               const on = sel.includes(r.id);
@@ -85,7 +58,7 @@ const FinanceiroBody = ({ toast }) => {
             })}
           </div>
           <div style={{ borderRadius: "var(--radius-md)", border: "1px solid var(--color-border)", overflow: "hidden", marginBottom: 20 }}>
-            {[["Valor bruto selecionado", brl(brutoTotal), false], ["Taxa de antecipação (Education X)", "− " + brl(taxaTotal), false], ["Você recebe hoje", brl(liquido), true]].map(([k, v, hi]) => (
+            {[["Valor bruto selecionado", brl(brutoTotal), false], ["Taxa de antecipação (EducationHub)", "− " + brl(taxaTotal), false], ["Você recebe hoje", brl(liquido), true]].map(([k, v, hi]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "11px 16px", fontSize: hi ? 15 : 13.5, background: hi ? "var(--color-primary-softer)" : "var(--color-bg)", borderTop: hi ? "1px solid var(--color-border)" : "none" }}>
                 <span style={{ color: hi ? "var(--color-text)" : "var(--color-text-subtle)", fontWeight: hi ? 700 : 400 }}>{k}</span>
                 <span style={{ fontWeight: hi ? 800 : 600, color: hi ? "var(--color-primary)" : "var(--color-text)" }}>{v}</span>
@@ -102,4 +75,4 @@ const FinanceiroBody = ({ toast }) => {
   );
 };
 
-window.FinanceiroBody = FinanceiroBody;
+window.SaldoModals = SaldoModals;
