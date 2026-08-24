@@ -39,6 +39,7 @@ const QrCode = ({ size = 132 }) => {
 
 const DataTable = ({ cols, children }) => (
   <Card style={{ overflow: "hidden" }}>
+    <div style={{ overflowX: "auto" }}>
     <table style={{ width: "100%", borderCollapse: "collapse" }}>
       <thead>
         <tr style={{ background: "var(--color-surface)" }}>
@@ -51,6 +52,7 @@ const DataTable = ({ cols, children }) => (
       </thead>
       <tbody>{children}</tbody>
     </table>
+    </div>
   </Card>
 );
 
@@ -975,12 +977,12 @@ const C2Revisar = ({ go, sel, toast }) => {
 };
 
 /* ─── C3 Lista de cobranças ────────────────────────────────────────────── */
-const C3Cobrancas = ({ go, setSel, initialTab = "cobrancas" }) => {
+const C3Cobrancas = ({ go, setSel, initialTab = "cobrancas", initialSearch = "", onVerCobrancas }) => {
   const isNeg = initialTab === "negativacao";
   const [filter, setFilter] = useState("todas");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [page, setPage] = useState(0);
-  const [emitir, setEmitir] = useState(null); // 'avulsa' | 'lote'
+  const [emitir, setEmitir] = useState(null); // 'avulsa'
   const [toastC3, setToastC3] = useState(null);
   const showToastC3 = (msg, type) => { setToastC3({ msg, type }); setTimeout(() => setToastC3(null), 3600); };
   const PER_PAGE = 6;
@@ -1002,16 +1004,13 @@ const C3Cobrancas = ({ go, setSel, initialTab = "cobrancas" }) => {
   const negCount = INADIMPLENTES.filter((i) => i.status === "elegivel").length;
   return (
     <Shell screen={isNeg ? "d0" : "c3"} go={go}
-      title={isNeg ? "Régua & negativação" : "Cobranças"}
-      subtitle={isNeg ? "Lembrete, avisos e negativação automática no SPC/Serasa — tudo no prazo configurado" : "Mensalidades e cobranças avulsas da unidade"}>
-      {isNeg ? <NegativacaoBody go={go} setSel={setSel} /> : (
+      title={isNeg ? "Cobrança" : (initialSearch ? `Cobranças de ${initialSearch}` : "Cobranças")}
+      subtitle={isNeg ? "Por responsável — pausar régua, acompanhar negativação e ver os boletos do mês" : "Mensalidades e cobranças avulsas da unidade"}>
+      {isNeg ? <NegativacaoBody go={go} setSel={setSel} onVerCobrancas={onVerCobrancas} /> : (
       <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
         <MonthPicker />
-        <div style={{ display: "flex", gap: 10 }}>
-          <Button variant="secondary" iconLeft="receipt" onClick={() => setEmitir("avulsa")}>Emitir avulsa</Button>
-          <Button iconLeft="layers" onClick={() => setEmitir("lote")}>Emitir em lote</Button>
-        </div>
+        <Button variant="secondary" iconLeft="receipt" onClick={() => setEmitir("avulsa")}>Emitir avulsa</Button>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
         <div style={{ width: 300, maxWidth: "100%" }}>
@@ -1054,7 +1053,6 @@ const C3Cobrancas = ({ go, setSel, initialTab = "cobrancas" }) => {
         <Pagination page={safePage} pages={pages} onChange={setPage} />
       </div>
       <EmitirAvulsaModal open={emitir === "avulsa"} onClose={() => setEmitir(null)} toast={showToastC3} />
-      <EmitirLoteModal open={emitir === "lote"} onClose={() => setEmitir(null)} toast={showToastC3} />
       <Toast toast={toastC3} />
       </>
       )}

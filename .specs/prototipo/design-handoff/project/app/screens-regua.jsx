@@ -105,7 +105,7 @@ const PausarModal = ({ row, onClose, onConfirm }) => (
 );
 
 /* ── painel da régua (d0) — sem botão "Negativar": tudo automático ── */
-const NegativacaoBody = ({ go, setSel }) => {
+const NegativacaoBody = ({ go, setSel, onVerCobrancas }) => {
   const [, force] = useState(0);
   const rerender = () => force((n) => n + 1);
   const [toast, setToast] = useState(null);
@@ -162,7 +162,7 @@ const NegativacaoBody = ({ go, setSel }) => {
       </div>
 
       <DataTable cols={[
-        { label: "Responsável" }, { label: "Aluno" }, { label: "Valor", align: "right" }, { label: "Atraso", align: "right" }, { label: "Etapa da régua" }, { label: "", align: "right", w: 250 },
+        { label: "Responsável" }, { label: "Aluno" }, { label: "Valor", align: "right" }, { label: "Atraso", align: "right" }, { label: "Etapa da régua" }, { label: "", align: "right", w: 270 },
       ]}>
         {npaged.map((r) => (
           <TrHover key={r.id}>
@@ -174,11 +174,12 @@ const NegativacaoBody = ({ go, setSel }) => {
               : <span style={{ color: "var(--color-text-subtle)" }}>—</span>}</Td>
             <Td><EtapaBadge etapa={r.etapa} pausada={r.pausada} /></Td>
             <Td align="right">
-              <div style={{ display: "inline-flex", gap: 8, justifyContent: "flex-end" }}>
+              <div style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
                 {!["NEGATIVATED", "REGULARIZED"].includes(r.etapa) && (
-                  <Button variant="secondary" size="sm" iconLeft={r.pausada ? "play" : "pause"} onClick={() => setPausarRow(r)}>{r.pausada ? "Retomar régua" : "Pausar régua"}</Button>
+                  <Button variant="secondary" size="sm" iconLeft={r.pausada ? "play" : "pause"} onClick={() => setPausarRow(r)} title={r.pausada ? "Retomar régua" : "Pausar régua"}>{r.pausada ? "Retomar" : "Pausar"}</Button>
                 )}
-                <Button variant="tertiary" size="sm" iconLeft="eye" onClick={() => { setSel(r.id); go("d1"); }}>Ver</Button>
+                <Button variant="tertiary" size="sm" iconLeft="receipt" onClick={() => onVerCobrancas && onVerCobrancas(r.resp)}>Cobranças</Button>
+                <Button variant="tertiary" size="sm" iconLeft="eye" onClick={() => { setSel(r.id); go("d1"); }} title="Ver régua"></Button>
               </div>
             </Td>
           </TrHover>

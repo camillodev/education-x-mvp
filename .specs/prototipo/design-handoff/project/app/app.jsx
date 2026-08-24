@@ -120,6 +120,7 @@ const Launcher = ({ go }) => {
 const App = () => {
   const [screen, setScreen] = useState("home");
   const [sel, setSel] = useState(null);
+  const [respFiltro, setRespFiltro] = useState("");
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
 
@@ -148,10 +149,10 @@ const App = () => {
     case "ext":   view = <ExtratoPage go={go} toast={showToast} />; break;
     case "c1":    view = <C1Pendentes go={go} setSel={setSel} />; break;
     case "c2":    view = <C2Revisar go={go} sel={sel} toast={showToast} />; break;
-    case "c3":    view = <C3Cobrancas key="c3" go={go} setSel={setSel} />; break;
+    case "c3":    view = <C3Cobrancas key="c3" go={go} setSel={setSel} initialSearch={respFiltro} />; break;
     case "c4":    view = <C4Detalhe go={go} sel={sel} toast={showToast} />; break;
     case "c5":    view = <C5Nova go={go} toast={showToast} />; break;
-    case "d0":    view = <C3Cobrancas key="d0" go={go} setSel={setSel} initialTab="negativacao" />; break;
+    case "d0":    view = <C3Cobrancas key="d0" go={go} setSel={setSel} initialTab="negativacao" onVerCobrancas={(resp) => { setRespFiltro(resp); go("c3"); }} />; break;
     case "d1":    view = <D1Detalhe go={go} sel={sel} toast={showToast} />; break;
     case "settings": view = <Settings go={go} toast={showToast} />; break;
     case "imp":   view = <ImportCSV go={go} toast={showToast} />; break;
