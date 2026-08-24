@@ -106,6 +106,9 @@ const STATUS = {
   vencida:     { variant: "danger",  label: "Vencida" },
   pendente:    { variant: "warning", label: "Pendente" },
   contestacao: { variant: "warning", label: "Em contestação" },
+  bloqueada:   { variant: "warning", label: "Aguardando cadastro" },
+  erro:        { variant: "danger",  label: "Falha na emissão" },
+  cancelada:   { variant: "neutral", label: "Cancelada" },
   emaviso:     { variant: "warning", label: "Em aviso" },
   elegivel:    { variant: "danger",  label: "Elegível p/ negativar" },
   negativado:  { variant: "danger",  label: "Negativado" },
@@ -147,6 +150,38 @@ const Input = ({ value, onChange, placeholder, type = "text", inputMode, leading
         style={{ flex: 1, border: "none", outline: "none", background: "transparent",
           fontFamily: "var(--font-sans)", fontSize: 15, color: "var(--color-text)", minWidth: 0 }} />
       {trailing}
+    </div>
+  );
+};
+
+/* ── Select (native, estilizado p/ combinar com Input) ─────────────────── */
+const Select = ({ value, onChange, options, leadingIcon, placeholder, disabled, style = {} }) => {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div style={{
+      position: "relative", display: "inline-flex", alignItems: "center", gap: 9, height: 42,
+      padding: "0 34px 0 14px", borderRadius: "var(--radius-md)",
+      background: disabled ? "var(--color-surface)" : "var(--color-bg)",
+      border: `1.5px solid ${focused ? "var(--color-primary)" : "var(--color-border-input)"}`,
+      boxShadow: focused ? "0 0 0 3px var(--color-primary-ring)" : "none",
+      transition: "border-color 140ms, box-shadow 140ms", ...style,
+    }}>
+      {leadingIcon && <Icon name={leadingIcon} size={17} color="var(--color-text-subtle)" />}
+      <select value={value} onChange={onChange} disabled={disabled}
+        onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+        style={{ appearance: "none", WebkitAppearance: "none", MozAppearance: "none",
+          border: "none", outline: "none", background: "transparent", minWidth: 0,
+          cursor: disabled ? "not-allowed" : "pointer", fontFamily: "var(--font-sans)",
+          fontSize: 14, fontWeight: 600, color: "var(--color-text)" }}>
+        {placeholder && <option value="" disabled>{placeholder}</option>}
+        {options.map((o) => {
+          const v = typeof o === "string" ? o : o.value;
+          const lbl = typeof o === "string" ? o : o.label;
+          return <option key={v} value={v}>{lbl}</option>;
+        })}
+      </select>
+      <Icon name="chevron-down" size={16} color="var(--color-text-subtle)"
+        style={{ position: "absolute", right: 12, pointerEvents: "none" }} />
     </div>
   );
 };
@@ -396,7 +431,22 @@ const LineChart = ({ data, height = 150, accent = "var(--color-primary)" }) => {
   );
 };
 
+/* ── Pagination — Anterior/Próxima + números clicáveis, sempre pt-BR ───── */
+const Pagination = ({ page, pages, onChange, size = "sm" }) => (
+  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+    <Button variant="tertiary" size={size} iconLeft="chevron-left" disabled={page === 0} onClick={() => onChange(page - 1)}>Anterior</Button>
+    {Array.from({ length: pages }).map((_, i) => (
+      <button key={i} onClick={() => onChange(i)}
+        style={{ width: 34, height: 34, borderRadius: 9, cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: 13.5, fontWeight: 600,
+          border: `1px solid ${i === page ? "var(--color-primary)" : "var(--color-border)"}`,
+          background: i === page ? "var(--color-primary)" : "var(--color-bg)",
+          color: i === page ? "#fff" : "var(--color-text-muted)" }}>{i + 1}</button>
+    ))}
+    <Button variant="tertiary" size={size} iconRight="chevron-right" disabled={page >= pages - 1} onClick={() => onChange(page + 1)}>Próxima</Button>
+  </div>
+);
+
 Object.assign(window, {
   Icon, brl, maskCpf, Button, Card, Badge, StatusBadge, STATUS, Field, Input, Toggle, Checkbox,
-  Segmented, Chip, Stepper, Metric, Modal, Toast, BarChart, FileDrop, LineChart,
+  Segmented, Select, Chip, Stepper, Metric, Modal, Toast, BarChart, FileDrop, LineChart, Pagination,
 });

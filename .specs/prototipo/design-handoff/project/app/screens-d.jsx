@@ -77,11 +77,7 @@ const NegativacaoBody = ({ go, setSel }) => {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 16 }}>
           <span style={{ fontSize: 13, color: "var(--color-text-subtle)" }}>{filtered.length} inadimplente{filtered.length !== 1 ? "s" : ""}</span>
           {npages > 1 && (
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <Button variant="secondary" size="sm" iconLeft="chevron-left" disabled={nsafe === 0} onClick={() => setPage(nsafe - 1)}>Anterior</Button>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-muted)" }}>{nsafe + 1} / {npages}</span>
-              <Button variant="secondary" size="sm" iconRight="chevron-right" disabled={nsafe >= npages - 1} onClick={() => setPage(nsafe + 1)}>Próxima</Button>
-            </div>
+            <Pagination page={nsafe} pages={npages} onChange={setPage} />
           )}
         </div>
         </>
@@ -311,7 +307,7 @@ const FeeChoice = ({ label, hint, value, onChange }) => {
   );
 };
 
-// Planos Education X por volume de cobranças/mês. Taxa de cartão e de negativação à parte.
+// Planos EducationHub por volume de cobranças/mês. Taxa de cartão e de negativação à parte.
 const PLANOS_IX = [
   { id: "basico", nome: "Básico", preco: "R$ 450", unidade: "/mês", limite: "até 200 cobranças/mês", desc: "Cobrança automática, PIX e boleto" },
   { id: "crescimento", nome: "Crescimento", preco: "R$ 599", unidade: "/mês", limite: "201 a 500 cobranças/mês", desc: "Tudo do Básico, com mais volume" },
@@ -382,7 +378,7 @@ const FaturaDetalheModal = ({ fatura, onClose, toast }) => {
       <div style={{ padding: 26 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
           <div>
-            <div className="eyebrow" style={{ marginBottom: 6 }}>Fatura Education X</div>
+            <div className="eyebrow" style={{ marginBottom: 6 }}>Fatura EducationHub</div>
             <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{fatura.mes}</h3>
             <div style={{ fontSize: 13, color: "var(--color-text-subtle)", marginTop: 3 }}>{aberto ? `Vence em ${fatura.venc}` : `Paga em ${fatura.pago}`}</div>
           </div>
@@ -418,7 +414,7 @@ const FaturaDetalheModal = ({ fatura, onClose, toast }) => {
         {aberto && view === "pix" && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
             <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em" }}>{brl(total)}</div>
-            <div style={{ fontSize: 13, color: "var(--color-text-subtle)", marginTop: 4, marginBottom: 18 }}>{fatura.mes} · fatura Education X</div>
+            <div style={{ fontSize: 13, color: "var(--color-text-subtle)", marginTop: 4, marginBottom: 18 }}>{fatura.mes} · fatura EducationHub</div>
             <QrCode size={172} />
             <div style={{ fontSize: 13, color: "var(--color-text-subtle)", margin: "14px 0 18px" }}>Abra o app do banco e escaneie</div>
             <button onClick={() => { setCopied(true); setTimeout(() => setCopied(false), 1800); }}
@@ -438,9 +434,17 @@ const FaturaDetalheModal = ({ fatura, onClose, toast }) => {
 const Settings = ({ go, toast }) => {
   const [tab, setTab] = useState("dados");
   const [fechamento, setFechamento] = useState("25");
+  const [vencimento, setVencimento] = useState("10");
+  const [firstCharge, setFirstCharge] = useState("PROPORTIONAL");
+  const [regrasModal, setRegrasModal] = useState(false);
   const [contratoObrig, setContratoObrig] = useState(false);
   const [taxaCartao, setTaxaCartao] = useState("responsavel");
   const [taxaNeg, setTaxaNeg] = useState("responsavel");
+  const [inscricao, setInscricao] = useState("1.234.567-8");
+  const [issRate, setIssRate] = useState("5");
+  const [simplesNacional, setSimplesNacional] = useState(true);
+  const [retencoes, setRetencoes] = useState({ pis: false, cofins: false, csll: false, inss: false, ir: false });
+  const issErr = (parseFloat(issRate.replace(",", ".")) || 0) > 10 ? "Alíquota máxima é 10%." : null;
   const [planoAtual] = useState("basico");
   const [planoSel, setPlanoSel] = useState("basico");
   const [planoModal, setPlanoModal] = useState(false);
@@ -451,10 +455,11 @@ const Settings = ({ go, toast }) => {
   const FAT_PER_PAGE = 5;
   const showToast = (msg, type) => { if (toast) toast(msg, type); };
 
+  const firstChargeLabel = firstCharge === "PROPORTIONAL" ? "Proporcional aos dias restantes" : "1º mês isento";
   const dados = [
     { t: "Dados da escola", icon: "building-2", rows: [["Razão social", "Kumon Camargos"], ["CNPJ", "12.345.678/0001-90"], ["Endereço", "Av. Tito Fulgêncio, 420 — BH/MG"], ["Contato", "contato@kumoncamargos.com.br"]] },
     { t: "Conta para repasse", icon: "landmark", rows: [["Banco", "Banco Inter"], ["Agência", "0001"], ["Conta", "****-5521"], ["Titular", "Kumon Camargos LTDA"]] },
-    { t: "Regras de cobrança", icon: "receipt", rows: [["Dia de vencimento", "Todo dia 10"], ["Dia de fechamento", `Dia ${fechamento}`], ["Multa por atraso", "2%"], ["Juros ao mês", "1% a.m."]] },
+    { t: "Regras de cobrança", icon: "receipt", rows: [["Dia de vencimento", `Todo dia ${vencimento}`], ["Dia de fechamento", `Dia ${fechamento}`], ["Primeiro boleto", firstChargeLabel], ["Multa por atraso", "2%"], ["Juros ao mês", "1% a.m."]] },
   ];
   const plano = PLANOS_IX.find((p) => p.id === planoAtual);
 
@@ -463,10 +468,58 @@ const Settings = ({ go, toast }) => {
       <div style={{ marginBottom: 22 }}>
         <Segmented key={tab} value={tab} onChange={setTab} options={[
           { value: "dados", label: "Dados da escola" },
+          { value: "regua", label: "Régua de cobrança" },
+          { value: "fiscal", label: "Fiscal" },
           { value: "taxas", label: "Taxas" },
           { value: "plano", label: "Meu plano" },
         ]} />
       </div>
+
+      {tab === "regua" && <ReguaConfigTab toast={showToast} />}
+
+      {tab === "fiscal" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <Card style={{ padding: 16, display: "flex", gap: 12, alignItems: "center", background: "var(--color-toast-info-bg)", border: "1px solid var(--color-primary-soft)" }}>
+            <Icon name="info" size={18} color="var(--color-primary)" />
+            <span style={{ fontSize: 13.5, color: "var(--color-text-muted)", lineHeight: 1.5 }}>
+              A NFS-e é emitida automaticamente a cada pagamento confirmado. Essa config vale pra unidade inteira — o código de serviço de cada matéria fica em <strong style={{ color: "var(--color-text)" }}>Matérias & Preços</strong>.</span>
+          </Card>
+          <Card style={{ padding: 24 }}>
+            <SectionHead title="Dados fiscais" sub="Usados para emitir a NFS-e a cada pagamento recebido" />
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+                <Field label="Inscrição municipal" required><Input value={inscricao} onChange={(e) => setInscricao(e.target.value)} /></Field>
+                <Field label="Alíquota ISS" required error={issErr} hint={issErr ? undefined : "Entre 0% e 10%"}>
+                  <Input value={issRate} onChange={(e) => setIssRate(e.target.value.replace(/[^\d,]/g, ""))} error={!!issErr} inputMode="decimal" trailing={<span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-muted)" }}>%</span>} />
+                </Field>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, padding: "14px 16px", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Enquadrada no Simples Nacional?</div>
+                  <div style={{ fontSize: 12.5, color: "var(--color-text-subtle)", marginTop: 2 }}>Se não, mostramos as retenções opcionais abaixo</div>
+                </div>
+                <Toggle checked={simplesNacional} onChange={setSimplesNacional} />
+              </div>
+              {!simplesNacional && (
+                <div style={{ padding: 16, borderRadius: "var(--radius-md)", background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
+                  <div style={{ display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 12 }}>
+                    <Icon name="info" size={15} color="var(--color-text-subtle)" style={{ marginTop: 1 }} />
+                    <span style={{ fontSize: 12.5, color: "var(--color-text-subtle)", lineHeight: 1.5 }}>Retenções são deduções sobre o serviço conforme a legislação.</span>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+                    {[["pis", "PIS"], ["cofins", "COFINS"], ["csll", "CSLL"], ["inss", "INSS"], ["ir", "IR"]].map(([k, label]) => (
+                      <Checkbox key={k} checked={retencoes[k]} onChange={(v) => setRetencoes({ ...retencoes, [k]: v })}>{label}</Checkbox>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+              <Button iconLeft="check" disabled={!!issErr} onClick={() => showToast("Dados fiscais salvos", "success")}>Salvar</Button>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {tab === "dados" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -474,7 +527,7 @@ const Settings = ({ go, toast }) => {
             <Card key={g.t} style={{ padding: 0, overflow: "hidden" }}>
               <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--color-surface)" }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 14.5, fontWeight: 700 }}><Icon name={g.icon} size={17} color="var(--color-primary)" />{g.t}</span>
-                <Button variant="tertiary" size="sm" iconLeft="pencil" onClick={() => showToast("Edição de dados — em breve", "info")}>Editar</Button>
+                <Button variant="tertiary" size="sm" iconLeft="pencil" onClick={() => g.t === "Regras de cobrança" ? setRegrasModal(true) : showToast("Edição de dados — em breve", "info")}>Editar</Button>
               </div>
               <div style={{ padding: "6px 20px" }}>
                 {g.rows.map(([k, v]) => (
@@ -506,7 +559,7 @@ const Settings = ({ go, toast }) => {
           <Card style={{ padding: 16, display: "flex", gap: 12, alignItems: "center", background: "var(--color-toast-info-bg)", border: "1px solid var(--color-primary-soft)" }}>
             <Icon name="info" size={18} color="var(--color-primary)" />
             <span style={{ fontSize: 13.5, color: "var(--color-text-muted)", lineHeight: 1.5 }}>
-              Sua mensalidade Education X cobre só a geração de cobrança. As taxas de <strong style={{ color: "var(--color-text)" }}>cartão</strong> e de <strong style={{ color: "var(--color-text)" }}>negativação</strong> são opcionais — defina quem paga.</span>
+              Sua mensalidade EducationHub cobre só a geração de cobrança. As taxas de <strong style={{ color: "var(--color-text)" }}>cartão</strong> e de <strong style={{ color: "var(--color-text)" }}>negativação</strong> são opcionais — defina quem paga.</span>
           </Card>
           <Card style={{ padding: 24 }}>
             <SectionHead title="Quem paga as taxas" sub="Vale para todas as novas cobranças da unidade" />
@@ -526,7 +579,7 @@ const Settings = ({ go, toast }) => {
           <Card style={{ padding: 24, background: "var(--color-primary)", color: "#fff" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontSize: 12.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", opacity: 0.85 }}>Seu plano Education X</div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", opacity: 0.85 }}>Seu plano EducationHub</div>
                 <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: "-0.02em", marginTop: 6 }}>{plano.nome}</div>
                 <div style={{ fontSize: 14, opacity: 0.92, marginTop: 4 }}>{plano.preco}{plano.unidade} · {plano.limite}</div>
                 <div style={{ fontSize: 12.5, opacity: 0.82, marginTop: 8, display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -595,11 +648,7 @@ const Settings = ({ go, toast }) => {
               {fpages > 1 && (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 20px", borderTop: "1px solid var(--color-border-muted)" }}>
                   <span style={{ fontSize: 12.5, color: "var(--color-text-subtle)" }}>{filtradas.length} fatura{filtradas.length !== 1 ? "s" : ""}</span>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <Button variant="secondary" size="sm" iconLeft="chevron-left" disabled={fsafe === 0} onClick={() => setFaturaPage(fsafe - 1)}>Anterior</Button>
-                    <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--color-text-muted)" }}>{fsafe + 1} / {fpages}</span>
-                    <Button variant="secondary" size="sm" iconRight="chevron-right" disabled={fsafe >= fpages - 1} onClick={() => setFaturaPage(fsafe + 1)}>Próxima</Button>
-                  </div>
+                  <Pagination page={fsafe} pages={fpages} onChange={setFaturaPage} />
                 </div>
               )}
               </>
@@ -653,7 +702,7 @@ const Settings = ({ go, toast }) => {
       <Modal open={billingModal} onClose={() => setBillingModal(false)} width={560}>
         <div style={{ padding: 26, maxHeight: "82vh", overflowY: "auto" }}>
           <h3 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>Alterar forma de pagamento</h3>
-          <p style={{ margin: "6px 0 20px", fontSize: 14, color: "var(--color-text-muted)" }}>Atualize o cartão usado na sua mensalidade Education X. Os dados do titular são exigidos pela operadora para aprovar a cobrança recorrente.</p>
+          <p style={{ margin: "6px 0 20px", fontSize: 14, color: "var(--color-text-muted)" }}>Atualize o cartão usado na sua mensalidade EducationHub. Os dados do titular são exigidos pela operadora para aprovar a cobrança recorrente.</p>
 
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--color-text-subtle)", marginBottom: 12 }}>Dados do cartão</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
@@ -690,6 +739,48 @@ const Settings = ({ go, toast }) => {
         </div>
       </Modal>
       <FaturaDetalheModal key={faturaSel ? faturaSel.id : "none"} fatura={faturaSel} onClose={() => setFaturaSel(null)} toast={showToast} />
+
+      {/* Modal: Regras de cobrança (inclui regra do 1º boleto) */}
+      <Modal open={regrasModal} onClose={() => setRegrasModal(false)} width={560}>
+        <div style={{ padding: 26, maxHeight: "86vh", overflowY: "auto" }}>
+          <h3 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>Regras de cobrança</h3>
+          <p style={{ margin: "6px 0 20px", fontSize: 14, color: "var(--color-text-muted)" }}>Valem para todas as novas cobranças da unidade.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
+            <Field label="Dia de vencimento" hint="1 a 28"><Input value={vencimento} onChange={(e) => setVencimento(e.target.value.replace(/\D/g, "").slice(0, 2))} inputMode="numeric" leadingIcon="calendar" /></Field>
+            <Field label="Dia de fechamento" hint="Antes do vencimento"><Input value={fechamento} onChange={(e) => setFechamento(e.target.value.replace(/\D/g, "").slice(0, 2))} inputMode="numeric" leadingIcon="calendar-check" /></Field>
+          </div>
+
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text)", marginBottom: 10 }}>Primeiro boleto da matrícula</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {[
+              ["PROPORTIONAL", "Proporcional aos dias restantes", "A família paga apenas os dias restantes do mês em que a matrícula é aprovada. A partir do mês seguinte, mensalidade cheia."],
+              ["FREE_FIRST_MONTH", "Isentar o 1º mês", "Não emite cobrança na competência de entrada. A primeira mensalidade cheia sai no mês seguinte."],
+            ].map(([val, titulo, desc]) => {
+              const active = firstCharge === val;
+              return (
+                <button key={val} onClick={() => setFirstCharge(val)} style={{ textAlign: "left", padding: "15px 16px", borderRadius: "var(--radius-md)",
+                  border: `2px solid ${active ? "var(--color-primary)" : "var(--color-border-input)"}`, background: active ? "var(--color-primary-softer)" : "var(--color-bg)",
+                  cursor: "pointer", display: "flex", alignItems: "flex-start", gap: 12, transition: "all 140ms", fontFamily: "var(--font-sans)" }}>
+                  <span style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${active ? "var(--color-primary)" : "var(--color-border-input)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                    {active && <span style={{ width: 11, height: 11, borderRadius: "50%", background: "var(--color-primary)" }} />}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 700 }}>{titulo}</div>
+                    <div style={{ fontSize: 12.5, color: "var(--color-text-subtle)", marginTop: 3, lineHeight: 1.5 }}>{desc}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: "flex", gap: 9, marginTop: 16, fontSize: 12.5, color: "var(--color-text-subtle)", lineHeight: 1.5 }}>
+            <Icon name="info" size={14} color="var(--color-primary)" style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>A regra do 1º boleto só pode ser alterada até 5 dias antes do fechamento do mês em curso.</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
+            <Button variant="tertiary" onClick={() => setRegrasModal(false)}>Cancelar</Button>
+            <Button iconLeft="check" onClick={() => { setRegrasModal(false); showToast("Regras de cobrança salvas", "success"); }}>Salvar</Button>
+          </div>
+        </div>
+      </Modal>
     </Shell>
   );
 };
