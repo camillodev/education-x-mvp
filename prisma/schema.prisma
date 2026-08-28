@@ -57,6 +57,20 @@ enum EnrollmentStatus {
   SUSPENDED
 }
 
+enum InvoiceStatus {
+  PENDING // cobrança gerada, aguardando pagamento
+  PAID // PAYMENT_RECEIVED recebido e processado
+  OVERDUE // vencida (PAYMENT_OVERDUE do webhook)
+  CANCELLED // cancelada manualmente ou pela escola
+  BLOCKED // não pode ser gerada (Guardian sem asaasCustomerId)
+  ERROR // falha na criação no Asaas
+}
+
+enum FirstChargeMode {
+  PROPORTIONAL // cobra proporcional aos dias restantes do ciclo (padrão)
+  FREE_FIRST_MONTH // não emite Invoice na 1ª competência; cobra cheia a partir do 2º mês
+}
+
 // ─── Tenant ───────────────────────────────────────────────────────────────────
 
 model Unit {
@@ -107,6 +121,8 @@ model Unit {
   students         Student[]
   enrollments      Enrollment[]
   termsAcceptances TermsAcceptance[]
+  invoices         Invoice[]
+  payments         Payment[]
 
   @@map("units")
 }
@@ -131,12 +147,14 @@ model BillingConfig {
   contractFileName      String?
 
   // Plano da escola (escola → Impact X). Preço em snapshot pra não quebrar se a constante mudar.
-  planId             String       @default("basico")
-  planPriceCents     Int          @default(39900)
-  isBeta             Boolean      @default(false)
+  planId             String        @default("basico")
+  planPriceCents     Int           @default(39900)
+  isBeta             Boolean       @default(false)
   discountType       DiscountType?
   discountValueBp    Int? // se PERCENT (200 = 2%)
   discountValueCents Int? // se FIXED
+
+  firstChargeMode FirstChargeMode @default(PROPORTIONAL)
 
   asaasWebhookTokenEnc String? // AES-256-GCM
 
@@ -149,11 +167,11 @@ model BillingConfig {
 }
 
 model Subject {
-  id              String  @id @default(cuid())
-  unitId          String
-  name            String
-  nfseServiceCode String
-  priceCents           Int  // always in cents
+  id                   String  @id @default(cuid())
+  unitId               String
+  name                 String
+  nfseServiceCode      String
+  priceCents           Int // always in cents
   quarterlyPriceCents  Int? // optional quarterly price
   semiannualPriceCents Int? // optional semiannual price
   annualPriceCents     Int? // optional annual price
@@ -172,11 +190,11 @@ model Subject {
 // ─── People ───────────────────────────────────────────────────────────────────
 
 model Guardian {
-  id         String        @id @default(cuid())
-  unitId     String
-  name       String
-  type       GuardianType?
-  selfPayer  Boolean       @default(true)
+  id        String        @id @default(cuid())
+  unitId    String
+  name      String
+  type      GuardianType?
+  selfPayer Boolean       @default(true)
 
   // PII encrypted with AES-256-GCM — never plaintext in DB
   cpfEnc   String?
@@ -188,7 +206,7 @@ model Guardian {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  unit             Unit               @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unit             Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
   students         Student[]
   enrollments      Enrollment[]
   termsAcceptances TermsAcceptance[]
@@ -198,7 +216,7 @@ model Guardian {
 }
 
 model Student {
-  id           String   @id @default(cuid())
+  id           String  @id @default(cuid())
   unitId       String
   guardianId   String
   // PII encrypted with AES-256-GCM — never plaintext in DB
@@ -219,20 +237,20 @@ model Student {
 }
 
 model Enrollment {
-  id         String            @id @default(cuid())
+  id         String @id @default(cuid())
   unitId     String
   guardianId String
   studentId  String
   subjectId  String
 
   plan               EnrollmentPlan
-  agreedPriceCents    Int
-  discountType        DiscountType?
-  discountValueBp     Int?
-  discountValueCents  Int?
-  finalPriceCents     Int
-  status              EnrollmentStatus @default(PENDING_CONFIRMATION)
-  confirmationToken   String?          @unique
+  agreedPriceCents   Int
+  discountType       DiscountType?
+  discountValueBp    Int?
+  discountValueCents Int?
+  finalPriceCents    Int
+  status             EnrollmentStatus @default(PENDING_CONFIRMATION)
+  confirmationToken  String?          @unique
 
   // Campos antecipados para F2/F3 (cobrança/dunning) — mesma tabela, spec SCHEMA-CONSOLIDADO.md
   customDueDay      Int?
@@ -244,10 +262,11 @@ model Enrollment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  unit     Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  guardian Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
-  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subject  Subject  @relation(fields: [subjectId], references: [id])
+  unit     Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  guardian Guardian  @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  student  Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject  Subject   @relation(fields: [subjectId], references: [id])
+  invoices Invoice[]
 
   @@index([unitId, status])
   @@index([unitId, cancelledAt])
@@ -286,4 +305,76 @@ model TermsAcceptance {
   @@index([unitId])
   @@index([guardianId])
   @@map("terms_acceptances")
+}
+
+// ─── Billing ──────────────────────────────────────────────────────────────────
+
+model Invoice {
+  id           String @id @default(cuid())
+  unitId       String
+  enrollmentId String
+
+  // Valores em centavos. amountCents = Enrollment.finalPriceCents no momento da emissão
+  // (snapshot com desconto já aplicado); na 1ª competência com firstChargeMode = PROPORTIONAL,
+  // é o valor proporcional calculado (RN-14).
+  amountCents    Int
+  netAmountCents Int // mantido por compatibilidade com o fluxo de pagamento; = amountCents nesta camada
+
+  referenceMonth String // "2026-06" — mês de competência
+  dueDate        DateTime
+
+  status InvoiceStatus @default(PENDING)
+
+  // Vínculo Asaas (preenchido após POST /payments)
+  asaasPaymentId   String?
+  asaasPaymentUrl  String?
+  asaasBankSlipUrl String?
+  asaasBarCode     String?
+
+  emittedAt       DateTime?
+  paidAt          DateTime?
+  paidAmountCents Int?
+
+  // Idempotência: cron/manual/lote não duplicam (enrollmentId + ":" + referenceMonth)
+  idempotencyKey String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  unit       Unit       @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
+  payments   Payment[]
+
+  @@index([unitId])
+  @@index([enrollmentId])
+  @@index([asaasPaymentId])
+  @@index([referenceMonth])
+  @@map("invoices")
+}
+
+model Payment {
+  id        String @id @default(cuid())
+  unitId    String
+  invoiceId String
+
+  // Dados do evento webhook Asaas
+  asaasPaymentId String
+  asaasEvent     String // PAYMENT_RECEIVED | PAYMENT_OVERDUE etc
+  asaasStatus    String // status retornado pelo Asaas
+  amountCents    Int
+  paidAt         DateTime
+  clientPaidAt   DateTime?
+
+  // Idempotência: não processar o mesmo evento webhook duas vezes
+  webhookEventId String @unique
+
+  createdAt DateTime @default(now())
+
+  unit    Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([unitId])
+  @@index([invoiceId])
+  @@index([asaasPaymentId])
+  @@map("payments")
 }
