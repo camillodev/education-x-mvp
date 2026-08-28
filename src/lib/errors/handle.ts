@@ -7,6 +7,7 @@ import {
   AsaasProvisionError,
 } from '@/lib/services/onboarding.service'
 import { GuardianNotFoundError } from '@/lib/services/approval.service'
+import { EnrollmentNotStartedError } from '@/lib/services/billing.service'
 
 export interface ErrorContext {
   /** Identificação da origem, ex: 'PATCH /api/escolas/[unitId]'. */
@@ -89,6 +90,9 @@ function mapKnown(error: unknown): Omit<HandledError, 'detail'> {
   }
   if (error instanceof AsaasProvisionError) {
     return { message: 'Falha ao provisionar subconta de pagamento.', code: 'ASAAS_PROVISION', status: 502 }
+  }
+  if (error instanceof EnrollmentNotStartedError) {
+    return { message: 'Matrícula sem data de início — não é possível calcular a 1ª cobrança.', code: 'ENROLLMENT_NOT_STARTED', status: 422 }
   }
   if (error instanceof ZodError) {
     return { message: 'Dados inválidos. Confira os campos destacados.', code: 'VALIDATION', status: 400 }
