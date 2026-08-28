@@ -140,3 +140,49 @@ export async function emitInvoice(
     return await db.invoice.update({ where: { id: invoice.id }, data: { status: 'ERROR' } })
   }
 }
+
+export interface BatchEmitResult {
+  emitted: number
+  skipped: number
+  blocked: number
+  errors: number
+}
+
+// RN-18/RN-19 — emissão em lote por matéria/turma: mesma idempotência/BLOCKED de emitInvoice,
+// aplicada a cada Enrollment ACTIVE do subjectId. Sequencial para não estourar rate limit da Asaas.
+export async function emitBatchInvoices(
+  unitId: string,
+  subjectId: string,
+  referenceMonth: string,
+  asaasApiKey: string
+): Promise<BatchEmitResult> {
+  const db = forUnit(unitId)
+  const enrollments = await db.enrollment.findMany({
+    where: { subjectId, status: 'ACTIVE' },
+    select: { id: true },
+  })
+
+  const result: BatchEmitResult = { emitted: 0, skipped: 0, blocked: 0, errors: 0 }
+
+  for (const { id: enrollmentId } of enrollments) {
+    const alreadyExists = await db.invoice.findUnique({
+      where: { idempotencyKey: `${enrollmentId}:${referenceMonth}` },
+    })
+    if (alreadyExists) {
+      result.skipped++
+      continue
+    }
+
+    try {
+      const invoice = await emitInvoice(unitId, enrollmentId, referenceMonth, asaasApiKey)
+      if (!invoice) result.skipped++
+      else if (invoice.status === 'BLOCKED') result.blocked++
+      else if (invoice.status === 'ERROR') result.errors++
+      else result.emitted++
+    } catch {
+      result.errors++
+    }
+  }
+
+  return result
+}

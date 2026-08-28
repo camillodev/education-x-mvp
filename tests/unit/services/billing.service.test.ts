@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Prisma } from '@prisma/client'
 import { forUnit } from '@/lib/db'
-import { emitInvoice, EnrollmentNotStartedError } from '@/lib/services/billing.service'
+import { emitInvoice, emitBatchInvoices, EnrollmentNotStartedError } from '@/lib/services/billing.service'
 
 const mockCreatePayment = vi.fn()
 
@@ -17,6 +17,7 @@ vi.mock('@/lib/db', () => {
   const invoiceUpdate = vi.fn()
   const enrollmentFindUniqueOrThrow = vi.fn()
   const enrollmentUpdate = vi.fn()
+  const enrollmentFindMany = vi.fn()
   return {
     forUnit: vi.fn(() => ({
       invoice: {
@@ -27,6 +28,7 @@ vi.mock('@/lib/db', () => {
       enrollment: {
         findUniqueOrThrow: enrollmentFindUniqueOrThrow,
         update: enrollmentUpdate,
+        findMany: enrollmentFindMany,
       },
     })),
   }
@@ -41,6 +43,7 @@ type MockForUnitDb = {
   enrollment: {
     findUniqueOrThrow: ReturnType<typeof vi.fn>
     update: ReturnType<typeof vi.fn>
+    findMany: ReturnType<typeof vi.fn>
   }
 }
 
@@ -270,5 +273,58 @@ describe('emitInvoice', () => {
       data: { status: 'ERROR' },
     })
     expect(result!.status).toBe('ERROR')
+  })
+})
+
+describe('emitBatchInvoices', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('agrega resultado por Enrollment ACTIVE do subjectId: emitted/skipped/blocked/errors (RN-18)', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.enrollment.findMany.mockResolvedValue([
+      { id: 'enr-1' },
+      { id: 'enr-2' },
+      { id: 'enr-3' },
+    ])
+    // enr-1: idempotência (já existe) → skipped
+    // enr-2: BLOCKED
+    // enr-3: PENDING (emitted)
+    db.invoice.findUnique
+      .mockResolvedValueOnce({ ...RESERVED_INVOICE, id: 'inv-1' }) // enr-1
+      .mockResolvedValueOnce(null) // enr-2
+      .mockResolvedValueOnce(null) // enr-3
+    db.enrollment.findUniqueOrThrow
+      .mockResolvedValueOnce({ ...ENROLLMENT_BASE, id: 'enr-2', guardian: { asaasCustomerId: null } })
+      .mockResolvedValueOnce({ ...ENROLLMENT_BASE, id: 'enr-3' })
+    db.invoice.create
+      .mockResolvedValueOnce({ ...RESERVED_INVOICE, id: 'inv-2', status: 'BLOCKED' }) // enr-2
+      .mockResolvedValueOnce({ ...RESERVED_INVOICE, id: 'inv-3', status: 'PENDING' }) // enr-3
+    db.invoice.update.mockResolvedValue({ ...RESERVED_INVOICE, id: 'inv-3', status: 'PENDING' })
+
+    const result = await emitBatchInvoices('unit-1', 'subj-1', '2026-09', 'asaas_key')
+
+    expect(db.enrollment.findMany).toHaveBeenCalledWith({
+      where: { subjectId: 'subj-1', status: 'ACTIVE' },
+      select: { id: true },
+    })
+    expect(result).toEqual({ emitted: 1, skipped: 1, blocked: 1, errors: 0 })
+  })
+
+  it('BLOCKED não chama Asaas para nenhuma Enrollment do lote (RN-19)', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.enrollment.findMany.mockResolvedValue([{ id: 'enr-1' }])
+    db.invoice.findUnique.mockResolvedValue(null)
+    db.enrollment.findUniqueOrThrow.mockResolvedValue({
+      ...ENROLLMENT_BASE,
+      id: 'enr-1',
+      guardian: { asaasCustomerId: null },
+    })
+    db.invoice.create.mockResolvedValue({ ...RESERVED_INVOICE, status: 'BLOCKED' })
+
+    await emitBatchInvoices('unit-1', 'subj-1', '2026-09', 'asaas_key')
+
+    expect(mockCreatePayment).not.toHaveBeenCalled()
   })
 })

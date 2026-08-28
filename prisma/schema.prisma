@@ -270,6 +270,7 @@ model Enrollment {
 
   @@index([unitId, status])
   @@index([unitId, cancelledAt])
+  @@index([unitId, subjectId, status])
   @@map("enrollments")
 }
 
