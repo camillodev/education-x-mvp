@@ -16,6 +16,8 @@ export const TENANT_MODELS = [
   'termsacceptance',
   'student',
   'enrollment',
+  'invoice',
+  'payment',
 ]
 
 export function forUnit(unitId: string) {
