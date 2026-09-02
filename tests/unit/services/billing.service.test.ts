@@ -120,6 +120,55 @@ describe('emitInvoice', () => {
     expect(mockCreatePayment).not.toHaveBeenCalled()
   })
 
+  it('RN-13 retry: Invoice existente em ERROR é re-tentada contra a Asaas em vez de retornada direto', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    const erroredInvoice = { ...EXISTING_INVOICE, id: 'inv-err', status: 'ERROR' }
+    db.invoice.findUnique.mockResolvedValue(erroredInvoice)
+    db.enrollment.findUniqueOrThrow.mockResolvedValue(ENROLLMENT_BASE)
+    mockCreatePayment.mockResolvedValue({
+      id: 'pay_retry',
+      status: 'PENDING',
+      invoiceUrl: 'https://sandbox.asaas.com/i/retry',
+      bankSlipUrl: 'https://sandbox.asaas.com/b/retry',
+      barCode: '999',
+    })
+    db.invoice.update.mockResolvedValue({ ...erroredInvoice, status: 'PENDING', asaasPaymentId: 'pay_retry' })
+
+    const result = await emitInvoice('unit-1', 'enr-1', '2026-09', 'asaas_key')
+
+    expect(mockCreatePayment).toHaveBeenCalled()
+    expect(db.invoice.create).not.toHaveBeenCalled() // reaproveita a Invoice ERROR já reservada, não cria outra
+    expect(db.invoice.update).toHaveBeenCalledWith({
+      where: { id: 'inv-err' },
+      data: expect.objectContaining({ asaasPaymentId: 'pay_retry' }),
+    })
+    expect(result!.status).toBe('PENDING')
+  })
+
+  it('RN-13 retry: nova tentativa também falha → segue ERROR, sem lançar', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    const erroredInvoice = { ...EXISTING_INVOICE, id: 'inv-err', status: 'ERROR' }
+    db.invoice.findUnique.mockResolvedValue(erroredInvoice)
+    db.enrollment.findUniqueOrThrow.mockResolvedValue(ENROLLMENT_BASE)
+    mockCreatePayment.mockRejectedValue(new Error('Asaas indisponível de novo'))
+    db.invoice.update.mockResolvedValue(erroredInvoice)
+
+    const result = await emitInvoice('unit-1', 'enr-1', '2026-09', 'asaas_key')
+
+    expect(db.invoice.update).toHaveBeenCalledWith({ where: { id: 'inv-err' }, data: { status: 'ERROR' } })
+    expect(result!.status).toBe('ERROR')
+  })
+
+  it('idempotência genuína: Invoice existente PENDING/PAID/BLOCKED/CANCELLED retorna direto, sem chamar Asaas de novo', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.invoice.findUnique.mockResolvedValue(EXISTING_INVOICE) // status: PENDING
+
+    const result = await emitInvoice('unit-1', 'enr-1', '2026-09', 'asaas_key')
+
+    expect(result).toEqual(EXISTING_INVOICE)
+    expect(mockCreatePayment).not.toHaveBeenCalled()
+  })
+
   it('BLOCKED: Guardian sem asaasCustomerId cria Invoice BLOCKED sem chamar Asaas (RN-02/RN-19)', async () => {
     const db = forUnit('unit-1') as unknown as MockForUnitDb
     db.invoice.findUnique.mockResolvedValue(null)
@@ -281,27 +330,18 @@ describe('emitBatchInvoices', () => {
     vi.clearAllMocks()
   })
 
-  it('agrega resultado por Enrollment ACTIVE do subjectId: emitted/skipped/blocked/errors (RN-18)', async () => {
+  it('agrega resultado por Enrollment ACTIVE do subjectId: emitted/blocked (RN-18)', async () => {
     const db = forUnit('unit-1') as unknown as MockForUnitDb
-    db.enrollment.findMany.mockResolvedValue([
-      { id: 'enr-1' },
-      { id: 'enr-2' },
-      { id: 'enr-3' },
-    ])
-    // enr-1: idempotência (já existe) → skipped
-    // enr-2: BLOCKED
-    // enr-3: PENDING (emitted)
-    db.invoice.findUnique
-      .mockResolvedValueOnce({ ...RESERVED_INVOICE, id: 'inv-1' }) // enr-1
-      .mockResolvedValueOnce(null) // enr-2
-      .mockResolvedValueOnce(null) // enr-3
+    db.enrollment.findMany.mockResolvedValue([{ id: 'enr-1' }, { id: 'enr-2' }])
+    // emitInvoice decide idempotência/status internamente — mock 1 findUnique por enrollment
+    db.invoice.findUnique.mockResolvedValue(null)
     db.enrollment.findUniqueOrThrow
-      .mockResolvedValueOnce({ ...ENROLLMENT_BASE, id: 'enr-2', guardian: { asaasCustomerId: null } })
-      .mockResolvedValueOnce({ ...ENROLLMENT_BASE, id: 'enr-3' })
+      .mockResolvedValueOnce({ ...ENROLLMENT_BASE, id: 'enr-1', guardian: { asaasCustomerId: null } }) // BLOCKED
+      .mockResolvedValueOnce({ ...ENROLLMENT_BASE, id: 'enr-2' }) // PENDING
     db.invoice.create
-      .mockResolvedValueOnce({ ...RESERVED_INVOICE, id: 'inv-2', status: 'BLOCKED' }) // enr-2
-      .mockResolvedValueOnce({ ...RESERVED_INVOICE, id: 'inv-3', status: 'PENDING' }) // enr-3
-    db.invoice.update.mockResolvedValue({ ...RESERVED_INVOICE, id: 'inv-3', status: 'PENDING' })
+      .mockResolvedValueOnce({ ...RESERVED_INVOICE, id: 'inv-1', status: 'BLOCKED' })
+      .mockResolvedValueOnce({ ...RESERVED_INVOICE, id: 'inv-2', status: 'PENDING' })
+    db.invoice.update.mockResolvedValue({ ...RESERVED_INVOICE, id: 'inv-2', status: 'PENDING' })
 
     const result = await emitBatchInvoices('unit-1', 'subj-1', '2026-09', 'asaas_key')
 
@@ -309,7 +349,21 @@ describe('emitBatchInvoices', () => {
       where: { subjectId: 'subj-1', status: 'ACTIVE' },
       select: { id: true },
     })
-    expect(result).toEqual({ emitted: 1, skipped: 1, blocked: 1, errors: 0 })
+    expect(result).toEqual({ emitted: 1, skipped: 0, blocked: 1, errors: 0 })
+  })
+
+  it('RN-13: uma Enrollment com Invoice ERROR do mesmo mês é re-tentada pelo lote, não pulada', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.enrollment.findMany.mockResolvedValue([{ id: 'enr-1' }])
+    db.invoice.findUnique.mockResolvedValue({ ...RESERVED_INVOICE, id: 'inv-err', status: 'ERROR' })
+    db.enrollment.findUniqueOrThrow.mockResolvedValue(ENROLLMENT_BASE)
+    mockCreatePayment.mockResolvedValue({ id: 'pay_retry', status: 'PENDING', invoiceUrl: 'x', bankSlipUrl: 'y', barCode: 'z' })
+    db.invoice.update.mockResolvedValue({ ...RESERVED_INVOICE, id: 'inv-err', status: 'PENDING' })
+
+    const result = await emitBatchInvoices('unit-1', 'subj-1', '2026-09', 'asaas_key')
+
+    expect(mockCreatePayment).toHaveBeenCalled()
+    expect(result).toEqual({ emitted: 1, skipped: 0, blocked: 0, errors: 0 })
   })
 
   it('BLOCKED não chama Asaas para nenhuma Enrollment do lote (RN-19)', async () => {

@@ -53,9 +53,11 @@ export async function emitInvoice(
   const db = forUnit(unitId)
   const idempotencyKey = `${enrollmentId}:${referenceMonth}`
 
-  // RN-03/RN-17 — idempotência: cron/manual/lote não duplicam
+  // RN-03/RN-17 — idempotência: cron/manual/lote não duplicam. Exceção: uma Invoice em
+  // ERROR não é "já emitida" de verdade — RN-13 exige retry automático (cron D+1/D+2) e
+  // manual, então ela segue o fluxo abaixo reaproveitando o registro em vez de criar outro.
   const existing = await db.invoice.findUnique({ where: { idempotencyKey } })
-  if (existing) return existing
+  if (existing && existing.status !== 'ERROR') return existing
 
   const enrollment = await db.enrollment.findUniqueOrThrow({
     where: { id: enrollmentId },
@@ -88,25 +90,32 @@ export async function emitInvoice(
   const dueDate = nextDueDate(billingConfig.dueDay, referenceMonth, new Date())
   const base = { unitId, enrollmentId, amountCents, netAmountCents: amountCents, referenceMonth, dueDate, idempotencyKey }
 
-  // Reserva a Invoice ANTES de chamar a Asaas: idempotencyKey é @unique, então uma
-  // segunda chamada concorrente (cron + retry manual, por ex.) falha aqui com P2002 em vez
-  // de criar um segundo boleto real na Asaas — sem isso, duas chamadas simultâneas passariam
-  // ambas pelo findUnique acima como "não existe" e ambas chamariam createPayment.
   let invoice: Invoice
-  try {
-    invoice = await db.invoice.create({
-      data: { ...base, status: enrollment.guardian.asaasCustomerId ? 'PENDING' : 'BLOCKED' },
-    })
-  } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      const raced = await db.invoice.findUnique({ where: { idempotencyKey } })
-      if (raced) return raced
+  if (existing) {
+    // RN-13 — reaproveita a Invoice ERROR já reservada (idempotencyKey já é dela), não cria outra
+    invoice = existing
+  } else {
+    // Reserva a Invoice ANTES de chamar a Asaas: idempotencyKey é @unique, então uma
+    // segunda chamada concorrente (cron + retry manual, por ex.) falha aqui com P2002 em vez
+    // de criar um segundo boleto real na Asaas — sem isso, duas chamadas simultâneas passariam
+    // ambas pelo findUnique acima como "não existe" e ambas chamariam createPayment.
+    try {
+      invoice = await db.invoice.create({
+        data: { ...base, status: enrollment.guardian.asaasCustomerId ? 'PENDING' : 'BLOCKED' },
+      })
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const raced = await db.invoice.findUnique({ where: { idempotencyKey } })
+        if (raced) return raced
+      }
+      throw err
     }
-    throw err
-  }
 
-  if (isFirstCharge) {
-    await db.enrollment.update({ where: { id: enrollmentId }, data: { isFirstChargeDone: true } })
+    // isFirstChargeDone já foi marcado na tentativa original que gerou o ERROR — só marca aqui
+    // na primeira reserva bem-sucedida.
+    if (isFirstCharge) {
+      await db.enrollment.update({ where: { id: enrollmentId }, data: { isFirstChargeDone: true } })
+    }
   }
 
   // RN-02/RN-19 — Guardian sem asaasCustomerId: BLOCKED, nunca chama Asaas
@@ -148,31 +157,18 @@ export interface BatchEmitResult {
   errors: number
 }
 
-// RN-18/RN-19 — emissão em lote por matéria/turma: mesma idempotência/BLOCKED de emitInvoice,
-// aplicada a cada Enrollment ACTIVE do subjectId. Sequencial para não estourar rate limit da Asaas.
-export async function emitBatchInvoices(
+// Chama emitInvoice por Enrollment e agrega o resultado. emitInvoice já decide sozinho
+// idempotência/retry (RN-03/RN-13) — não duplicar essa checagem aqui, ou uma Invoice ERROR
+// nunca seria re-tentada pelo lote/cron.
+async function emitForEnrollments(
   unitId: string,
-  subjectId: string,
+  enrollmentIds: string[],
   referenceMonth: string,
   asaasApiKey: string
 ): Promise<BatchEmitResult> {
-  const db = forUnit(unitId)
-  const enrollments = await db.enrollment.findMany({
-    where: { subjectId, status: 'ACTIVE' },
-    select: { id: true },
-  })
-
   const result: BatchEmitResult = { emitted: 0, skipped: 0, blocked: 0, errors: 0 }
 
-  for (const { id: enrollmentId } of enrollments) {
-    const alreadyExists = await db.invoice.findUnique({
-      where: { idempotencyKey: `${enrollmentId}:${referenceMonth}` },
-    })
-    if (alreadyExists) {
-      result.skipped++
-      continue
-    }
-
+  for (const enrollmentId of enrollmentIds) {
     try {
       const invoice = await emitInvoice(unitId, enrollmentId, referenceMonth, asaasApiKey)
       if (!invoice) result.skipped++
@@ -185,4 +181,19 @@ export async function emitBatchInvoices(
   }
 
   return result
+}
+
+// RN-18/RN-19 — emissão em lote por matéria/turma. Sequencial para não estourar rate limit da Asaas.
+export async function emitBatchInvoices(
+  unitId: string,
+  subjectId: string,
+  referenceMonth: string,
+  asaasApiKey: string
+): Promise<BatchEmitResult> {
+  const db = forUnit(unitId)
+  const enrollments = await db.enrollment.findMany({
+    where: { subjectId, status: 'ACTIVE' },
+    select: { id: true },
+  })
+  return emitForEnrollments(unitId, enrollments.map((e) => e.id), referenceMonth, asaasApiKey)
 }
