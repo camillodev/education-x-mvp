@@ -85,8 +85,13 @@ export async function emitInvoice(
     throw new EnrollmentNotStartedError()
   }
 
-  const amountCents =
-    isFirstCharge && billingConfig.firstChargeMode === 'PROPORTIONAL'
+  // RN-13 — no retry de uma Invoice ERROR, reaproveita o amountCents já persistido na 1ª
+  // tentativa em vez de recalcular: isFirstChargeDone já é true nessa altura, então recalcular
+  // aqui usaria o valor cheio (RN-08/RN-09) mesmo quando a 1ª tentativa era PROPORTIONAL —
+  // cobrando o valor errado no boleto real da Asaas.
+  const amountCents = existing
+    ? existing.amountCents
+    : isFirstCharge && billingConfig.firstChargeMode === 'PROPORTIONAL'
       ? computeProportionalAmountCents(
           enrollment.finalPriceCents,
           enrollment.startedAt!,
@@ -132,8 +137,15 @@ export async function emitInvoice(
   // Invoice ERROR com asaasPaymentId já preenchido: o createPayment anterior teve sucesso na
   // Asaas, só o update local que grava o vínculo falhou (timeout/erro transitório de rede/DB).
   // Retentar createPayment aqui criaria um SEGUNDO boleto real — a Asaas não deduplica por
-  // externalReference. O que falhou foi só o registro local, não a cobrança em si.
-  if (invoice.asaasPaymentId) return invoice
+  // externalReference. O que falhou foi só o registro local, não a cobrança em si — mas o
+  // status ainda precisa ser promovido pra PENDING (dado legado de antes deste guard existir
+  // podia ter asaasPaymentId preenchido com status ainda ERROR, o que a travaria pra sempre).
+  if (invoice.asaasPaymentId) {
+    if (invoice.status === 'ERROR') {
+      return await db.invoice.update({ where: { id: invoice.id }, data: { status: 'PENDING' } })
+    }
+    return invoice
+  }
 
   const client = getAsaasClient(asaasApiKey)
 
@@ -151,6 +163,15 @@ export async function emitInvoice(
     return await db.invoice.update({
       where: { id: invoice.id },
       data: {
+        // status:PENDING é o que sai do retry — sem isso, uma Invoice ERROR que virou boleto
+        // real e cobrável ficaria marcada ERROR pra sempre. amountCents/netAmountCents/dueDate
+        // gravam exatamente o que foi enviado à Asaas nesta chamada, pra Invoice local nunca
+        // divergir do boleto real (relevante sobretudo no retry, onde ambos podem já ter sido
+        // recalculados desde a tentativa original).
+        status: 'PENDING',
+        amountCents,
+        netAmountCents: amountCents,
+        dueDate,
         asaasPaymentId: payment.id,
         asaasPaymentUrl: payment.invoiceUrl,
         asaasBankSlipUrl: payment.bankSlipUrl,
