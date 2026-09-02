@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Prisma } from '@prisma/client'
 import { forUnit } from '@/lib/db'
-import { emitInvoice, emitBatchInvoices, EnrollmentNotStartedError } from '@/lib/services/billing.service'
+import {
+  emitInvoice,
+  emitBatchInvoices,
+  emitUnitInvoices,
+  EnrollmentNotStartedError,
+} from '@/lib/services/billing.service'
 
 const mockCreatePayment = vi.fn()
 
@@ -143,6 +148,19 @@ describe('emitInvoice', () => {
       data: expect.objectContaining({ asaasPaymentId: 'pay_retry' }),
     })
     expect(result!.status).toBe('PENDING')
+  })
+
+  it('RN-13 retry: Invoice ERROR mas com asaasPaymentId já preenchido não repete createPayment (só o update pós-Asaas falhou)', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    const erroredWithPayment = { ...EXISTING_INVOICE, id: 'inv-err', status: 'ERROR', asaasPaymentId: 'pay_already_created' }
+    db.invoice.findUnique.mockResolvedValue(erroredWithPayment)
+    db.enrollment.findUniqueOrThrow.mockResolvedValue(ENROLLMENT_BASE)
+
+    const result = await emitInvoice('unit-1', 'enr-1', '2026-09', 'asaas_key')
+
+    expect(mockCreatePayment).not.toHaveBeenCalled()
+    expect(db.invoice.create).not.toHaveBeenCalled()
+    expect(result).toEqual(erroredWithPayment)
   })
 
   it('RN-13 retry: nova tentativa também falha → segue ERROR, sem lançar', async () => {
@@ -380,5 +398,62 @@ describe('emitBatchInvoices', () => {
     await emitBatchInvoices('unit-1', 'subj-1', '2026-09', 'asaas_key')
 
     expect(mockCreatePayment).not.toHaveBeenCalled()
+  })
+})
+
+describe('emitUnitInvoices', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('busca todos os Enrollment ACTIVE da Unit, sem filtro de subjectId (cron atinge todas as matérias)', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.enrollment.findMany.mockResolvedValue([{ id: 'enr-1' }, { id: 'enr-2' }])
+    db.invoice.findUnique.mockResolvedValue(null)
+    db.enrollment.findUniqueOrThrow
+      .mockResolvedValueOnce({ ...ENROLLMENT_BASE, id: 'enr-1' })
+      .mockResolvedValueOnce({ ...ENROLLMENT_BASE, id: 'enr-2' })
+    db.invoice.create
+      .mockResolvedValueOnce({ ...RESERVED_INVOICE, id: 'inv-1' })
+      .mockResolvedValueOnce({ ...RESERVED_INVOICE, id: 'inv-2' })
+    db.invoice.update
+      .mockResolvedValueOnce({ ...RESERVED_INVOICE, id: 'inv-1', status: 'PENDING' })
+      .mockResolvedValueOnce({ ...RESERVED_INVOICE, id: 'inv-2', status: 'PENDING' })
+
+    const result = await emitUnitInvoices('unit-1', '2026-09', 'asaas_key')
+
+    expect(db.enrollment.findMany).toHaveBeenCalledWith({
+      where: { status: 'ACTIVE' },
+      select: { id: true },
+    })
+    expect(result).toEqual({ emitted: 2, skipped: 0, blocked: 0, errors: 0 })
+  })
+
+  it('não pega Enrollment CANCELLED/SUSPENDED — a query Prisma já filtra por status ACTIVE, o teste confirma que o filtro foi passado corretamente', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.enrollment.findMany.mockResolvedValue([])
+
+    const result = await emitUnitInvoices('unit-1', '2026-09', 'asaas_key')
+
+    expect(db.enrollment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { status: 'ACTIVE' } })
+    )
+    expect(result).toEqual({ emitted: 0, skipped: 0, blocked: 0, errors: 0 })
+  })
+
+  it('delega corretamente para emitForEnrollments: chama a Asaas para cada enrollment id retornado', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.enrollment.findMany.mockResolvedValue([{ id: 'enr-1' }])
+    db.invoice.findUnique.mockResolvedValue(null)
+    db.enrollment.findUniqueOrThrow.mockResolvedValue({ ...ENROLLMENT_BASE, id: 'enr-1' })
+    db.invoice.create.mockResolvedValue(RESERVED_INVOICE)
+    db.invoice.update.mockResolvedValue({ ...RESERVED_INVOICE, status: 'PENDING' })
+
+    await emitUnitInvoices('unit-1', '2026-09', 'asaas_key')
+
+    expect(db.enrollment.findUniqueOrThrow).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'enr-1' } })
+    )
+    expect(mockCreatePayment).toHaveBeenCalledTimes(1)
   })
 })

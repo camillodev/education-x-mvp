@@ -73,6 +73,19 @@ it('403 para admin', async () => {
   expect(emitInvoice).not.toHaveBeenCalled()
 })
 
+it('409 quando Unit não tem asaasApiKeyEnc — nunca chama emitInvoice com chave vazia', async () => {
+  getUnitContext.mockResolvedValue({ role: 'orientador', unitId: 'unit-1', userId: 'u1' })
+  findUnique.mockResolvedValue({ asaasApiKeyEnc: null })
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+
+  const res = await POST(makeRequest(), makeParams('enr-1'))
+
+  expect(res.status).toBe(409)
+  expect(decrypt).not.toHaveBeenCalled()
+  expect(emitInvoice).not.toHaveBeenCalled()
+  vi.restoreAllMocks()
+})
+
 it('422 quando Enrollment não tem startedAt para 1ª competência proporcional', async () => {
   getUnitContext.mockResolvedValue({ role: 'orientador', unitId: 'unit-1', userId: 'u1' })
   findUnique.mockResolvedValue({ asaasApiKeyEnc: 'enc:chave' })
