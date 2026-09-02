@@ -33,6 +33,7 @@ npm run test:e2e     # playwright
 - ❌ **Nunca editar testes pra passar** — fix código, não teste
 - ❌ **Secrets nunca hardcoded** — `process.env.VAR`, `.env.local`, Bitwarden vault
 - ❌ **Cliente-side nunca toca secret** — RLS em toda tabela Supabase
+- ❌ **Nunca `Read`/`cat`/`grep` direto em `.env`/`.env.local`** para confirmar se uma secret existe — é bloqueado por permissão e não deve ser contornado. Para checar presença/formato plausível sem expor o valor: `source arquivo.env 2>/dev/null; echo "${#VAR_NAME}"` (reporta só o comprimento). Ver `.claude/rules/security.md`.
 
 ## Agents & Skills
 
