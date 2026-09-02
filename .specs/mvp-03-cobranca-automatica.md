@@ -149,7 +149,7 @@ A Invoice gerada no momento da ativação de um Enrollment (aprovação da matr�
 | Enrollment.discountType/discountValueBp/discountValueCents/finalPriceCents | Enrollment — definido no fluxo 02 (matricula) | Nao (opcional) | Definido na spec mvp-02-matricula.md, Fatia 1 | `discount.value`, `discount.type` | Exibido em resumo de cobrança (C6) e na tela de matricula (screens-c2) | Reusa model Enrollment do fluxo 02 — nao redefinir aqui. `finalPriceCents` e o valor usado direto na Invoice |
 | Invoice.id (externalReference) | Invoice (NOVO model) | Recomendado | Nao existe | `externalReference` | Nao exibido diretamente | Criar Invoice antes do POST /payments; usar Invoice.id |
 | Invoice.asaasPaymentId | Invoice (NOVO) | Pos-criacao | Nao existe | Retornado pela API | Exibido como "#cob_xxx" em C3/C4 | Salvar o `id` retornado pela API no Invoice |
-| authToken webhook | BillingConfig.asaasWebhookTokenEnc | Sim (seguranca) | Existe (`asaasWebhookTokenEnc String?`) | Header `asaas-access-token` | Nao exibido | Validar no middleware do endpoint webhook; descriptografar em runtime |
+| authToken webhook | env var `ASAAS_WEBHOOK_TOKEN` (RN-12 superseded — global, não `BillingConfig.asaasWebhookTokenEnc`) | Sim (seguranca) | N/A (env var, não coluna) | Header `asaas-access-token` | Nao exibido | Validar via `crypto.timingSafeEqual` antes de resolver Unit |
 | BillingConfig.autoBilling | BillingConfig | Sim | Existe (`autoBilling Boolean`) | Controla execucao do cron | Nao exibido | Se `false`, cron pula a unidade (emissao manual) |
 | BillingConfig.firstChargeMode | BillingConfig | Sim | Nao existe (NOVO enum + campo) | n/a (logica de negocio) | Nao exibido (config interna) | Novo campo: `PROPORTIONAL` (padrao) ou `FREE_FIRST_MONTH`; afeta calculo da 1a Invoice por Enrollment |
 | Enrollment.isFirstChargeDone | Enrollment | Sim | Nao existe (NOVO campo Boolean) | n/a (controle interno) | Nao exibido | Flag; garante que a logica de 1a competencia so roda uma vez por Enrollment |
@@ -322,8 +322,9 @@ Salvar: `Invoice.asaasPaymentId = response.id`, `Invoice.asaasBankSlipUrl`, `Inv
 
 ### 5b. Webhook PAYMENT_RECEIVED (reconciliacao)
 
-Endpoint nosso: `POST /api/webhooks/asaas`
-Validacao: header `asaas-access-token` comparado com `BillingConfig.asaasWebhookTokenEnc` descriptografado.
+Endpoint nosso: `POST /api/webhook`
+Validacao: header `asaas-access-token` comparado com env var global `ASAAS_WEBHOOK_TOKEN`
+(RN-12 superseded — não é mais por-Unit).
 
 ```json
 {
@@ -353,13 +354,17 @@ Validacao: header `asaas-access-token` comparado com `BillingConfig.asaasWebhook
 
 ### 5b'. Contrato do roteador de webhook (COMPARTILHADO entre fluxos)
 
-`POST /api/webhooks/asaas` é um endpoint ÚNICO compartilhado por múltiplos fluxos — não é exclusivo desta spec. **Esta spec (fluxo 03) implementa o roteador base + os handlers `PAYMENT_RECEIVED` e `PAYMENT_OVERDUE`.** Outros fluxos estendem o mesmo roteador com novos `case`:
+`POST /api/webhook` é um endpoint ÚNICO compartilhado por múltiplos fluxos — não é exclusivo desta spec. **Esta spec (fluxo 03) implementa o roteador base + os handlers `PAYMENT_RECEIVED` e `PAYMENT_OVERDUE`.** Outros fluxos estendem o mesmo roteador com novos `case`:
 
 - `mvp-045-regua-negativacao.md` adiciona cases de dunning (`DUNNING_REQUESTED`, `PAYMENT_DELETED` de negativação, baixa automática ao `RECEIVED`/`CONFIRMED` em Invoice com `Dunning.status = NEGATIVATED`) — ver seção correspondente daquela spec.
 - `f2-02-portal-responsavel.md` pode estender com eventos relativos a pagamento via portal (mesmo roteador, novos cases conforme necessidade).
 
 **Contrato do roteador (obrigatório para qualquer fluxo que estenda):**
-1. **Validação por Unit:** extrair a Unit destinatária do evento (via `payment.externalReference` → Invoice → Enrollment → Unit, ou lookup direto) e validar o header `asaas-access-token` contra `BillingConfig.asaasWebhookTokenEnc` DAQUELA Unit especificamente (multi-tenant — RN-12). Nunca validar contra um token global.
+1. **Validação (RN-12 SUPERSEDED — ver nota abaixo):** validar o header `asaas-access-token`
+   contra a env var global `ASAAS_WEBHOOK_TOKEN` via `crypto.timingSafeEqual`, **antes** de
+   qualquer lookup de Unit — a autenticação precisa ser possível sem primeiro resolver o
+   `unitId` a partir do payload. A Unit é resolvida depois, dentro do handler, a partir da
+   Invoice encontrada por `payment.id`/`externalReference`.
 2. **Roteamento por `event`:** um `switch`/dispatch central em `src/lib/services/webhook.service.ts` (`processPaymentEvent(payload)`) despacha para o handler do case correspondente. Novo fluxo = novo `case`, nunca um endpoint novo.
 3. **Retorno 200 para eventos desconhecidos:** qualquer `event` sem handler registrado retorna `200 { "received": true, "handled": false }` — nunca `4xx`/`5xx`, para o Asaas não reenviar infinitamente (decisão 8, seção 10).
 4. **Idempotência por `webhookEventId`:** todo handler que grava efeito colateral (Payment, Dunning, etc.) usa um `webhookEventId` único (hash do payload ou id do evento) para não reprocessar o mesmo evento duas vezes — cada fluxo que estende o roteador é responsável pela idempotência do seu próprio case.
@@ -444,7 +449,13 @@ async function emitInvoice(enrollmentId: string, referenceMonth: string): Promis
 
 **RN-11:** WHEN webhook chega com `event = PAYMENT_OVERDUE` THEN o sistema SHALL mudar Invoice para `OVERDUE`.
 
-**RN-12:** WHEN header `asaas-access-token` do webhook nao bate com `BillingConfig.asaasWebhookTokenEnc` da Unit THEN o sistema SHALL retornar `401` e nao processar.
+**RN-12 (SUPERSEDED):** ~~WHEN header `asaas-access-token` do webhook nao bate com
+`BillingConfig.asaasWebhookTokenEnc` da Unit THEN o sistema SHALL retornar `401` e nao
+processar.~~ Decisão revisada: o token é **global**, via env var `ASAAS_WEBHOOK_TOKEN`
+(`crypto.timingSafeEqual`), não por-Unit — validado antes de qualquer resolução de `unitId`,
+já que o insert inicial de `WebhookEvent` acontece antes de a Invoice/Unit ser conhecida.
+Header errado ainda retorna `401` sem processar; o campo `BillingConfig.asaasWebhookTokenEnc`
+fica sem uso neste fluxo.
 
 **RN-13:** WHEN escola cancela uma Enrollment THEN o sistema SHALL mudar `Enrollment.status = CANCELLED`. Invoices ja emitidas com `PENDING` devem ser canceladas no Asaas (DELETE /payments/{id}) e marcadas `CANCELLED`.
 
@@ -682,7 +693,8 @@ pnpm dlx playwright test billing-cron --reporter=line
 **Objetivo:** processar eventos Asaas e atualizar Invoice/Payment de forma idempotente, implementando o roteador base que os fluxos 05 e f2-02 vão estender (contrato completo na seção 5b').
 
 **Scope in:**
-- `src/app/api/webhooks/asaas/route.ts` (novo): valida `asaas-access-token` contra `BillingConfig.asaasWebhookTokenEnc` da Unit correspondente ao evento (RN-12).
+- `src/app/api/webhook/route.ts` (novo): valida `asaas-access-token` contra env var global
+  `ASAAS_WEBHOOK_TOKEN` (RN-12 superseded — não por-Unit).
 - `src/lib/services/webhook.service.ts` (novo): `processPaymentEvent(payload)` — dispatch central por `event`; cases `PAYMENT_RECEIVED` e `PAYMENT_OVERDUE` implementados aqui; eventos desconhecidos retornam `200 { handled: false }`.
 - Idempotencia por `Payment.webhookEventId`.
 
