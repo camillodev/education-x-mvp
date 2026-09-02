@@ -11,6 +11,14 @@ export class EnrollmentNotStartedError extends Error {
   }
 }
 
+export class MissingAsaasKeyError extends Error {
+  readonly status = 409
+  constructor() {
+    super('Unit sem asaasApiKeyEnc configurada — não é possível emitir cobrança')
+    this.name = 'MissingAsaasKeyError'
+  }
+}
+
 // Cálculos de data em UTC sempre — Enrollment.startedAt é um timestamp absoluto e
 // referenceMonth é um rótulo de calendário; usar getDate()/new Date(y,m,d) locais faz o
 // dia mudar conforme o fuso do processo (ex: America/Sao_Paulo), distorcendo o valor cobrado.
@@ -121,6 +129,12 @@ export async function emitInvoice(
   // RN-02/RN-19 — Guardian sem asaasCustomerId: BLOCKED, nunca chama Asaas
   if (!enrollment.guardian.asaasCustomerId) return invoice
 
+  // Invoice ERROR com asaasPaymentId já preenchido: o createPayment anterior teve sucesso na
+  // Asaas, só o update local que grava o vínculo falhou (timeout/erro transitório de rede/DB).
+  // Retentar createPayment aqui criaria um SEGUNDO boleto real — a Asaas não deduplica por
+  // externalReference. O que falhou foi só o registro local, não a cobrança em si.
+  if (invoice.asaasPaymentId) return invoice
+
   const client = getAsaasClient(asaasApiKey)
 
   try {
@@ -193,6 +207,20 @@ export async function emitBatchInvoices(
   const db = forUnit(unitId)
   const enrollments = await db.enrollment.findMany({
     where: { subjectId, status: 'ACTIVE' },
+    select: { id: true },
+  })
+  return emitForEnrollments(unitId, enrollments.map((e) => e.id), referenceMonth, asaasApiKey)
+}
+
+// Cron diário — todas as matérias/turmas da Unit, sem filtro de subjectId (espelha emitBatchInvoices).
+export async function emitUnitInvoices(
+  unitId: string,
+  referenceMonth: string,
+  asaasApiKey: string
+): Promise<BatchEmitResult> {
+  const db = forUnit(unitId)
+  const enrollments = await db.enrollment.findMany({
+    where: { status: 'ACTIVE' },
     select: { id: true },
   })
   return emitForEnrollments(unitId, enrollments.map((e) => e.id), referenceMonth, asaasApiKey)
