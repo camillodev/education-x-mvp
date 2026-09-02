@@ -78,6 +78,8 @@ const EXISTING_INVOICE = {
   referenceMonth: '2026-09',
   idempotencyKey: 'enr-1:2026-09',
   status: 'PENDING',
+  amountCents: 45000, // igual a ENROLLMENT_BASE.finalPriceCents — mesma origem no fluxo normal
+  netAmountCents: 45000,
 }
 
 const RESERVED_INVOICE = { ...EXISTING_INVOICE, id: 'inv-new', status: 'PENDING' }
@@ -125,7 +127,7 @@ describe('emitInvoice', () => {
     expect(mockCreatePayment).not.toHaveBeenCalled()
   })
 
-  it('RN-13 retry: Invoice existente em ERROR é re-tentada contra a Asaas em vez de retornada direto', async () => {
+  it('RN-13 retry: Invoice existente em ERROR é re-tentada contra a Asaas em vez de retornada direto — update final grava status:PENDING (nunca fica ERROR com boleto real válido)', async () => {
     const db = forUnit('unit-1') as unknown as MockForUnitDb
     const erroredInvoice = { ...EXISTING_INVOICE, id: 'inv-err', status: 'ERROR' }
     db.invoice.findUnique.mockResolvedValue(erroredInvoice)
@@ -137,30 +139,56 @@ describe('emitInvoice', () => {
       bankSlipUrl: 'https://sandbox.asaas.com/b/retry',
       barCode: '999',
     })
-    db.invoice.update.mockResolvedValue({ ...erroredInvoice, status: 'PENDING', asaasPaymentId: 'pay_retry' })
+    // O mock ecoa o `data` recebido em vez de fabricar `status: 'PENDING'` — senão o teste
+    // passa mesmo se o código de produção esquecer de gravar o status (bug real já visto aqui).
+    db.invoice.update.mockImplementation(async (args: { data: object }) => ({ ...erroredInvoice, ...args.data }))
 
     const result = await emitInvoice('unit-1', 'enr-1', '2026-09', 'asaas_key')
 
-    expect(mockCreatePayment).toHaveBeenCalled()
+    expect(mockCreatePayment).toHaveBeenCalledWith(expect.objectContaining({ value: 450 })) // = EXISTING_INVOICE.amountCents / 100, reaproveitado do existing
     expect(db.invoice.create).not.toHaveBeenCalled() // reaproveita a Invoice ERROR já reservada, não cria outra
     expect(db.invoice.update).toHaveBeenCalledWith({
       where: { id: 'inv-err' },
-      data: expect.objectContaining({ asaasPaymentId: 'pay_retry' }),
+      data: expect.objectContaining({ status: 'PENDING', asaasPaymentId: 'pay_retry' }),
     })
     expect(result!.status).toBe('PENDING')
   })
 
-  it('RN-13 retry: Invoice ERROR mas com asaasPaymentId já preenchido não repete createPayment (só o update pós-Asaas falhou)', async () => {
+  it('RN-13 retry de 1ª competência PROPORTIONAL: cobra o valor já persistido na Invoice reservada, não o valor cheio recalculado', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    const proportionalErrored = {
+      ...EXISTING_INVOICE,
+      id: 'inv-err-prop',
+      status: 'ERROR',
+      amountCents: 15000, // valor proporcional já calculado e persistido na 1ª tentativa
+      netAmountCents: 15000,
+    }
+    db.invoice.findUnique.mockResolvedValue(proportionalErrored)
+    // isFirstChargeDone já é true (foi marcado na tentativa original) — enrollment.finalPriceCents
+    // (45000) NÃO deve ser usado no retry, só o amountCents já persistido na Invoice (15000).
+    db.enrollment.findUniqueOrThrow.mockResolvedValue({ ...ENROLLMENT_BASE, isFirstChargeDone: true })
+    db.invoice.update.mockImplementation(async (args: { data: object }) => ({ ...proportionalErrored, ...args.data }))
+
+    await emitInvoice('unit-1', 'enr-1', '2026-09', 'asaas_key')
+
+    expect(mockCreatePayment).toHaveBeenCalledWith(
+      expect.objectContaining({ value: 150 }) // 15000 centavos / 100, não 450 (valor cheio)
+    )
+  })
+
+  it('RN-13 retry: Invoice ERROR mas com asaasPaymentId já preenchido não repete createPayment, e promove status pra PENDING (dado legado do bug antigo não fica ERROR pra sempre)', async () => {
     const db = forUnit('unit-1') as unknown as MockForUnitDb
     const erroredWithPayment = { ...EXISTING_INVOICE, id: 'inv-err', status: 'ERROR', asaasPaymentId: 'pay_already_created' }
     db.invoice.findUnique.mockResolvedValue(erroredWithPayment)
     db.enrollment.findUniqueOrThrow.mockResolvedValue(ENROLLMENT_BASE)
+    db.invoice.update.mockImplementation(async (args: { data: object }) => ({ ...erroredWithPayment, ...args.data }))
 
     const result = await emitInvoice('unit-1', 'enr-1', '2026-09', 'asaas_key')
 
     expect(mockCreatePayment).not.toHaveBeenCalled()
     expect(db.invoice.create).not.toHaveBeenCalled()
-    expect(result).toEqual(erroredWithPayment)
+    expect(db.invoice.update).toHaveBeenCalledWith({ where: { id: 'inv-err' }, data: { status: 'PENDING' } })
+    expect(result!.status).toBe('PENDING')
   })
 
   it('RN-13 retry: nova tentativa também falha → segue ERROR, sem lançar', async () => {
