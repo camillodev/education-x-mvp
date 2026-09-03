@@ -144,7 +144,13 @@ export default function CobrancasPage() {
           ? "Mensalidades e cobranças avulsas da unidade"
           : "Você decide quem negativar, caso a caso — a lei é garantida pelo sistema"
       }
-      actions={tab === "cobrancas" ? <Button iconLeft="plus">Nova cobrança extra</Button> : undefined}
+      actions={
+        tab === "cobrancas" ? (
+          <Button iconLeft="plus" onClick={() => router.push("/painel/cobrancas/nova")}>
+            Nova cobrança extra
+          </Button>
+        ) : undefined
+      }
     >
       <div className="mb-[22px]">
         <Segmented options={tabOptions} value={tab} onChange={setTab} />
