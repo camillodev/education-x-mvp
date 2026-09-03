@@ -97,6 +97,15 @@
   --color-hero-from: #0467DB;
   --color-hero-to:   #4B9EF5;
 
+  /* ─── Subject colors (chips de matéria) ──────────────────────────────── */
+  --color-subject-math:       #00A9E3;
+  --color-subject-portuguese: #FCC000;
+  --color-subject-english:    #E42618;
+  --color-subject-japanese:   #83B81A;
+
+  /* ─── Brand externo ──────────────────────────────────────────────────── */
+  --color-whatsapp: #25D366;
+
   /* ─── Radius ─────────────────────────────────────────────────────────── */
   --radius-sm:   6px;
   --radius-md:   10px;
