@@ -10,6 +10,8 @@ const isPublicRoute = createRouteMatcher([
   '/termos(.*)',              // visualização pública dos termos
   '/confirmar(.*)',           // aceite dos termos via link (token prova o destinatário)
   '/api/confirmar(.*)',       // POST do aceite (público, valida token)
+  '/painel(.*)',              // TEMP: frontend mockado (dados via /api/mock/*), sem auth real ainda — remover quando plugar tenant real
+  '/api/mock(.*)',            // TEMP: dados mockados do /painel — remover junto com a exceção acima
 ])
 
 export default clerkMiddleware(async (auth, req) => {
