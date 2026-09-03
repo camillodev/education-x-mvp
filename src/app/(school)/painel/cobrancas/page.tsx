@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { SchoolShell } from "@/components/school/SchoolShell";
 import type { SegmentedOption } from "@/components/ui/segmented";
@@ -25,73 +26,86 @@ const STATUS_TO_FILTER: Record<InvoiceStatus, StatusFilter | null> = {
   contestacao: null,
 };
 
-const COLUMNS: ColumnDef<Invoice, unknown>[] = [
-  {
-    id: "resp",
-    header: "Responsável",
-    accessorFn: (row) => `${row.resp} ${row.aluno} ${row.desc}`,
-    cell: ({ row }) => <Person name={row.original.resp} />,
-  },
-  {
-    id: "aluno",
-    header: "Aluno",
-    accessorFn: (row) => row.aluno,
-    cell: ({ row }) => <span className="text-(--color-text-muted)">{row.original.aluno}</span>,
-  },
-  {
-    id: "valor",
-    header: "Valor",
-    accessorFn: (row) => row.valor,
-    cell: ({ row }) => <span className="font-bold">{formatBRL(row.original.valor)}</span>,
-  },
-  {
-    id: "venc",
-    header: "Vencimento",
-    accessorFn: (row) => row.venc,
-    cell: ({ row }) => {
-      const c = row.original;
-      return (
-        <span
-          className={
-            c.status === "vencida"
-              ? "font-semibold text-(--badge-danger-fg)"
-              : "text-(--color-text-muted)"
-          }
-        >
-          {c.venc}
-          {c.atraso ? ` · ${c.atraso}d atraso` : ""}
-        </span>
-      );
+function buildColumns(onView: (id: string) => void): ColumnDef<Invoice, unknown>[] {
+  return [
+    {
+      id: "resp",
+      header: "Responsável",
+      accessorFn: (row) => `${row.resp} ${row.aluno} ${row.desc}`,
+      cell: ({ row }) => <Person name={row.original.resp} />,
     },
-  },
-  {
-    id: "status",
-    header: "Status",
-    accessorFn: (row) => row.status,
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
-  },
-  {
-    id: "acao",
-    header: "",
-    enableSorting: false,
-    accessorFn: () => "",
-    cell: () => (
-      <Button variant="tertiary" size="sm" iconLeft="eye">
-        Visualizar
-      </Button>
-    ),
-  },
-];
+    {
+      id: "aluno",
+      header: "Aluno",
+      accessorFn: (row) => row.aluno,
+      cell: ({ row }) => <span className="text-(--color-text-muted)">{row.original.aluno}</span>,
+    },
+    {
+      id: "valor",
+      header: "Valor",
+      accessorFn: (row) => row.valor,
+      cell: ({ row }) => <span className="font-bold">{formatBRL(row.original.valor)}</span>,
+    },
+    {
+      id: "venc",
+      header: "Vencimento",
+      accessorFn: (row) => row.venc,
+      cell: ({ row }) => {
+        const c = row.original;
+        return (
+          <span
+            className={
+              c.status === "vencida"
+                ? "font-semibold text-(--badge-danger-fg)"
+                : "text-(--color-text-muted)"
+            }
+          >
+            {c.venc}
+            {c.atraso ? ` · ${c.atraso}d atraso` : ""}
+          </span>
+        );
+      },
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessorFn: (row) => row.status,
+      cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    },
+    {
+      id: "acao",
+      header: "",
+      enableSorting: false,
+      accessorFn: () => "",
+      cell: ({ row }) => (
+        <Button
+          variant="tertiary"
+          size="sm"
+          iconLeft="eye"
+          onClick={(e) => {
+            e.stopPropagation();
+            onView(row.original.id);
+          }}
+        >
+          Visualizar
+        </Button>
+      ),
+    },
+  ];
+}
 
 interface CobrancasResponse {
   invoices: Invoice[];
 }
 
 export default function CobrancasPage() {
+  const router = useRouter();
   const [tab, setTab] = useState<CobrancasTab>("cobrancas");
   const [filter, setFilter] = useState<StatusFilter>("todas");
   const { data, loading, error } = useMockResource<CobrancasResponse>("/api/mock/cobrancas");
   const invoices = useMemo(() => data?.invoices ?? [], [data]);
+  const goToDetail = useCallback((id: string) => router.push(`/painel/cobrancas/${id}`), [router]);
+  const columns = useMemo(() => buildColumns(goToDetail), [goToDetail]);
   const { data: dunningRecords } = useMockResource<DunningRecord[]>("/api/mock/negativacao");
   const eligibleCount = (dunningRecords ?? []).filter((r) => r.status === "elegivel").length;
 
@@ -147,7 +161,7 @@ export default function CobrancasPage() {
           {!loading && !error && (
             <DataTable
               title="Todas as cobranças"
-              columns={COLUMNS}
+              columns={columns}
               data={filtered}
               searchPlaceholder="Buscar por responsável ou aluno…"
               filterOptions={filterOptions}
@@ -155,6 +169,7 @@ export default function CobrancasPage() {
               onFilterChange={setFilter}
               pageSize={6}
               emptyMessage="Nenhuma cobrança encontrada."
+              onRowClick={(row) => goToDetail(row.id)}
             />
           )}
         </Card>
