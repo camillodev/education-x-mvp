@@ -105,6 +105,24 @@ it('status PAID mostra Pago em e não mostra Cancelar cobrança nem Reemitir', (
   expect(screen.queryByRole('button', { name: /reemitir/i })).not.toBeInTheDocument()
 })
 
+it('status PAID não mostra seção de boleto/PIX (evita pagamento duplicado — achado de review)', () => {
+  renderInvoice(
+    makeInvoice({ status: 'PAID', paidAt: new Date('2026-09-05T00:00:00Z'), paidAmountCents: 45000 })
+  )
+
+  expect(screen.queryByText(/boleto e pix/i)).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /ver qr code pix/i })).not.toBeInTheDocument()
+})
+
+it('status CANCELLED não mostra seção de boleto/PIX nem ações (evita pagamento de cobrança cancelada — achado de review)', () => {
+  renderInvoice(makeInvoice({ status: 'CANCELLED' }))
+
+  expect(screen.queryByText(/boleto e pix/i)).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /ver qr code pix/i })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /cancelar cobrança/i })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /reemitir/i })).not.toBeInTheDocument()
+})
+
 it('cancelamento: confirma no diálogo, dispara DELETE e chama router.refresh()', async () => {
   const user = userEvent.setup()
   ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({

@@ -48,7 +48,10 @@ export function InvoiceDetailView({ invoice }: Props) {
   const isError = invoice.status === 'ERROR'
   const isOverdue = invoice.status === 'OVERDUE'
   const isPending = invoice.status === 'PENDING'
-  const showBoletoPix = !isBlocked && !isError && Boolean(invoice.asaasPaymentId)
+  // Allowlist (não denylist): só mostra boleto/PIX quando a cobrança ainda pode ser paga.
+  // PAID/CANCELLED mostrar um QR/linha digitável "ativo" convidaria pagamento duplicado
+  // (achado de review, EDU-28) — um novo InvoiceStatus futuro fica seguro por padrão.
+  const showBoletoPix = (isPending || isOverdue) && Boolean(invoice.asaasPaymentId)
 
   const lateFee = isOverdue
     ? calculateLateFeeAndInterest(invoice.billingConfig, invoice.amountCents, invoice.dueDate, new Date())
@@ -116,7 +119,7 @@ export function InvoiceDetailView({ invoice }: Props) {
         </div>
       )}
 
-      <section className="rounded-[var(--radius-lg)] border border-(--color-border)] bg-white p-6 shadow-[var(--shadow-card)]">
+      <section className="rounded-[var(--radius-lg)] border border-(--color-border) bg-white p-6 shadow-[var(--shadow-card)]">
         <dl className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <dt className="text-(--color-text-subtle)">Aluno</dt>
@@ -163,7 +166,7 @@ export function InvoiceDetailView({ invoice }: Props) {
       )}
 
       {showBoletoPix && (
-        <section className="rounded-[var(--radius-lg)] border border-(--color-border)] bg-white p-6 shadow-[var(--shadow-card)]">
+        <section className="rounded-[var(--radius-lg)] border border-(--color-border) bg-white p-6 shadow-[var(--shadow-card)]">
           <p className="mb-3 text-sm font-semibold text-(--color-text)">Boleto e PIX</p>
           <div className="flex flex-col gap-3">
             {invoice.asaasBarCode && (
@@ -196,7 +199,7 @@ export function InvoiceDetailView({ invoice }: Props) {
       )}
 
       {(invoice.emittedAt || invoice.payments.length > 0) && (
-        <section className="rounded-[var(--radius-lg)] border border-(--color-border)] bg-white p-6 shadow-[var(--shadow-card)]">
+        <section className="rounded-[var(--radius-lg)] border border-(--color-border) bg-white p-6 shadow-[var(--shadow-card)]">
           <p className="mb-3 text-sm font-semibold text-(--color-text)">Histórico</p>
           <ol className="flex flex-col gap-2 text-sm text-(--color-text-subtle)">
             {invoice.emittedAt && <li>Emitida em {formatDate(invoice.emittedAt)}</li>}
