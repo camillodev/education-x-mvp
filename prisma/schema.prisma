@@ -350,6 +350,11 @@ model Invoice {
   @@index([enrollmentId])
   @@index([asaasPaymentId])
   @@index([referenceMonth])
+  // EDU-27 — listInvoices filtra por unitId (via forUnit) + status e por unitId +
+  // referenceMonth; composto na ordem do filtro (regra database.md), sem isso a query cai
+  // no índice simples de unitId e faz scan do resto sob o filtro.
+  @@index([unitId, status])
+  @@index([unitId, referenceMonth])
   @@map("invoices")
 }
 
