@@ -11,6 +11,7 @@ import type {
   AsaasNotificationSettings,
   AsaasPayment,
   AsaasPaymentFilters,
+  AsaasPixQrCode,
   AsaasSubAccountResponse,
 } from "./types";
 
@@ -29,6 +30,7 @@ export interface AsaasClient {
   getPayment(id: string): Promise<AsaasPayment>;
   cancelPayment(id: string): Promise<void>;
   listPayments(filters: AsaasPaymentFilters): Promise<AsaasPayment[]>;
+  getPixQrCode(id: string): Promise<AsaasPixQrCode>;
 
   // NFS-e
   createInvoice(payload: AsaasCreateInvoicePayload): Promise<AsaasInvoice>;

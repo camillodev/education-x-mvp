@@ -145,6 +145,12 @@ export interface AsaasPayment {
   description?: string;
 }
 
+export interface AsaasPixQrCode {
+  encodedImage: string; // imagem do QR code em base64
+  payload: string; // copia-e-cola
+  expirationDate: string;
+}
+
 export interface AsaasPaymentFilters {
   status?: AsaasPaymentStatus;
   billingType?: AsaasBillingType;
