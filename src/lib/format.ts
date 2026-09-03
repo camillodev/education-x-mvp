@@ -33,6 +33,19 @@ export function maskCpf(value: string): string {
     .replace(/\.(\d{3})(\d)/, '.$1-$2')
 }
 
+/**
+ * CPF mascarado para exibição (LGPD — ver .claude/rules/lgpd.md #2):
+ * "•••.•••.987-00" (oculta os 6 primeiros dígitos, mostra os últimos 5).
+ * Não confundir com maskCpf (máscara de digitação de formulário).
+ */
+export function maskCpfDisplay(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11)
+  const tail = digits.slice(-5)
+  const dv = tail.slice(-2)
+  const lastGroup = tail.slice(0, 3)
+  return `•••.•••.${lastGroup}-${dv}`
+}
+
 export function maskPhone(value: string): string {
   return value
     .replace(/\D/g, '')

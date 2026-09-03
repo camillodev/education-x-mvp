@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ShieldCheck } from "lucide-react";
 import { Metric } from "@/components/ui/Metric";
@@ -10,18 +11,18 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/patterns/DataTable";
 import { Person } from "@/components/patterns/Person";
 import { useMockResource } from "@/hooks/use-mock-resource";
-import { formatBRL } from "@/lib/format";
-import { maskCpf } from "@/lib/format";
+import { formatBRL, maskCpfDisplay } from "@/lib/format";
 import type { DunningRecord, DunningStatus } from "@/lib/mock/types";
 
 type DunningFilter = "todos" | DunningStatus;
 
-const COLUMNS: ColumnDef<DunningRecord, unknown>[] = [
+function buildColumns(onView: (id: string) => void): ColumnDef<DunningRecord, unknown>[] {
+  return [
   {
     id: "resp",
     header: "Responsável",
     accessorFn: (row) => `${row.resp} ${row.aluno}`,
-    cell: ({ row }) => <Person name={row.original.resp} sub={maskCpf(row.original.cpf)} />,
+    cell: ({ row }) => <Person name={row.original.resp} sub={maskCpfDisplay(row.original.cpf)} />,
   },
   {
     id: "aluno",
@@ -69,23 +70,46 @@ const COLUMNS: ColumnDef<DunningRecord, unknown>[] = [
     accessorFn: () => "",
     cell: ({ row }) => (
       <div className="inline-flex justify-end gap-2">
-        <Button variant="tertiary" size="sm" iconLeft="eye">
+        <Button
+          variant="tertiary"
+          size="sm"
+          iconLeft="eye"
+          onClick={(e) => {
+            e.stopPropagation();
+            onView(row.original.id);
+          }}
+        >
           Ver
         </Button>
         {row.original.status === "elegivel" && (
-          <Button variant="danger" size="sm" iconLeft="gavel">
+          <Button
+            variant="danger"
+            size="sm"
+            iconLeft="gavel"
+            onClick={(e) => {
+              e.stopPropagation();
+              onView(row.original.id);
+            }}
+          >
             Negativar
           </Button>
         )}
       </div>
     ),
   },
-];
+  ];
+}
 
 export function NegativacaoBody() {
+  const router = useRouter();
   const [filter, setFilter] = useState<DunningFilter>("todos");
   const { data, loading, error } = useMockResource<DunningRecord[]>("/api/mock/negativacao");
   const records = useMemo(() => data ?? [], [data]);
+  const goToDetail = useCallback(
+    (id: string) => router.push(`/painel/negativacao/${id}`),
+    [router]
+  );
+  const columns = useMemo(() => buildColumns(goToDetail), [goToDetail]);
 
   const emAviso = records.filter((r) => r.status === "emaviso");
   const elegiveis = records.filter((r) => r.status === "elegivel");
@@ -153,7 +177,7 @@ export function NegativacaoBody() {
           <DataTable
             title="Inadimplentes"
             sub="Decida a negativação dos elegíveis"
-            columns={COLUMNS}
+            columns={columns}
             data={filtered}
             searchPlaceholder="Buscar responsável…"
             filterOptions={filterOptions}
@@ -161,6 +185,7 @@ export function NegativacaoBody() {
             onFilterChange={setFilter}
             pageSize={6}
             emptyMessage="Nenhum inadimplente neste filtro."
+            onRowClick={(row) => goToDetail(row.id)}
           />
         )}
       </Card>

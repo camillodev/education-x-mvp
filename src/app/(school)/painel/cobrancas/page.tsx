@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { SchoolShell } from "@/components/school/SchoolShell";
 import type { SegmentedOption } from "@/components/ui/segmented";
@@ -100,7 +100,9 @@ interface CobrancasResponse {
 
 export default function CobrancasPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<CobrancasTab>("cobrancas");
+  const searchParams = useSearchParams();
+  const initialTab: CobrancasTab = searchParams.get("tab") === "negativacao" ? "negativacao" : "cobrancas";
+  const [tab, setTab] = useState<CobrancasTab>(initialTab);
   const [filter, setFilter] = useState<StatusFilter>("todas");
   const { data, loading, error } = useMockResource<CobrancasResponse>("/api/mock/cobrancas");
   const invoices = useMemo(() => data?.invoices ?? [], [data]);
