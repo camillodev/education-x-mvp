@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/patterns/DataTable";
 import { Person } from "@/components/patterns/Person";
+import { NegativacaoBody } from "@/components/school/NegativacaoBody";
 import { useMockResource } from "@/hooks/use-mock-resource";
 import { formatBRL } from "@/lib/format";
-import type { Invoice, InvoiceStatus } from "@/lib/mock/types";
+import type { DunningRecord, Invoice, InvoiceStatus } from "@/lib/mock/types";
 
 type CobrancasTab = "cobrancas" | "negativacao";
 type StatusFilter = "todas" | "avencer" | "pagas" | "vencidas";
@@ -91,6 +92,8 @@ export default function CobrancasPage() {
   const [filter, setFilter] = useState<StatusFilter>("todas");
   const { data, loading, error } = useMockResource<CobrancasResponse>("/api/mock/cobrancas");
   const invoices = useMemo(() => data?.invoices ?? [], [data]);
+  const { data: dunningRecords } = useMockResource<DunningRecord[]>("/api/mock/negativacao");
+  const eligibleCount = (dunningRecords ?? []).filter((r) => r.status === "elegivel").length;
 
   const counts = useMemo(
     () => ({
@@ -114,7 +117,7 @@ export default function CobrancasPage() {
 
   const tabOptions: SegmentedOption<CobrancasTab>[] = [
     { value: "cobrancas", label: "Cobranças" },
-    { value: "negativacao", label: "Negativação" },
+    { value: "negativacao", label: "Negativação", count: eligibleCount || undefined },
   ];
 
   return (
@@ -132,9 +135,7 @@ export default function CobrancasPage() {
       </div>
 
       {tab === "negativacao" ? (
-        <p className="text-sm text-(--color-text-subtle)">
-          Negativação — próxima fatia desta branch.
-        </p>
+        <NegativacaoBody />
       ) : (
         <Card className="overflow-hidden p-5">
           {loading && (

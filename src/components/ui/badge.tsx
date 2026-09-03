@@ -77,6 +77,34 @@ export const STATUS: Record<string, BadgeVariant> = {
   contestacao: "info",
 };
 
+const STATUS_LABEL: Record<string, string> = {
+  ativa: "Ativa",
+  ativo: "Ativo",
+  aprovado: "Aprovado",
+  pago: "Pago",
+  paga: "Paga",
+  regularizado: "Regularizado",
+  disponivel: "Disponível",
+  concluido: "Concluído",
+  inadimplente: "Inadimplente",
+  cancelado: "Cancelado",
+  cancelada: "Cancelada",
+  bloqueado: "Bloqueado",
+  vencida: "Vencida",
+  negativado: "Negativado",
+  inativo: "Inativo",
+  aberto: "Aberto",
+  pendente: "Pendente",
+  aguardando: "Aguardando",
+  avencer: "A vencer",
+  emaviso: "Em aviso",
+  aliberar: "A liberar",
+  trial: "Trial",
+  gratuito: "Gratuito",
+  elegivel: "Elegível",
+  contestacao: "Contestação",
+};
+
 export interface StatusBadgeProps extends Omit<BadgeProps, "variant"> {
   status: string;
 }
@@ -86,7 +114,7 @@ export function StatusBadge({ status, children, ...props }: StatusBadgeProps) {
   const variant: BadgeVariant = STATUS[key] ?? "neutral";
   return (
     <Badge variant={variant} dot {...props}>
-      {children ?? status}
+      {children ?? STATUS_LABEL[key] ?? status}
     </Badge>
   );
 }
