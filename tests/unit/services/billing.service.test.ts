@@ -16,10 +16,19 @@ vi.mock('@/lib/integration/asaas/client', () => ({
   })),
 }))
 
+// Student.nameEnc é PII criptografada (AES-256-GCM) — listInvoices precisa decriptografar antes
+// de expor na listagem, mesmo padrão já usado em approval.service.ts (`decrypt(e.student.nameEnc)`).
+// Mock determinístico: "enc:X" → "X", só pra teste conseguir asserir o nome descriptografado.
+vi.mock('@/lib/crypto', () => ({
+  decrypt: vi.fn(async (stored: string) => stored.replace(/^enc:/, '')),
+}))
+
 vi.mock('@/lib/db', () => {
   const invoiceFindUnique = vi.fn()
   const invoiceCreate = vi.fn()
   const invoiceUpdate = vi.fn()
+  const invoiceFindMany = vi.fn()
+  const invoiceCount = vi.fn()
   const enrollmentFindUniqueOrThrow = vi.fn()
   const enrollmentUpdate = vi.fn()
   const enrollmentFindMany = vi.fn()
@@ -29,6 +38,8 @@ vi.mock('@/lib/db', () => {
         findUnique: invoiceFindUnique,
         create: invoiceCreate,
         update: invoiceUpdate,
+        findMany: invoiceFindMany,
+        count: invoiceCount,
       },
       enrollment: {
         findUniqueOrThrow: enrollmentFindUniqueOrThrow,
@@ -44,6 +55,8 @@ type MockForUnitDb = {
     findUnique: ReturnType<typeof vi.fn>
     create: ReturnType<typeof vi.fn>
     update: ReturnType<typeof vi.fn>
+    findMany: ReturnType<typeof vi.fn>
+    count: ReturnType<typeof vi.fn>
   }
   enrollment: {
     findUniqueOrThrow: ReturnType<typeof vi.fn>
@@ -483,5 +496,160 @@ describe('emitUnitInvoices', () => {
       expect.objectContaining({ where: { id: 'enr-1' } })
     )
     expect(mockCreatePayment).toHaveBeenCalledTimes(1)
+  })
+})
+
+// EDU-27 — lista de cobranças com filtros. listInvoices ainda não existe (RED): import
+// dinâmico dentro de cada teste para não derrubar o módulo inteiro (e os describes acima)
+// caso o export falhe no load.
+describe('listInvoices', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  function makeInvoiceRow(overrides: Partial<Record<string, unknown>> = {}) {
+    return {
+      id: 'inv-1',
+      unitId: 'unit-1',
+      enrollmentId: 'enr-1',
+      status: 'PENDING',
+      referenceMonth: '2026-09',
+      amountCents: 45000,
+      dueDate: new Date('2026-09-10T00:00:00Z'),
+      enrollment: {
+        guardian: { id: 'guardian-1', name: 'Maria' },
+        student: { id: 'student-1', nameEnc: 'enc:joao' },
+        subject: { id: 'subj-1', name: 'Matemática' },
+      },
+      ...overrides,
+    }
+  }
+
+  it('AC1: sem filtro retorna Invoices da Unit via forUnit, paginado 20 por página (page default 1)', async () => {
+    const { listInvoices } = await import('@/lib/services/billing.service')
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    vi.mocked(forUnit).mockClear()
+    db.invoice.findMany.mockResolvedValue([makeInvoiceRow()])
+    db.invoice.count.mockResolvedValue(1)
+
+    const result = await listInvoices('unit-1', {})
+
+    // enrollmentId é necessário pro frontend montar POST /api/enrollments/[id]/invoices
+    // (reemissão, EDU-24) — sem ele a tela /cobrancas não teria como reemitir uma Invoice
+    // ERROR (achado do RED do EDU-27 frontend).
+    expect(result.items[0].enrollmentId).toBe('enr-1')
+    expect(forUnit).toHaveBeenCalledWith('unit-1')
+    expect(db.invoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 0, take: 20 })
+    )
+    expect(result.page).toBe(1)
+    expect(result.items).toHaveLength(1)
+  })
+
+  it('AC2: filters.status = BLOCKED retorna só Invoices BLOCKED', async () => {
+    const { listInvoices } = await import('@/lib/services/billing.service')
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.invoice.findMany.mockResolvedValue([makeInvoiceRow({ status: 'BLOCKED' })])
+    db.invoice.count.mockResolvedValue(1)
+
+    await listInvoices('unit-1', { status: 'BLOCKED' })
+
+    expect(db.invoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ status: 'BLOCKED' }) })
+    )
+  })
+
+  it('AC3: filters.referenceMonth = "2026-06" retorna só Invoices desse mês', async () => {
+    const { listInvoices } = await import('@/lib/services/billing.service')
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.invoice.findMany.mockResolvedValue([])
+    db.invoice.count.mockResolvedValue(0)
+
+    await listInvoices('unit-1', { referenceMonth: '2026-06' })
+
+    expect(db.invoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ referenceMonth: '2026-06' }) })
+    )
+  })
+
+  it('AC4: página 2 retorna itens 21-40 (skip: 20, take: 20), page: 2', async () => {
+    const { listInvoices } = await import('@/lib/services/billing.service')
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.invoice.findMany.mockResolvedValue([makeInvoiceRow({ id: 'inv-21' })])
+    db.invoice.count.mockResolvedValue(25)
+
+    const result = await listInvoices('unit-1', { page: 2 })
+
+    expect(db.invoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 20, take: 20 })
+    )
+    expect(result.page).toBe(2)
+  })
+
+  it('AC5: total/totalPages corretos — 25 registros, 20/página → totalPages: 2, total: 25', async () => {
+    const { listInvoices } = await import('@/lib/services/billing.service')
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.invoice.findMany.mockResolvedValue(Array.from({ length: 20 }, (_, i) => makeInvoiceRow({ id: `inv-${i}` })))
+    db.invoice.count.mockResolvedValue(25)
+
+    const result = await listInvoices('unit-1', {})
+
+    expect(result.total).toBe(25)
+    expect(result.totalPages).toBe(2)
+  })
+
+  it('count recebe o mesmo where que findMany — senão totalPages mente sob filtro (ex: status BLOCKED)', async () => {
+    const { listInvoices } = await import('@/lib/services/billing.service')
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.invoice.findMany.mockResolvedValue([])
+    db.invoice.count.mockResolvedValue(0)
+
+    await listInvoices('unit-1', { status: 'BLOCKED' })
+
+    const findManyWhere = db.invoice.findMany.mock.calls[0][0].where
+    const countWhere = db.invoice.count.mock.calls[0][0].where
+    expect(countWhere).toEqual(findManyWhere)
+  })
+
+  it('AC6: busca as relações necessárias para exibição (responsável, aluno, matéria) via include/select', async () => {
+    const { listInvoices } = await import('@/lib/services/billing.service')
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.invoice.findMany.mockResolvedValue([makeInvoiceRow()])
+    db.invoice.count.mockResolvedValue(1)
+
+    await listInvoices('unit-1', {})
+
+    const call = db.invoice.findMany.mock.calls[0][0]
+    const relationsScope = JSON.stringify(call.include ?? call.select)
+    expect(relationsScope).toContain('guardian')
+    expect(relationsScope).toContain('student')
+    expect(relationsScope).toContain('subject')
+  })
+
+  it('decripta Student.nameEnc antes de expor na listagem (PII criptografada, nunca em texto plano na resposta)', async () => {
+    // Student.nameEnc é AES-256-GCM (prisma/schema.prisma) — mesmo padrão de
+    // approval.service.ts (decrypt(e.student.nameEnc)). Sem isso, a tela de /cobrancas mostraria
+    // o valor cifrado ("enc:joao") em vez do nome do aluno.
+    const { listInvoices } = await import('@/lib/services/billing.service')
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.invoice.findMany.mockResolvedValue([makeInvoiceRow({ enrollment: { guardian: { id: 'guardian-1', name: 'Maria' }, student: { id: 'student-1', nameEnc: 'enc:joao' }, subject: { id: 'subj-1', name: 'Matemática' } } })])
+    db.invoice.count.mockResolvedValue(1)
+
+    const result = await listInvoices('unit-1', {})
+
+    expect(JSON.stringify(result.items)).not.toContain('enc:joao')
+    expect(JSON.stringify(result.items)).toContain('joao')
+  })
+
+  it('AC7: Unit sem nenhuma Invoice retorna items: [] e total: 0', async () => {
+    const { listInvoices } = await import('@/lib/services/billing.service')
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.invoice.findMany.mockResolvedValue([])
+    db.invoice.count.mockResolvedValue(0)
+
+    const result = await listInvoices('unit-1', {})
+
+    expect(result.items).toEqual([])
+    expect(result.total).toBe(0)
   })
 })

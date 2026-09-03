@@ -1,7 +1,8 @@
 import { Prisma } from '@prisma/client'
 import { forUnit } from '../db'
 import { getAsaasClient } from '../integration/asaas/client'
-import type { Invoice } from '@prisma/client'
+import { decrypt } from '../crypto'
+import type { Invoice, InvoiceStatus } from '@prisma/client'
 
 export class EnrollmentNotStartedError extends Error {
   readonly status = 422
@@ -245,4 +246,85 @@ export async function emitUnitInvoices(
     select: { id: true },
   })
   return emitForEnrollments(unitId, enrollments.map((e) => e.id), referenceMonth, asaasApiKey)
+}
+
+export interface ListInvoicesFilters {
+  page?: number
+  status?: InvoiceStatus
+  referenceMonth?: string
+}
+
+export interface InvoiceListItem {
+  id: string
+  // enrollmentId é necessário pro frontend montar a URL de reemissão (POST
+  // /api/enrollments/[id]/invoices, EDU-24 — espera enrollmentId no path, não invoiceId).
+  // Vem grátis: é FK direto de Invoice, sem query extra (achado do RED do EDU-27 frontend).
+  enrollmentId: string
+  status: string
+  referenceMonth: string
+  amountCents: number
+  dueDate: Date
+  guardianName: string
+  studentName: string
+  subjectName: string
+}
+
+export interface ListInvoicesResult {
+  items: InvoiceListItem[]
+  page: number
+  totalPages: number
+  total: number
+}
+
+const PAGE_SIZE = 20
+
+// EDU-27 — lista de cobranças da Unit (US-F2-06), com paginação e filtros de status/mês.
+export async function listInvoices(
+  unitId: string,
+  filters: ListInvoicesFilters
+): Promise<ListInvoicesResult> {
+  const db = forUnit(unitId)
+  const page = filters.page ?? 1
+
+  const where: Prisma.InvoiceWhereInput = {
+    ...(filters.status !== undefined ? { status: filters.status } : {}),
+    ...(filters.referenceMonth !== undefined ? { referenceMonth: filters.referenceMonth } : {}),
+  }
+
+  const [rows, total] = await Promise.all([
+    db.invoice.findMany({
+      where,
+      // Vencimento mais próximo primeiro — é o que a secretaria precisa agir primeiro
+      // (cobrança vencida/vencendo), não o oposto (achado de code review, EDU-27).
+      orderBy: { dueDate: 'asc' },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: {
+        enrollment: {
+          select: {
+            guardian: { select: { id: true, name: true } },
+            student: { select: { id: true, nameEnc: true } },
+            subject: { select: { id: true, name: true } },
+          },
+        },
+      },
+    }),
+    db.invoice.count({ where }),
+  ])
+
+  const items = await Promise.all(
+    rows.map(async (row) => ({
+      id: row.id,
+      enrollmentId: row.enrollmentId,
+      status: row.status,
+      referenceMonth: row.referenceMonth,
+      amountCents: row.amountCents,
+      dueDate: row.dueDate,
+      guardianName: row.enrollment.guardian.name,
+      studentName: await decrypt(row.enrollment.student.nameEnc),
+      subjectName: row.enrollment.subject.name,
+    }))
+  )
+
+  return { items, page, totalPages: Math.ceil(total / PAGE_SIZE), total }
 }
