@@ -139,6 +139,17 @@ describe('calculateLateFeeAndInterest', () => {
     )
     expect(result.lateFeeCents).toBe(0)
   })
+
+  it('now < dueDate (cobrança ainda não venceu) → lateFeeCents=0 e interestCents=0, mesmo com lateFeePercent/monthlyInterestBp positivos (achado de code review)', () => {
+    const result = calculateLateFeeAndInterest(
+      { lateFeePercent: 200, monthlyInterestBp: 100 },
+      100000,
+      new Date('2026-07-10T00:00:00Z'),
+      new Date('2026-07-05T00:00:00Z') // 5 dias ANTES do vencimento
+    )
+    expect(result.lateFeeCents).toBe(0)
+    expect(result.interestCents).toBe(0)
+  })
 })
 
 describe('getInvoiceDetail', () => {
@@ -156,6 +167,31 @@ describe('getInvoiceDetail', () => {
     expect(result!.student.name).toBe('João')
     expect(result!.id).toBe('inv-1')
     expect(result!.asaasPaymentId).toBe('pay_abc')
+  })
+
+  it('nunca vaza campos de BillingConfig além de lateFeePercent/monthlyInterestBp — regressão de vazamento de secret (achado de code review, EDU-28)', async () => {
+    // Fixture "gordo": simula o que um `include: { billingConfig: true }` real traria —
+    // TODAS as colunas da tabela, inclusive um secret criptografado. Se o service usa
+    // `select` explícito (correto), esses campos extras não chegam no resultado.
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    mockInvoiceLookup(db, {
+      ...INVOICE_DETAIL_ROW,
+      unit: {
+        billingConfig: {
+          ...BILLING_CONFIG,
+          asaasWebhookTokenEnc: 'enc:secret-nunca-deveria-vazar',
+          municipalRegistration: '123456',
+          planId: 'pro',
+          planPriceCents: 9900,
+        },
+      },
+    })
+
+    const result = await getInvoiceDetail('unit-1', 'inv-1')
+
+    expect(result!.billingConfig).toEqual(BILLING_CONFIG)
+    expect(result).not.toHaveProperty('billingConfig.asaasWebhookTokenEnc')
+    expect(JSON.stringify(result)).not.toContain('secret-nunca-deveria-vazar')
   })
 
   it('Invoice existe mas pertence a outra Unit → retorna null (isolamento via forUnit)', async () => {

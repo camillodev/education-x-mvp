@@ -3,6 +3,8 @@ import { decrypt } from '../crypto'
 import { getAsaasClient } from '../integration/asaas/client'
 import type { Invoice, InvoiceStatus, DiscountType } from '@prisma/client'
 
+export { calculateLateFeeAndInterest } from '../invoice-fees'
+
 export class InvoiceNotFoundError extends Error {
   readonly status = 404
   constructor() {
@@ -55,13 +57,20 @@ export async function getInvoiceDetail(
     where: { id: invoiceId },
     include: {
       enrollment: {
-        include: {
+        select: {
+          discountType: true,
+          discountValueBp: true,
+          discountValueCents: true,
           student: { select: { nameEnc: true } },
           subject: { select: { name: true } },
           guardian: { select: { asaasCustomerId: true } },
         },
       },
-      unit: { include: { billingConfig: true } },
+      unit: {
+        select: {
+          billingConfig: { select: { lateFeePercent: true, monthlyInterestBp: true } },
+        },
+      },
       payments: {
         select: { asaasEvent: true, amountCents: true, paidAt: true },
         orderBy: { paidAt: 'asc' },
@@ -97,7 +106,15 @@ export async function getInvoiceDetail(
       discountValueBp: row.enrollment.discountValueBp,
       discountValueCents: row.enrollment.discountValueCents,
     },
-    billingConfig: row.unit.billingConfig!,
+    // Monta campo a campo (não copia row.unit.billingConfig inteiro) como segunda barreira
+    // contra vazamento — mesmo que o `select` do Prisma acima regrida para `include` no
+    // futuro, este objeto nunca carrega mais do que os 2 campos declarados em InvoiceDetail
+    // (achado de code review, EDU-28: billingConfig tem asaasWebhookTokenEnc e outros dados
+    // de plano que nunca podem chegar ao cliente).
+    billingConfig: {
+      lateFeePercent: row.unit.billingConfig!.lateFeePercent,
+      monthlyInterestBp: row.unit.billingConfig!.monthlyInterestBp,
+    },
     payments: row.payments,
   }
 }
@@ -130,21 +147,3 @@ export async function cancelInvoice(
   })
 }
 
-export function calculateLateFeeAndInterest(
-  billingConfig: { lateFeePercent: number; monthlyInterestBp: number },
-  amountCents: number,
-  dueDate: Date,
-  now: Date
-): { lateFeeCents: number; interestCents: number } {
-  const lateFeeCents = Math.round((amountCents * billingConfig.lateFeePercent) / 10000)
-
-  const dueDateUTC = Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), dueDate.getUTCDate())
-  const nowUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-  const daysLate = Math.max(1, Math.round((nowUTC - dueDateUTC) / 86400000))
-
-  const interestCents = Math.round(
-    ((amountCents * billingConfig.monthlyInterestBp) / 10000) * (daysLate / 30)
-  )
-
-  return { lateFeeCents, interestCents }
-}
