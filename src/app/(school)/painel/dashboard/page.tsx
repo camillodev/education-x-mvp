@@ -10,6 +10,8 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/patterns/DataTable";
+import { FinanceiroBody } from "@/components/school/FinanceiroBody";
+import { ExtratoTab } from "@/components/school/ExtratoTab";
 import { useMockResource } from "@/hooks/use-mock-resource";
 import { formatBRL } from "@/lib/format";
 import type { PaymentMethod, UpcomingDue } from "@/lib/mock/types";
@@ -141,6 +143,8 @@ export default function DashboardPage() {
             />
           </div>
 
+          <FinanceiroBody />
+
           <Card className="overflow-hidden p-5">
             {loading && (
               <p className="py-8 text-center text-sm text-(--color-text-subtle)">Carregando…</p>
@@ -180,11 +184,7 @@ export default function DashboardPage() {
           Relatórios — próxima fatia desta branch.
         </p>
       )}
-      {tab === "extrato" && (
-        <p className="text-sm text-(--color-text-subtle)">
-          Extrato — próxima fatia desta branch.
-        </p>
-      )}
+      {tab === "extrato" && <ExtratoTab />}
     </SchoolShell>
   );
 }
