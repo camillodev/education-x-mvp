@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/patterns/DataTable";
 import { FinanceiroBody } from "@/components/school/FinanceiroBody";
 import { ExtratoTab } from "@/components/school/ExtratoTab";
+import { RelatoriosTab } from "@/components/school/RelatoriosTab";
+import { ExportModal } from "@/components/patterns/ExportModal";
 import { useMockResource } from "@/hooks/use-mock-resource";
 import { formatBRL } from "@/lib/format";
 import type { PaymentMethod, UpcomingDue } from "@/lib/mock/types";
@@ -87,6 +89,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [tab, setTab] = useState<DashTab>("visao");
   const [forma, setForma] = useState<FormaFilter>("todas");
+  const [exportOpen, setExportOpen] = useState(false);
   const { data, loading, error } = useMockResource<CobrancasResponse>("/api/mock/cobrancas");
 
   const upcomingDues = data?.upcomingDues ?? [];
@@ -98,7 +101,7 @@ export default function DashboardPage() {
       title="Dashboard"
       subtitle="Visão da unidade Kumon Camargos"
       actions={
-        <Button variant="secondary" iconLeft="download">
+        <Button variant="secondary" iconLeft="download" onClick={() => setExportOpen(true)}>
           Exportar
         </Button>
       }
@@ -106,6 +109,8 @@ export default function DashboardPage() {
       <div className="mb-[22px] overflow-x-auto pb-0.5">
         <Segmented options={DASH_TABS} value={tab} onChange={setTab} />
       </div>
+
+      <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} what="relatório" />
 
       {tab === "visao" && (
         <>
@@ -179,11 +184,7 @@ export default function DashboardPage() {
         </>
       )}
 
-      {tab === "relatorios" && (
-        <p className="text-sm text-(--color-text-subtle)">
-          Relatórios — próxima fatia desta branch.
-        </p>
-      )}
+      {tab === "relatorios" && <RelatoriosTab />}
       {tab === "extrato" && <ExtratoTab />}
     </SchoolShell>
   );
