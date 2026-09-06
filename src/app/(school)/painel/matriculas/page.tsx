@@ -171,6 +171,13 @@ export default function PainelMatriculasPage() {
       title="Matrículas"
       actions={
         <div className="flex gap-2.5">
+          <Button
+            variant="secondary"
+            iconLeft="upload"
+            onClick={() => router.push("/painel/importar")}
+          >
+            Importar CSV
+          </Button>
           <Button variant="secondary" iconLeft="link">
             Gerar link
           </Button>
