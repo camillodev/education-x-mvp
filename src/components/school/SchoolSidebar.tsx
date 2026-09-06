@@ -23,14 +23,22 @@ const NAV: NavItem[] = [
   { href: "/painel/configuracoes", label: "Configurações", icon: Settings, section: true },
 ];
 
+export interface SchoolSidebarProps {
+  /** Fecha o drawer mobile ao navegar. Sem efeito no desktop (sempre visível). */
+  onNavigate?: () => void;
+}
+
 /**
  * Sidebar da área autenticada da escola (Orientador). Distinta de
  * AdminSidebar (Admin IX — gestão de escolas na plataforma).
+ *
+ * Conteúdo único, reusado tanto na coluna fixa do desktop quanto dentro do
+ * drawer mobile (ver SchoolShell) — evita duas fontes de verdade do NAV.
  */
-export function SchoolSidebar() {
+export function SchoolSidebar({ onNavigate }: SchoolSidebarProps = {}) {
   const pathname = usePathname();
   return (
-    <aside className="flex h-screen w-[244px] shrink-0 flex-col border-r border-(--color-border) bg-(--color-bg)">
+    <aside className="flex h-full w-[244px] shrink-0 flex-col bg-(--color-bg)">
       <div className="px-5 pt-5 pb-[18px]">
         <div className="inline-flex items-center gap-[9px]">
           <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-(--color-primary) text-lg font-extrabold tracking-[-0.04em] text-white">
@@ -50,6 +58,7 @@ export function SchoolSidebar() {
               {item.section && <div className="mx-2 my-2.5 h-px bg-(--color-border-muted)" />}
               <Link
                 href={item.href}
+                onClick={onNavigate}
                 className={cn(
                   "flex items-center gap-3 rounded-(--radius-md) px-3 py-[10px] text-[14.5px] font-medium transition-colors",
                   active

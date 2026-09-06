@@ -199,8 +199,8 @@ export default function CobrancaDetalhePage({ params }: { params: Promise<{ id: 
 
           <Card className="p-6">
             <SectionHead title="Pagamento" sub="Boleto, linha digitável e PIX" />
-            <div className="flex gap-5">
-              <div className="flex flex-1 flex-col gap-3">
+            <div className="flex flex-col gap-5 sm:flex-row">
+              <div className="flex min-w-0 flex-1 flex-col gap-3">
                 <Button
                   variant="secondary"
                   block
@@ -217,7 +217,7 @@ export default function CobrancaDetalhePage({ params }: { params: Promise<{ id: 
                   value="00020126580014br.gov.bcb.pix0136a1f3c2…5204000053039865802BR"
                 />
               </div>
-              <div className="shrink-0 text-center">
+              <div className="shrink-0 self-center text-center sm:self-auto">
                 <QrCode size={132} />
                 <div className="mt-1.5 text-[11.5px] text-(--color-text-subtle)">Aponte a câmera</div>
               </div>
