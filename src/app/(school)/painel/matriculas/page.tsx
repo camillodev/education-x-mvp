@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { SchoolShell } from "@/components/school/SchoolShell";
 import type { SegmentedOption } from "@/components/ui/segmented";
@@ -29,7 +30,8 @@ const SUBJECT_COLOR_TOKEN: Record<string, string> = {
   japones: "--color-subject-japanese",
 };
 
-const COLUMNS: ColumnDef<Enrollment, unknown>[] = [
+function buildColumns(onView: (id: string) => void): ColumnDef<Enrollment, unknown>[] {
+  return [
   {
     id: "pagante",
     header: "Pagante",
@@ -107,31 +109,42 @@ const COLUMNS: ColumnDef<Enrollment, unknown>[] = [
     accessorFn: () => "",
     cell: ({ row }) => {
       const m = row.original;
+      const open = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onView(m.id);
+      };
       if (m.status === "pendente")
         return (
-          <Button size="sm" iconRight="chevron-right">
+          <Button size="sm" iconRight="chevron-right" onClick={open}>
             Revisar
           </Button>
         );
       if (m.status === "cancelada")
         return (
-          <Button variant="tertiary" size="sm" iconLeft="eye">
+          <Button variant="tertiary" size="sm" iconLeft="eye" onClick={open}>
             Ver
           </Button>
         );
       return (
-        <Button variant="tertiary" size="sm" iconLeft="pencil">
+        <Button variant="tertiary" size="sm" iconLeft="pencil" onClick={open}>
           Editar
         </Button>
       );
     },
   },
-];
+  ];
+}
 
 export default function PainelMatriculasPage() {
+  const router = useRouter();
   const [filter, setFilter] = useState<StatusFilter>("todas");
   const { data, loading, error } = useMockResource<Enrollment[]>("/api/mock/matriculas");
   const enrollments = useMemo(() => data ?? [], [data]);
+  const goToDetail = useCallback(
+    (id: string) => router.push(`/painel/matriculas/${id}`),
+    [router]
+  );
+  const columns = useMemo(() => buildColumns(goToDetail), [goToDetail]);
 
   const counts = useMemo(
     () => ({
@@ -161,7 +174,9 @@ export default function PainelMatriculasPage() {
           <Button variant="secondary" iconLeft="link">
             Gerar link
           </Button>
-          <Button iconLeft="plus">Nova matrícula</Button>
+          <Button iconLeft="plus" onClick={() => router.push("/painel/matriculas/nova")}>
+            Nova matrícula
+          </Button>
         </div>
       }
     >
@@ -171,7 +186,7 @@ export default function PainelMatriculasPage() {
         {!loading && !error && (
           <DataTable
             title="Todas as matrículas"
-            columns={COLUMNS}
+            columns={columns}
             data={filtered}
             searchPlaceholder="Buscar por nome, e-mail ou CPF…"
             filterOptions={filterOptions}
