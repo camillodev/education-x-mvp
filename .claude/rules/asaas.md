@@ -34,8 +34,17 @@ Descobrir os payloads reais via **MCP** (`.mcp.json` do projeto tem o server `as
 - Inscrição municipal do Kumon Camargos (necessária pra NFS-e) — depende do Pimenta/Camargos, não da conta Asaas.
 
 ## Webhook
-- Idempotente (skip de evento duplicado via `WebhookEvent`).
-- Token no header `X-Asaas-Token` (não em query string).
+- Rota `/api/webhook` (não `/api/webhooks/asaas`) — cadastrada assim no painel Asaas
+  (`https://educationx.app/api/webhook`).
+- Idempotente via `Payment.webhookEventId @unique` (dedupe do evento `id`, não de `payment.id`) —
+  cobre `PAYMENT_RECEIVED`. Não existe model `WebhookEvent` genérico: `PAYMENT_OVERDUE` não cria
+  `Payment` (não é recebimento), então não tem dedupe própria — inofensivo porque reaplicar
+  `OVERDUE` é idempotente por natureza (o guard de status já barra rebaixar uma Invoice `PAID`).
+- Token no header `asaas-access-token` (não `X-Asaas-Token`, não em query string) — comparado
+  contra env var global `ASAAS_WEBHOOK_TOKEN` via `crypto.timingSafeEqual`, não por-Unit
+  (confirmado na doc oficial Asaas).
+- Gatilho de `Invoice.status = PAID` = evento `PAYMENT_RECEIVED` (não `CONFIRMED`) — único evento
+  que cobre boleto, PIX e cartão de forma consistente.
 - **Event bus**: handlers se registram (NFS-e, regularização); não editam o core do webhook.
 
 Operações detalhadas: skill do projeto `.claude/skills/edx-asaas/SKILL.md` (auto-contida no repo) + contratos em `docs/api-contracts/asaas-*.md`.

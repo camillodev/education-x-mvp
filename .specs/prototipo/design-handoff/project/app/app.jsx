@@ -1,26 +1,28 @@
 /* Education X — app router + launcher */
 
+// Fluxos conciliados com as specs (uploads/mvp-01…06 + DH-f1…f5).
+// backlog: true = fora das specs do MVP — sai da navbar, vive na aba Backlog da home.
 const FLOWS = [
-  // 1 · Matrículas
-  { id: "c6",       go: "c6",             title: "Matrícula manual",          persona: "Orientador",  device: "Desktop",              icon: "user-plus" },
-  { id: "b",        go: "b",              title: "Matrícula via link",         persona: "Responsável", device: ["Desktop", "Mobile"],   icon: "smartphone" },
-  // 2 · Cobranças
-  { id: "cobranca", go: "c3",             title: "Geração de cobrança",        persona: "Automático",  device: "Desktop",              icon: "receipt" },
-  { id: "neg",      go: "d0",             title: "Processo de negativação",    persona: "Orientador",  device: "Desktop",              icon: "gavel" },
-  { id: "saque",    go: "fin",            title: "Retirada do pagamento",      persona: "Orientador",  device: "Desktop",              icon: "arrow-up-right" },
-  // 3 · Relatórios
-  { id: "rep-fin",  go: "rep:financeiro", title: "Relatório financeiro",       persona: "Orientador",  device: "Desktop",              icon: "wallet" },
-  { id: "rep-rel",  go: "rep:relatorios", title: "Relatório de desempenho",    persona: "Orientador",  device: "Desktop",              icon: "bar-chart-3" },
-  { id: "rep-ext",  go: "rep:extrato",    title: "Extrato",                    persona: "Orientador",  device: "Desktop",              icon: "file-spreadsheet" },
-  // 4 · Processo dos responsáveis
-  { id: "e-portal", go: "e",              title: "Portal do responsável",      persona: "Responsável", device: ["Desktop", "Mobile"],   icon: "layout-dashboard" },
-  { id: "e-assina", go: "e",              title: "Pagamento via assinatura",   persona: "Responsável", device: ["Desktop", "Mobile"],   icon: "credit-card" },
-  { id: "e-overdue",go: "e-overdue",      title: "Pagamentos atrasados",       persona: "Responsável", device: ["Desktop", "Mobile"],   icon: "alert-triangle" },
-  { id: "e-neg",    go: "e-overdue",      title: "Processo de negativação",    persona: "Responsável", device: ["Desktop", "Mobile"],   icon: "shield-alert" },
-  { id: "e-notif",  go: "e",              title: "Notificações da escola",     persona: "Responsável", device: ["Desktop", "Mobile"],   icon: "bell" },
-  // 5 · Configurações  ·  6 · Admin onboarding
-  { id: "cfg",      go: "settings",       title: "Configurações",              persona: "Admin",       device: "Desktop",              icon: "settings-2" },
-  { id: "a",        go: "a",              title: "Onboarding da escola",       persona: "Admin",       device: "Desktop",              icon: "building-2" },
+  // Specs MVP — escola
+  { id: "a",    go: "a",   spec: "MVP-01", title: "Onboarding da escola",             persona: "Admin",       device: "Desktop",              icon: "building-2" },
+  { id: "c6",   go: "c6",  spec: "MVP-02", title: "Matrícula assistida + aprovação", persona: "Orientador",  device: "Desktop",              icon: "user-plus" },
+  { id: "b",    go: "b",   spec: "MVP-02", title: "Matrícula via link (Mobile)",     persona: "Responsável", device: ["Desktop", "Mobile"],   icon: "smartphone" },
+  { id: "c3",   go: "c3",  spec: "MVP-03", title: "Cobrança automática",              persona: "Automático",  device: "Desktop",              icon: "receipt" },
+  { id: "nf",   go: "c3",  spec: "MVP-04", title: "Nota fiscal + régua",              persona: "Automático",  device: "Desktop",              icon: "file-check" },
+  { id: "neg",  go: "d0",  spec: "MVP-05", title: "Negativação + régua de cobrança",  persona: "Orientador",  device: "Desktop",              icon: "gavel" },
+  { id: "rep-fin", go: "rep", spec: "MVP-06", title: "Relatório financeiro",     persona: "Orientador", device: "Desktop", icon: "bar-chart-3" },
+  { id: "dash", go: "c0",  spec: "F5",     title: "Dashboard da escola",              persona: "Orientador",  device: "Desktop",              icon: "layout-dashboard" },
+  { id: "cfg",  go: "settings", spec: "MVP-04·05", title: "Configurações (fiscal + SPC)", persona: "Admin",   device: "Desktop",              icon: "settings-2" },
+  // Roadmap — portal do responsável (DH-f4)
+  { id: "e-portal",  go: "e",         backlog: true, title: "Portal do responsável (Roadmap)",           persona: "Responsável", device: ["Desktop", "Mobile"], icon: "layout-dashboard" },
+  { id: "e-card",    go: "e",         backlog: true, title: "Pagamento automático (cartão) (Roadmap)",   persona: "Responsável", device: ["Desktop", "Mobile"], icon: "credit-card" },
+  { id: "e-overdue", go: "e-overdue", backlog: true, title: "Pagamentos atrasados (Roadmap)",            persona: "Responsável", device: ["Desktop", "Mobile"], icon: "alert-triangle" },
+  { id: "e-notif",   go: "e",         backlog: true, title: "Notificações da escola (Roadmap)",          persona: "Responsável", device: ["Desktop", "Mobile"], icon: "bell" },
+  // Backlog — fora das specs do MVP (removidos da navbar)
+  { id: "contas",  go: "fin:contas", backlog: true, title: "Contas a pagar (Roadmap)",          persona: "Orientador", device: "Desktop", icon: "file-minus" },
+  { id: "caixa",   go: "fin:caixa",  backlog: true, title: "Fluxo de caixa (Roadmap)",          persona: "Orientador", device: "Desktop", icon: "line-chart" },
+  { id: "ext",     go: "ext",        backlog: true, title: "Extrato (Roadmap)",                 persona: "Orientador", device: "Desktop", icon: "arrow-left-right" },
+  { id: "rep-rel", go: "rep",        backlog: true, title: "Relatório de desempenho (Roadmap)", persona: "Orientador", device: "Desktop", icon: "trending-up" },
 ];
 
 const PERSONA_VARIANT = { Admin: "neutral", Orientador: "primary", Responsável: "success", Automático: "warning" };
@@ -31,10 +33,15 @@ const LaunchCard = ({ f, hover, setHover, go }) => {
     <Card interactive onClick={() => go(f.go)}
       onMouseEnter={() => setHover(f.id)} onMouseLeave={() => setHover(null)}
       style={{ padding: 22, display: "flex", flexDirection: "column", gap: 16, cursor: "pointer" }}>
-      <span style={{ width: 52, height: 52, borderRadius: 14, background: "var(--color-primary-soft)", color: "var(--color-primary-hover)",
-        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <Icon name={f.icon} size={26} />
-      </span>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+        <span style={{ width: 52, height: 52, borderRadius: 14, background: "var(--color-primary-soft)", color: "var(--color-primary-hover)",
+          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Icon name={f.icon} size={26} />
+        </span>
+        {f.spec && <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+          color: "var(--color-text-subtle)", padding: "3px 8px", borderRadius: 999, border: "1px solid var(--color-border)" }}>{f.spec}</span>}
+        {f.backlog && <Badge variant="warning" size="sm">Backlog</Badge>}
+      </div>
       <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em", lineHeight: 1.3 }}>{f.title}</div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: "auto" }}>
         {devices.map((d) => (
@@ -49,10 +56,11 @@ const Launcher = ({ go }) => {
   const [hover, setHover] = useState(null);
   const [filter, setFilter] = useState("todas");
   const FILTER_MAP = {
-    todas:        () => true,
-    escola:       (f) => ["Orientador", "Automático"].includes(f.persona),
-    responsaveis: (f) => f.persona === "Responsável",
-    admin:        (f) => f.persona === "Admin",
+    todas:        (f) => !f.backlog,
+    escola:       (f) => !f.backlog && ["Orientador", "Automático"].includes(f.persona),
+    responsaveis: (f) => !f.backlog && f.persona === "Responsável",
+    admin:        (f) => !f.backlog && f.persona === "Admin",
+    backlog:      (f) => !!f.backlog,
   };
   const visible = FLOWS.filter(FILTER_MAP[filter]);
   return (
@@ -67,7 +75,7 @@ const Launcher = ({ go }) => {
         <div style={{ maxWidth: 1120, margin: "0 auto", padding: "28px 28px 0", position: "relative" }}>
           <Logo size={22} light />
           <div style={{ marginTop: 56, maxWidth: 720 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", opacity: 0.85, marginBottom: 16 }}>Education X · gestão financeira escolar</div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", opacity: 0.85, marginBottom: 16 }}>EducationHub · gestão financeira escolar</div>
             <h1 style={{ margin: 0, fontSize: 46, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05 }}>Matrícula e cobrança<br />que rodam sozinhas</h1>
             <p style={{ margin: "18px 0 0", fontSize: 17, lineHeight: 1.55, opacity: 0.92, maxWidth: 620 }}>
               A plataforma de gestão financeira para escolas que querem parar de correr atrás de mensalidade — da matrícula no celular do pai ao dinheiro na conta.</p>
@@ -89,13 +97,19 @@ const Launcher = ({ go }) => {
               { value: "escola",       label: "Escola" },
               { value: "responsaveis", label: "Responsáveis" },
               { value: "admin",        label: "Admin" },
+              { value: "backlog",      label: "Backlog" },
             ]} />
         </div>
+        {filter === "backlog" && (
+          <p style={{ margin: "0 0 20px", fontSize: 13.5, color: "var(--color-text-muted)", maxWidth: 640 }}>
+            Fluxos fora das specs do MVP — saíram da navegação principal, mas continuam navegáveis aqui.
+          </p>
+        )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
           {visible.map((f) => <LaunchCard key={f.id} f={f} hover={hover} setHover={setHover} go={go} />)}
         </div>
         <div style={{ textAlign: "center", marginTop: 32, fontSize: 13, color: "var(--color-text-subtle)" }}>
-          Education X · gestão financeira para escolas
+          EducationHub · gestão financeira para escolas
         </div>
       </div>
     </div>
@@ -106,6 +120,7 @@ const Launcher = ({ go }) => {
 const App = () => {
   const [screen, setScreen] = useState("home");
   const [sel, setSel] = useState(null);
+  const [respFiltro, setRespFiltro] = useState("");
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
 
@@ -119,23 +134,25 @@ const App = () => {
   useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
 
   let view;
-  if (screen.indexOf("rep:") === 0) {
-    view = <C0Dashboard key={screen} go={go} toast={showToast} initialTab={screen.slice(4)} />;
+  if (screen.indexOf("fin:") === 0) {
+    view = <FinanceiroPage key={screen} go={go} toast={showToast} initialTab={screen.slice(4)} />;
   } else
   switch (screen) {
     case "home":  view = <Launcher go={go} />; break;
-    case "a":     view = <FlowA exit={() => go("home")} onDone={() => go("c0")} onImport={() => go("imp")} />; break;
+    case "a":     view = <FlowA go={go} exit={() => go("home")} onDone={() => go("c0")} onImport={() => go("imp")} setSel={setSel} />; break;
+    case "materias": view = <MateriasEscola go={go} sel={sel} toast={showToast} />; break;
     case "b":     view = <FlowB exit={() => go("home")} />; break;
     case "e":     view = <FlowE exit={() => go("home")} />; break;
     case "e-overdue": view = <FlowE exit={() => go("home")} start="overdue" />; break;
     case "c0":    view = <C0Dashboard go={go} toast={showToast} />; break;
-    case "fin":   view = <C0Dashboard key="dash-fin" go={go} toast={showToast} initialTab="financeiro" />; break;
+    case "rep":   view = <RelatoriosPage go={go} toast={showToast} />; break;
+    case "ext":   view = <ExtratoPage go={go} toast={showToast} />; break;
     case "c1":    view = <C1Pendentes go={go} setSel={setSel} />; break;
     case "c2":    view = <C2Revisar go={go} sel={sel} toast={showToast} />; break;
-    case "c3":    view = <C3Cobrancas go={go} setSel={setSel} />; break;
+    case "c3":    view = <C3Cobrancas key="c3" go={go} setSel={setSel} initialSearch={respFiltro} />; break;
     case "c4":    view = <C4Detalhe go={go} sel={sel} toast={showToast} />; break;
     case "c5":    view = <C5Nova go={go} toast={showToast} />; break;
-    case "d0":    view = <C3Cobrancas go={go} setSel={setSel} initialTab="negativacao" />; break;
+    case "d0":    view = <C3Cobrancas key="d0" go={go} setSel={setSel} initialTab="negativacao" onVerCobrancas={(resp) => { setRespFiltro(resp); go("c3"); }} />; break;
     case "d1":    view = <D1Detalhe go={go} sel={sel} toast={showToast} />; break;
     case "settings": view = <Settings go={go} toast={showToast} />; break;
     case "imp":   view = <ImportCSV go={go} toast={showToast} />; break;

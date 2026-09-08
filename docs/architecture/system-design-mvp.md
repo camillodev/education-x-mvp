@@ -40,7 +40,7 @@ graph TB
         Pages["App Router<br/>Pages & Layouts"]
         API["Route Handlers /api/*"]
         Cron["Cron Handlers /api/cron/*<br/>(planejado)"]
-        Webhook["Webhook /api/webhooks/asaas<br/>(planejado)"]
+        Webhook["Webhook /api/webhook<br/>(planejado)"]
 
         subgraph "Services — construído"
             OnbSvc["onboarding.service"]
@@ -113,23 +113,25 @@ Linhas tracejadas e caixas pontilhadas = planejado, não construído. Linhas só
 
 ### 3.1 Invoice — idempotência por constraint de banco
 
+> **Corrigido em 03/set/2026** — esta seção descrevia um schema hipotético (`competencia`, constraint composta) anterior à implementação real do EDU-22/23 (PR #39). Atualizada para refletir `prisma/schema.prisma` como shipado.
+
 `Invoice` é a entidade-razão do ciclo financeiro. A unicidade da cobrança é garantida por **constraint de banco**, não por lógica de aplicação:
 
 ```
-@@unique([enrollmentId, competencia])
+idempotencyKey String @unique
 ```
 
-`competencia` é o período que a invoice cobre (ex. `2026-09` para `MONTHLY`; `2026-09_2026-11` para `QUARTERLY`/`SEMIANNUAL`/`ANNUAL` — o schema já tem esses 4 valores em `EnrollmentPlan`, então "invoice do mês" não cobre 3 dos 4 planos).
+`idempotencyKey` é `"${enrollmentId}:${referenceMonth}"`, onde `referenceMonth` é o mês de competência no formato `"2026-06"` (`Enrollment`/`Invoice` não usam um campo `competencia` multi-mês — planos trimestrais/semestrais/anuais também geram uma `Invoice` por mês de referência).
 
-O `externalReference` enviado à Asaas deriva da mesma chave, sem `Date.now()`:
+O `externalReference` enviado à Asaas **é o próprio `idempotencyKey`** — não é um formato derivado separado (`edx-{unitId}-...}` nunca existiu no código):
 
 ```
-edx-{unitId}-{enrollmentId}-{competencia}
+{enrollmentId}:{referenceMonth}
 ```
 
-**Achado a corrigir:** `.claude/rules/backend.md` hoje mostra `` `ed-${unitId}-${studentId}-${Date.now()}` `` no exemplo, contradizendo o próprio anti-padrão listado na mesma rule ("`externalReference` gerado aleatoriamente"). `Date.now()` quebra idempotência entre retries — é o bug, não o padrão a seguir.
+**Achado já corrigido no PR #39**: `.claude/rules/backend.md` mostrava `` `ed-${unitId}-${studentId}-${Date.now()}` `` no exemplo, contradizendo o próprio anti-padrão listado na mesma rule ("`externalReference` gerado aleatoriamente"). `Date.now()` quebra idempotência entre retries. O código shipado (`billing.service.ts`) usa a chave estável acima.
 
-**Padrão citado (skill `system-design-patterns`):** idempotency key, case Stripe — a chave é gerada uma vez por operação lógica, não por tentativa; retry retorna o resultado original. Aqui a chave deriva de dados estáveis (enrollment + competência), naturalmente estável entre retries.
+**Padrão aplicado (skill `system-design-patterns`):** idempotency key, case Stripe — a chave é gerada uma vez por operação lógica, não por tentativa; retry retorna o resultado original. Aqui a chave deriva de dados estáveis (enrollment + referenceMonth), naturalmente estável entre retries.
 
 **Consequência de simplicidade:** re-execução segura do cron elimina a necessidade de `BillingRun` bookkeeping e de lock de execução — rodar o cron duas vezes no mesmo dia não duplica cobrança, a segunda colide na constraint e pula.
 
@@ -139,14 +141,16 @@ edx-{unitId}-{enrollmentId}-{competencia}
 
 ### 3.2 Webhook Asaas — contrato
 
+> **Corrigido em 03/set/2026** — esta seção descrevia o desenho original (`unitId` em query, token por-Unit). O PR #39 (EDU-25) fechou a decisão revisada — ver `.claude/rules/asaas.md` §Webhook e RN-12 (superseded) em `.specs/mvp-03-cobranca-automatica.md`. Nunca aceitar `unitId` vindo de query/param do webhook (`.claude/rules/security.md`).
+
 Irreversível porque a URL é registrada por subconta no Asaas — mudar depois exige re-registrar em toda `Unit` já onboardada.
 
 ```
-POST /api/webhooks/asaas?unitId={unitId}
-Header: asaas-access-token: {token secreto da subconta}
+POST /api/webhook
+Header: asaas-access-token: {token global, ASAAS_WEBHOOK_TOKEN}
 ```
 
-`unitId` em query + token no header — exceção documentada à regra de ouro #7 (`unitId` sempre da sessão Clerk). Token vive em `BillingConfig.asaasWebhookTokenEnc` (AES-256-GCM, campo já existente no schema).
+Sem `unitId` em query — a autenticação usa `crypto.timingSafeEqual` (`timingSafeBearerEqual`, `src/lib/auth/timing-safe.ts`) contra a env var **global** `ASAAS_WEBHOOK_TOKEN`, e só depois de autenticado o handler resolve o `unitId` a partir do payload (via `Invoice.asaasPaymentId` ou `externalReference`). `BillingConfig.asaasWebhookTokenEnc` fica sem uso neste fluxo.
 
 **Ordem de validação (a sequência importa):**
 
@@ -154,23 +158,25 @@ Header: asaas-access-token: {token secreto da subconta}
 sequenceDiagram
     autonumber
     participant Asaas as Gateway Asaas
-    participant Webhook as API (/api/webhooks/asaas)
+    participant Webhook as API (/api/webhook)
     participant BaseDB as Prisma Base Client
     participant TenantDB as Prisma forUnit(unitId)
     participant Bus as Event Bus (In-Memory)
     participant InvSvc as invoice.service
     participant DunSvc as dunning.service
 
-    Asaas->>Webhook: POST /api/webhooks/asaas?unitId=X\nHeader: asaas-access-token
+    Asaas->>Webhook: POST /api/webhook\nHeader: asaas-access-token
 
     rect rgb(240, 240, 240)
         Note over Webhook, BaseDB: Autenticação & Deduplicação de Infra
-        Webhook->>BaseDB: Buscar BillingConfig por unitId (Sem tenant filter)
-        Webhook->>Webhook: Decriptar token e validar timing-safe
+        Webhook->>Webhook: timingSafeBearerEqual contra ASAAS_WEBHOOK_TOKEN (env global)
+        Webhook->>BaseDB: Buscar Invoice por asaasPaymentId/externalReference (resolve unitId)
         Webhook->>BaseDB: Buscar/Inserir WebhookEvent (Deduplicação por eventId)
     end
 
-    alt Evento duplicado / Processado
+    alt Token inválido
+        Webhook-->>Asaas: HTTP 401 (não processa)
+    else Evento duplicado / Processado
         Webhook-->>Asaas: HTTP 200 OK (Skip reprocessamento)
     else Evento novo
         rect rgb(230, 245, 230)
@@ -220,12 +226,12 @@ Padrão: `Promise.allSettled` (não `.all` — uma escola com API key inválida 
 
 ### 3.6 O que fica irreversível (Gate 2 — pendente da sua assinatura)
 
-1. **Chave `(enrollmentId, competencia)` do `Invoice`** — muda com dados reais só via migração com dinheiro envolvido.
-2. **Formato do `externalReference`** — fica gravado do lado da Asaas.
+1. **`idempotencyKey` (`enrollmentId:referenceMonth`) do `Invoice`** — muda com dados reais só via migração com dinheiro envolvido.
+2. **Formato do `externalReference`** (= `idempotencyKey`) — fica gravado do lado da Asaas.
 3. **URL e header do webhook** — registrados por subconta.
 
 **Decisões que precisam da sua assinatura:**
-1. **CONFIRMED vs RECEIVED** — qual evento dispara PAID interno. Recomendação do blueprint: `RECEIVED` (já é a inclinação registrada no repo; defasagem de ~1 dia para boleto/PIX, custo baixo).
+1. ~~CONFIRMED vs RECEIVED~~ — **já decidido e shipado**: `PAYMENT_RECEIVED` dispara PAID interno (`.claude/rules/asaas.md`, PR #39).
 2. **Fluid Compute está ativo?** — decide 300s vs. 10s de teto (não muda a recomendação de invocação única, muda o mecanismo).
 3. **Limites de contagem/frequência de cron do plano Vercel atual** — verificar antes de escrever `vercel.json`.
 4. **Aprovar a correção do `Date.now()`** em `.claude/rules/backend.md` (contradiz o anti-padrão listado na mesma rule).
@@ -293,14 +299,17 @@ Nenhuma dessas 4 fases exige revisitar a decisão de `DataTable`/`StatusBadge`/R
 
 Vocabulário de `api-design-patterns`: recurso-cêntrico, não ação-cêntrica; idempotency key em toda mutation que toca Asaas; verbo HTTP com o significado convencional.
 
+> **Nomenclatura corrigida em 03/set/2026**: rotas reais usam inglês (`/api/invoices`, regra de ouro #5 — nomenclatura inglesa nas entidades), não `/api/cobrancas` como esta tabela descrevia. `POST /api/enrollments/[id]/invoices` (avulsa) e `POST /api/billing/batch` (lote) já existem desde o EDU-24 — não são os mesmos endpoints da tabela original.
+
 | Método | Rota | Uso | Idempotência |
 |---|---|---|---|
-| `GET` | `/api/cobrancas` | Listagem (Server Component consome direto o Service — rota exposta só se algum client externo precisar) | — |
-| `GET` | `/api/cobrancas/{id}` | Detalhe | — |
-| `POST` | `/api/cobrancas` | Cobrança avulsa | **Obrigatória** — toca Asaas |
-| `POST` | `/api/cobrancas/{id}/reenviar` | Ação de estado, sub-resource (não `/reenviarCobranca`) | — |
-| `DELETE` | `/api/cobrancas/{id}` | Cancelar | — |
-| `POST` | `/api/webhooks/asaas` | Webhook (contrato em 3.2) | Dedup via `WebhookEvent.eventId` |
+| `GET` | `/api/invoices` | Listagem (EDU-27) | — |
+| `GET` | `/api/invoices/{id}` | Detalhe (EDU-28) | — |
+| `POST` | `/api/enrollments/{id}/invoices` | Cobrança avulsa (EDU-24, já construído) | **Obrigatória** — toca Asaas |
+| `POST` | `/api/billing/batch` | Cobrança em lote (EDU-24, já construído) | **Obrigatória** — toca Asaas |
+| `POST` | `/api/invoices/{id}/retry` | Reemitir Invoice ERROR (EDU-28) | Reusa `emitInvoice` (idempotente) |
+| `DELETE` | `/api/invoices/{id}` | Cancelar (EDU-28) | — |
+| `POST` | `/api/webhook` | Webhook (contrato em 3.2) | Dedup via `Payment.webhookEventId` (só cobre `PAYMENT_RECEIVED` — ver EDU-26) |
 
 Todas (exceto webhook) exigem `unitId` da sessão Clerk via `getUnitContext()` — nunca de parâmetro.
 

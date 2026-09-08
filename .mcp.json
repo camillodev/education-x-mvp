@@ -4,6 +4,7 @@
     "playwright": { "command": "npx", "args": ["@playwright/mcp@latest"] },
     "github": { "type": "http", "url": "https://api.githubcopilot.com/mcp/", "headers": { "Authorization": "Bearer ${GITHUB_PAT}" } },
     "supabase": { "type": "http", "url": "https://mcp.supabase.com/mcp?project_ref=${SUPABASE_PROJECT_REF}&read_only=true", "headers": { "Authorization": "Bearer ${SUPABASE_ACCESS_TOKEN}" } },
-    "vercel": { "type": "http", "url": "https://mcp.vercel.com" }
+    "vercel": { "type": "http", "url": "https://mcp.vercel.com" },
+    "asaas": { "type": "http", "url": "https://docs.asaas.com/mcp" }
   }
 }

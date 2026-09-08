@@ -277,10 +277,12 @@ O calendário é o piso confortável, não o teto. Uma semana mais lenta empurra
 ### Tarefa 3.3 — Webhook idempotente + event bus (M4, M9)
 - **Job**: receber eventos Asaas e despachar para handlers, sem duplicar e sem virar god-function
 - **Subtarefas**:
-  - `POST /api/webhooks/asaas` com token no **header `X-Asaas-Token`** (M9 — não em query string)
+  - `POST /api/webhook` com token no **header `asaas-access-token`** (M9 — não em query string,
+    comparado contra `ASAAS_WEBHOOK_TOKEN` global via `timingSafeEqual`)
   - **`WebhookEventBus` / `dispatchWebhookEvent(event)`** (M4): handlers se registram; 4.1 (NFS-e) e 5.2 (regularização) registram handler, **não editam o webhook**
   - `WebhookEvent` para idempotência (skip duplicado)
-  - Mapear evento Asaas → estado interno PAID (ver pendência CONFIRMED vs RECEIVED)
+  - Mapear evento Asaas → estado interno PAID: `PAYMENT_RECEIVED` (decidido — não `CONFIRMED`,
+    é o único evento que cobre boleto/PIX/cartão de forma consistente)
 - **DoD**: evento→handler via bus; token inválido→401; desconhecido→ignora; duplicado→skip; handler novo não toca no core do webhook
 - **Modelo**: **Sonnet** — idempotência, segurança e design de dispatcher
 - **Testes (Vitest)**: dispatch chama handler certo; 401 token errado; desconhecido; duplicado; handler isolado

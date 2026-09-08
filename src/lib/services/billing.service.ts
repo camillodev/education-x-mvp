@@ -1,13 +1,22 @@
 import { Prisma } from '@prisma/client'
 import { forUnit } from '../db'
 import { getAsaasClient } from '../integration/asaas/client'
-import type { Invoice } from '@prisma/client'
+import { decrypt } from '../crypto'
+import type { Invoice, InvoiceStatus } from '@prisma/client'
 
 export class EnrollmentNotStartedError extends Error {
   readonly status = 422
   constructor() {
     super('Enrollment sem startedAt não pode ter cobrança proporcional calculada')
     this.name = 'EnrollmentNotStartedError'
+  }
+}
+
+export class MissingAsaasKeyError extends Error {
+  readonly status = 409
+  constructor() {
+    super('Unit sem asaasApiKeyEnc configurada — não é possível emitir cobrança')
+    this.name = 'MissingAsaasKeyError'
   }
 }
 
@@ -77,8 +86,13 @@ export async function emitInvoice(
     throw new EnrollmentNotStartedError()
   }
 
-  const amountCents =
-    isFirstCharge && billingConfig.firstChargeMode === 'PROPORTIONAL'
+  // RN-13 — no retry de uma Invoice ERROR, reaproveita o amountCents já persistido na 1ª
+  // tentativa em vez de recalcular: isFirstChargeDone já é true nessa altura, então recalcular
+  // aqui usaria o valor cheio (RN-08/RN-09) mesmo quando a 1ª tentativa era PROPORTIONAL —
+  // cobrando o valor errado no boleto real da Asaas.
+  const amountCents = existing
+    ? existing.amountCents
+    : isFirstCharge && billingConfig.firstChargeMode === 'PROPORTIONAL'
       ? computeProportionalAmountCents(
           enrollment.finalPriceCents,
           enrollment.startedAt!,
@@ -121,6 +135,19 @@ export async function emitInvoice(
   // RN-02/RN-19 — Guardian sem asaasCustomerId: BLOCKED, nunca chama Asaas
   if (!enrollment.guardian.asaasCustomerId) return invoice
 
+  // Invoice ERROR com asaasPaymentId já preenchido: o createPayment anterior teve sucesso na
+  // Asaas, só o update local que grava o vínculo falhou (timeout/erro transitório de rede/DB).
+  // Retentar createPayment aqui criaria um SEGUNDO boleto real — a Asaas não deduplica por
+  // externalReference. O que falhou foi só o registro local, não a cobrança em si — mas o
+  // status ainda precisa ser promovido pra PENDING (dado legado de antes deste guard existir
+  // podia ter asaasPaymentId preenchido com status ainda ERROR, o que a travaria pra sempre).
+  if (invoice.asaasPaymentId) {
+    if (invoice.status === 'ERROR') {
+      return await db.invoice.update({ where: { id: invoice.id }, data: { status: 'PENDING' } })
+    }
+    return invoice
+  }
+
   const client = getAsaasClient(asaasApiKey)
 
   try {
@@ -137,6 +164,15 @@ export async function emitInvoice(
     return await db.invoice.update({
       where: { id: invoice.id },
       data: {
+        // status:PENDING é o que sai do retry — sem isso, uma Invoice ERROR que virou boleto
+        // real e cobrável ficaria marcada ERROR pra sempre. amountCents/netAmountCents/dueDate
+        // gravam exatamente o que foi enviado à Asaas nesta chamada, pra Invoice local nunca
+        // divergir do boleto real (relevante sobretudo no retry, onde ambos podem já ter sido
+        // recalculados desde a tentativa original).
+        status: 'PENDING',
+        amountCents,
+        netAmountCents: amountCents,
+        dueDate,
         asaasPaymentId: payment.id,
         asaasPaymentUrl: payment.invoiceUrl,
         asaasBankSlipUrl: payment.bankSlipUrl,
@@ -196,4 +232,99 @@ export async function emitBatchInvoices(
     select: { id: true },
   })
   return emitForEnrollments(unitId, enrollments.map((e) => e.id), referenceMonth, asaasApiKey)
+}
+
+// Cron diário — todas as matérias/turmas da Unit, sem filtro de subjectId (espelha emitBatchInvoices).
+export async function emitUnitInvoices(
+  unitId: string,
+  referenceMonth: string,
+  asaasApiKey: string
+): Promise<BatchEmitResult> {
+  const db = forUnit(unitId)
+  const enrollments = await db.enrollment.findMany({
+    where: { status: 'ACTIVE' },
+    select: { id: true },
+  })
+  return emitForEnrollments(unitId, enrollments.map((e) => e.id), referenceMonth, asaasApiKey)
+}
+
+export interface ListInvoicesFilters {
+  page?: number
+  status?: InvoiceStatus
+  referenceMonth?: string
+}
+
+export interface InvoiceListItem {
+  id: string
+  // enrollmentId é necessário pro frontend montar a URL de reemissão (POST
+  // /api/enrollments/[id]/invoices, EDU-24 — espera enrollmentId no path, não invoiceId).
+  // Vem grátis: é FK direto de Invoice, sem query extra (achado do RED do EDU-27 frontend).
+  enrollmentId: string
+  status: string
+  referenceMonth: string
+  amountCents: number
+  dueDate: Date
+  guardianName: string
+  studentName: string
+  subjectName: string
+}
+
+export interface ListInvoicesResult {
+  items: InvoiceListItem[]
+  page: number
+  totalPages: number
+  total: number
+}
+
+const PAGE_SIZE = 20
+
+// EDU-27 — lista de cobranças da Unit (US-F2-06), com paginação e filtros de status/mês.
+export async function listInvoices(
+  unitId: string,
+  filters: ListInvoicesFilters
+): Promise<ListInvoicesResult> {
+  const db = forUnit(unitId)
+  const page = filters.page ?? 1
+
+  const where: Prisma.InvoiceWhereInput = {
+    ...(filters.status !== undefined ? { status: filters.status } : {}),
+    ...(filters.referenceMonth !== undefined ? { referenceMonth: filters.referenceMonth } : {}),
+  }
+
+  const [rows, total] = await Promise.all([
+    db.invoice.findMany({
+      where,
+      // Vencimento mais próximo primeiro — é o que a secretaria precisa agir primeiro
+      // (cobrança vencida/vencendo), não o oposto (achado de code review, EDU-27).
+      orderBy: { dueDate: 'asc' },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: {
+        enrollment: {
+          select: {
+            guardian: { select: { id: true, name: true } },
+            student: { select: { id: true, nameEnc: true } },
+            subject: { select: { id: true, name: true } },
+          },
+        },
+      },
+    }),
+    db.invoice.count({ where }),
+  ])
+
+  const items = await Promise.all(
+    rows.map(async (row) => ({
+      id: row.id,
+      enrollmentId: row.enrollmentId,
+      status: row.status,
+      referenceMonth: row.referenceMonth,
+      amountCents: row.amountCents,
+      dueDate: row.dueDate,
+      guardianName: row.enrollment.guardian.name,
+      studentName: await decrypt(row.enrollment.student.nameEnc),
+      subjectName: row.enrollment.subject.name,
+    }))
+  )
+
+  return { items, page, totalPages: Math.ceil(total / PAGE_SIZE), total }
 }

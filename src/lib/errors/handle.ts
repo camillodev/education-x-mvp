@@ -7,7 +7,7 @@ import {
   AsaasProvisionError,
 } from '@/lib/services/onboarding.service'
 import { GuardianNotFoundError } from '@/lib/services/approval.service'
-import { EnrollmentNotStartedError } from '@/lib/services/billing.service'
+import { EnrollmentNotStartedError, MissingAsaasKeyError } from '@/lib/services/billing.service'
 
 export interface ErrorContext {
   /** Identificação da origem, ex: 'PATCH /api/escolas/[unitId]'. */
@@ -93,6 +93,9 @@ function mapKnown(error: unknown): Omit<HandledError, 'detail'> {
   }
   if (error instanceof EnrollmentNotStartedError) {
     return { message: 'Matrícula sem data de início — não é possível calcular a 1ª cobrança.', code: 'ENROLLMENT_NOT_STARTED', status: 422 }
+  }
+  if (error instanceof MissingAsaasKeyError) {
+    return { message: 'Escola sem chave Asaas configurada — não é possível emitir cobrança.', code: 'MISSING_ASAAS_KEY', status: 409 }
   }
   if (error instanceof ZodError) {
     return { message: 'Dados inválidos. Confira os campos destacados.', code: 'VALIDATION', status: 400 }

@@ -3,7 +3,7 @@
 const WizardShell = ({ step, title, sub, children, footer, back }) => (
   <div style={{ maxWidth: 760, margin: "0 auto", padding: "32px 28px 80px" }}>
     <div style={{ marginBottom: 28 }}>
-      <Stepper steps={["Dados da escola", "Regras de cobrança", "Documentos", "Revisão"]} current={step} />
+      <Stepper steps={["Dados da escola", "Regras de cobrança", "Contrato", "Revisão"]} current={step} />
     </div>
     <Card style={{ padding: 32 }}>
       <div style={{ marginBottom: 26 }}>
@@ -54,20 +54,30 @@ const FeeRouter = ({ label, hint, value, onChange }) => {
   );
 };
 
-const FlowA = ({ exit, onDone, onImport }) => {
+const FlowA = ({ exit, onDone, onImport, go, setSel }) => {
   const [sub, setSub] = useState(0); // 0=list,1=step0..4=step3,5=loading,6=success
   const [f, setF] = useState({
     nome: "Kumon Camargos", cnpj: "12.345.678/0001-90", email: "contato@kumoncamargos.com.br", tel: "(31) 3456-7890",
     cep: "30575-160", endereco: "Av. Tito Fulgêncio, 420", complemento: "", cidade: "Belo Horizonte", uf: "MG",
     vencimento: "10", fechamento: "25", multa: "2", juros: "1",
     habilitaSpc: true, autoCobranca: true, aceitaCartao: true,
-    nf: true, inscricao: "1.234.567-8",
-    servicoCodes: [{ materia: "Geral", codigo: "08.01 — Ensino regular" }],
     contrato: "",
     taxaCartao: "responsavel", taxaNegativacao: "responsavel",
     franquia: false, franquiaMae: "",
   });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+
+  // criar vs editar escola — o wizard é o mesmo, só muda o preenchimento e o copy
+  const [editId, setEditId] = useState(null);
+  const slugEmail = (nome) => "contato@" + nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "") + ".com.br";
+  const novaEscola = () => { setEditId(null); setSub(1); };
+  const editarEscola = (e) => {
+    setEditId(e.id);
+    setF((prev) => ({ ...prev, nome: e.nome, cnpj: e.cnpj, email: slugEmail(e.nome),
+      franquia: true, franquiaMae: e.franquia,
+      habilitaSpc: e.status === "ativa", autoCobranca: e.status === "ativa" }));
+    setSub(1);
+  };
 
   // A0 list controls — search / filtros / paginação
   const [q, setQ] = useState("");
@@ -97,7 +107,7 @@ const FlowA = ({ exit, onDone, onImport }) => {
       { h: "Status", a: "left" }, { h: "", a: "right" },
     ];
     return (
-      <AdminShell back={exit}>
+      <AdminShell back={exit} go={go}>
         <div style={{ maxWidth: 1120, margin: "0 auto", padding: "28px 28px 40px", display: "flex", flexDirection: "column", minHeight: "calc(100vh - 64px)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20, gap: 16, flexWrap: "wrap" }}>
             <div>
@@ -105,21 +115,20 @@ const FlowA = ({ exit, onDone, onImport }) => {
               <h1 style={{ margin: 0, fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em" }}>Gestão de escolas</h1>
               <p style={{ margin: "6px 0 0", fontSize: 14, color: "var(--color-text-muted)" }}>Onboarde uma unidade e ela já cobra os pais dela no mesmo dia.</p>
             </div>
-            <Button size="lg" iconLeft="plus" onClick={() => setSub(1)}>Nova escola</Button>
+            <Button size="lg" iconLeft="plus" onClick={novaEscola}>Nova escola</Button>
           </div>
 
-          {/* toolbar: busca + filtros */}
+          {/* toolbar: busca + filtros (mesma linha; quebra com elegância no laptop) */}
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
             <Input value={q} onChange={(e) => { setQ(e.target.value); resetPage(); }} leadingIcon="search"
-              placeholder="Buscar por escola, franquia ou CNPJ" style={{ flex: "1 1 280px", maxWidth: 360, height: 42 }} />
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <Chip label="Todas as franquias" active={fFranquia === "todas"} onClick={() => { setFFranquia("todas"); resetPage(); }} />
-              {franquias.map((fr) => (
-                <Chip key={fr} label={fr} active={fFranquia === fr} onClick={() => { setFFranquia(fr); resetPage(); }} />
-              ))}
-            </div>
-            <Segmented style={{ marginLeft: "auto" }} value={fStatus} onChange={(v) => { setFStatus(v); resetPage(); }}
-              options={[{ value: "todos", label: "Todas" }, { value: "ativa", label: "Ativas" }, { value: "suspensa", label: "Suspensas" }]} />
+              placeholder="Buscar por escola, franquia ou CNPJ" style={{ flex: "1 1 240px", minWidth: 220, maxWidth: 380, height: 42 }} />
+            <Select value={fFranquia} leadingIcon="git-branch"
+              onChange={(e) => { setFFranquia(e.target.value); resetPage(); }}
+              options={[{ value: "todas", label: "Todas as franquias" }, ...franquias.map((fr) => ({ value: fr, label: fr }))]}
+              style={{ marginLeft: "auto", flexShrink: 0 }} />
+            <Segmented size="sm" value={fStatus} onChange={(v) => { setFStatus(v); resetPage(); }}
+              options={[{ value: "todos", label: "Todas" }, { value: "ativa", label: "Ativas" }, { value: "suspensa", label: "Suspensas" }]}
+              style={{ flexShrink: 0 }} />
           </div>
 
           <Card style={{ overflow: "hidden", flex: "0 0 auto" }}>
@@ -151,7 +160,10 @@ const FlowA = ({ exit, onDone, onImport }) => {
                         {e.status === "ativa" ? <Badge variant="success" dot>Ativa</Badge> : <Badge variant="danger" dot>Suspensa</Badge>}
                       </td>
                       <td style={{ padding: "13px 14px", textAlign: "right" }}>
-                        <Button variant="tertiary" size="sm" iconRight="chevron-right" onClick={() => e.id === "camargos" && onDone()}>Abrir</Button>
+                        <div style={{ display: "inline-flex", gap: 6 }}>
+                          <Button variant="tertiary" size="sm" iconLeft="book-open" onClick={() => { setSel(e.id); go("materias"); }}>Matérias</Button>
+                          <Button variant="tertiary" size="sm" iconLeft="pencil" onClick={() => editarEscola(e)}>Editar</Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -170,15 +182,7 @@ const FlowA = ({ exit, onDone, onImport }) => {
               {filtered.length === 0 ? "0 escolas" :
                 `${cur * PAGE + 1}–${Math.min(cur * PAGE + PAGE, filtered.length)} de ${filtered.length} escolas`}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Button variant="tertiary" size="sm" iconLeft="chevron-left" disabled={cur === 0} onClick={() => setPage(cur - 1)}>Anterior</Button>
-              {Array.from({ length: pageCount }).map((_, i) => (
-                <button key={i} onClick={() => setPage(i)}
-                  style={{ width: 34, height: 34, borderRadius: 9, cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: 13.5, fontWeight: 600,
-                    border: `1px solid ${i === cur ? "var(--color-primary)" : "var(--color-border)"}`,
-                    background: i === cur ? "var(--color-primary)" : "var(--color-bg)",
-                    color: i === cur ? "#fff" : "var(--color-text-muted)" }}>{i + 1}</button>
-              ))}
-              <Button variant="tertiary" size="sm" iconRight="chevron-right" disabled={cur >= pageCount - 1} onClick={() => setPage(cur + 1)}>Próxima</Button>
+              <Pagination page={cur} pages={pageCount} onChange={setPage} />
             </div>
           </div>
         </div>
@@ -189,8 +193,8 @@ const FlowA = ({ exit, onDone, onImport }) => {
   // A1 — Dados da escola
   if (sub === 1) {
     return (
-      <AdminShell back={exit}>
-        <WizardShell step={0} title="Dados da escola" sub="Identificação e contato da unidade. Tudo é salvo como rascunho automaticamente." back={() => setSub(0)}
+      <AdminShell back={exit} go={go}>
+        <WizardShell step={0} title={editId ? "Editar — dados da escola" : "Dados da escola"} sub={editId ? `Ajuste os dados de ${f.nome}. As alterações são salvas ao concluir a revisão.` : "Identificação e contato da unidade. Tudo é salvo como rascunho automaticamente."} back={() => setSub(0)}
           footer={<Button size="lg" iconRight="arrow-right" onClick={() => setSub(2)}>Próximo</Button>}>
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <Field label="Nome da escola" required><Input value={f.nome} onChange={set("nome")} leadingIcon="building-2" /></Field>
@@ -237,7 +241,7 @@ const FlowA = ({ exit, onDone, onImport }) => {
   // A2 — Regras de cobrança
   if (sub === 2) {
     return (
-      <AdminShell back={exit}>
+      <AdminShell back={exit} go={go}>
         <WizardShell step={1} title="Regras de cobrança" sub="Defaults sensatos já preenchidos — ajuste se a unidade pedir." back={() => setSub(1)}
           footer={<Button size="lg" iconRight="arrow-right" onClick={() => setSub(3)}>Próximo</Button>}>
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -298,43 +302,10 @@ const FlowA = ({ exit, onDone, onImport }) => {
   // A3 — Documentos: NF obrigatória + contrato da escola
   if (sub === 3) {
     return (
-      <AdminShell back={exit}>
-        <WizardShell step={2} title="Documentos" sub="Nota fiscal e o contrato que a escola usa com os responsáveis." back={() => setSub(2)}
+      <AdminShell back={exit} go={go}>
+        <WizardShell step={2} title="Contrato" sub="O contrato que a escola usa com os responsáveis na matrícula. Dados fiscais (NFS-e) ficam em Configurações > Fiscal." back={() => setSub(2)}
           footer={<Button size="lg" iconRight="arrow-right" onClick={() => setSub(4)}>Próximo</Button>}>
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                  <Icon name="file-text" size={18} color="var(--color-primary)" />
-                  <span style={{ fontSize: 15.5, fontWeight: 700 }}>Nota fiscal</span>
-                </div>
-                <Badge variant="primary"><Icon name="lock" size={12} />Obrigatória</Badge>
-              </div>
-              <p style={{ margin: "0 0 16px", fontSize: 13.5, color: "var(--color-text-subtle)", lineHeight: 1.5 }}>
-                A NFS-e é emitida automaticamente a cada pagamento confirmado — exigência fiscal, sempre ativa.</p>
-              <Row2>
-                <Field label="Inscrição municipal" required><Input value={f.inscricao} onChange={set("inscricao")} /></Field>
-              </Row2>
-              <div style={{ marginTop: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <Field label="Códigos de serviço por matéria" hint="O código varia por matéria ensinada"><span /></Field>
-                  <Button variant="tertiary" size="sm" iconLeft="plus" onClick={() => setF({ ...f, servicoCodes: [...f.servicoCodes, { materia: "", codigo: "" }] })}>Adicionar</Button>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {f.servicoCodes.map((sc, i) => (
-                    <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <Input value={sc.materia} onChange={(e) => { const ns = [...f.servicoCodes]; ns[i] = { ...ns[i], materia: e.target.value }; setF({ ...f, servicoCodes: ns }); }} placeholder="Matéria" style={{ flex: 0.8 }} />
-                      <Input value={sc.codigo} onChange={(e) => { const ns = [...f.servicoCodes]; ns[i] = { ...ns[i], codigo: e.target.value }; setF({ ...f, servicoCodes: ns }); }} placeholder="Código (ex: 08.01)" style={{ flex: 1.2 }} />
-                      {f.servicoCodes.length > 1 && (
-                        <button onClick={() => setF({ ...f, servicoCodes: f.servicoCodes.filter((_, j) => j !== i) })} style={{ width: 42, height: 46, border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", background: "var(--color-bg)", cursor: "pointer", color: "var(--color-text-subtle)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          <Icon name="trash-2" size={15} /></button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div style={{ height: 1, background: "var(--color-border-muted)" }} />
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 6 }}>
                 <Icon name="file-signature" size={18} color="var(--color-primary)" />
@@ -358,12 +329,12 @@ const FlowA = ({ exit, onDone, onImport }) => {
     const reviewBlocks = [
       { t: "Dados da escola", icon: "building-2", to: 1, rows: [["Nome", f.nome], ["CNPJ", f.cnpj], ["Contato", f.email], ["Endereço", `${f.endereco}, ${f.cidade}/${f.uf}`]] },
       { t: "Regras de cobrança", icon: "receipt", to: 2, rows: [["Vencimento", `Dia ${f.vencimento}`], ["Fechamento", `Dia ${f.fechamento}`], ["Multa", `${f.multa}%`], ["Juros", `${f.juros}% a.m.`], ["Taxa de cartão", f.taxaCartao === "responsavel" ? "Responsável paga" : "Escola assume"], ["Taxa de negativação", f.taxaNegativacao === "responsavel" ? "Responsável paga" : "Escola assume"]] },
-      { t: "Documentos", icon: "file-text", to: 3, rows: [["Nota fiscal", "Obrigatória · ativa"], ["Inscrição municipal", f.inscricao], ["Código de serviço", f.servico], ["Contrato", f.contrato || "Não anexado"]] },
+      { t: "Contrato", icon: "file-signature", to: 3, rows: [["Contrato de matrícula", f.contrato || "Não anexado"]] },
     ];
     return (
-      <AdminShell back={exit}>
-        <WizardShell step={3} title="Revisão" sub="Confira tudo antes de criar a subconta de pagamentos." back={() => setSub(3)}
-          footer={<Button size="lg" iconRight="sparkles" onClick={() => { setSub(5); setTimeout(() => setSub(6), 2600); }}>Criar escola</Button>}>
+      <AdminShell back={exit} go={go}>
+        <WizardShell step={3} title="Revisão" sub={editId ? "Confira as alterações antes de salvar." : "Confira tudo antes de criar a subconta de pagamentos."} back={() => setSub(3)}
+          footer={<Button size="lg" iconRight={editId ? "check" : "sparkles"} onClick={() => { setSub(5); setTimeout(() => setSub(6), 2600); }}>{editId ? "Salvar alterações" : "Criar escola"}</Button>}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {reviewBlocks.map((b) => (
               <div key={b.t} style={{ border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
@@ -390,16 +361,16 @@ const FlowA = ({ exit, onDone, onImport }) => {
   // A4b — Loading (criação da subconta — momento da verdade)
   if (sub === 5) {
     return (
-      <AdminShell>
+      <AdminShell go={go}>
         <div style={{ minHeight: "calc(100vh - 64px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ textAlign: "center", maxWidth: 380, padding: 24 }}>
             <div style={{ width: 64, height: 64, margin: "0 auto 24px", borderRadius: "50%", border: "4px solid var(--color-primary-soft)",
               borderTopColor: "var(--color-primary)", animation: "ex-spin 0.8s linear infinite" }} />
-            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Criando subconta…</h2>
+            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{editId ? "Salvando alterações…" : "Criando subconta…"}</h2>
             <p style={{ margin: "10px 0 0", fontSize: 14.5, color: "var(--color-text-muted)", lineHeight: 1.5 }}>
-              Conectando {f.nome} ao gateway de pagamentos. Nada é salvo pela metade — se algo falhar, fazemos rollback automático.</p>
+              {editId ? `Atualizando os dados de ${f.nome}. Nada é salvo pela metade — se algo falhar, fazemos rollback automático.` : `Conectando ${f.nome} ao gateway de pagamentos. Nada é salvo pela metade — se algo falhar, fazemos rollback automático.`}</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 24, textAlign: "left" }}>
-              {["Validando CNPJ", "Criando subconta de pagamentos", "Aplicando regras de cobrança"].map((s, i) => (
+              {(editId ? ["Validando CNPJ", "Atualizando regras de cobrança", "Aplicando alterações"] : ["Validando CNPJ", "Criando subconta de pagamentos", "Aplicando regras de cobrança"]).map((s, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, color: "var(--color-text-muted)" }}>
                   <Icon name="check-circle-2" size={16} color="var(--color-primary)" />{s}</div>
               ))}
@@ -412,19 +383,23 @@ const FlowA = ({ exit, onDone, onImport }) => {
 
   // A5 — Sucesso
   return (
-    <AdminShell>
+    <AdminShell go={go}>
       <div style={{ minHeight: "calc(100vh - 64px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center", maxWidth: 440, padding: 24, animation: "ex-scale-in 320ms ease" }}>
           <div style={{ width: 76, height: 76, margin: "0 auto 24px", borderRadius: "50%", background: "var(--badge-success-bg)",
             display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Icon name="check" size={40} color="var(--badge-success-fg)" strokeWidth={3} />
           </div>
-          <h2 style={{ margin: 0, fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em" }}>Kumon Camargos conectada</h2>
+          <h2 style={{ margin: 0, fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em" }}>{editId ? `${f.nome} atualizada` : `${f.nome} conectada`}</h2>
           <p style={{ margin: "12px 0 0", fontSize: 15.5, color: "var(--color-text-muted)", lineHeight: 1.55 }}>
-            Pronta para cobrar. A subconta foi criada e as regras já estão valendo — a 1ª cobrança pode sair hoje mesmo.</p>
+            {editId ? "As alterações foram salvas e já estão valendo para as próximas cobranças da unidade." : "Pronta para cobrar. A subconta foi criada e as regras já estão valendo — a 1ª cobrança pode sair hoje mesmo."}</p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 28 }}>
-            <Button variant="secondary" size="lg" iconLeft="upload" onClick={onImport}>Importar matrículas</Button>
-            <Button size="lg" iconRight="arrow-right" onClick={onDone}>Ir para o painel</Button>
+            {editId
+              ? <Button size="lg" iconLeft="arrow-left" onClick={() => setSub(0)}>Voltar às escolas</Button>
+              : <>
+                  <Button variant="secondary" size="lg" iconLeft="upload" onClick={onImport}>Importar matrículas</Button>
+                  <Button size="lg" iconRight="arrow-right" onClick={onDone}>Ir para o painel</Button>
+                </>}
           </div>
         </div>
       </div>

@@ -15,3 +15,10 @@ export const EmitBatchBodySchema = z.object({
   subjectId: z.string().min(1, 'subjectId é obrigatório'),
   referenceMonth: ReferenceMonthSchema,
 })
+
+// Query params de GET /api/invoices (EDU-27) — status espelha o enum InvoiceStatus do Prisma.
+export const ListInvoicesQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  status: z.enum(['PENDING', 'PAID', 'OVERDUE', 'CANCELLED', 'BLOCKED', 'ERROR']).optional(),
+  referenceMonth: ReferenceMonthSchema,
+})
