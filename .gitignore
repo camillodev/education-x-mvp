@@ -13,6 +13,9 @@ node_modules/
 
 # next / build
 .next/
+
+# Clerk keyless dev mode (chaves temporárias locais)
+.clerk/
 out/
 build/
 dist/

@@ -1,19 +1,12 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import { decrypt } from '@/lib/crypto'
-import { emitUnitInvoices } from '@/lib/services/billing.service'
+import { emitDueInvoicesForActiveUnits } from '@/lib/services/billing.service'
 import { errorResponse } from '@/lib/errors/handle'
 import { timingSafeBearerEqual } from '@/lib/auth/timing-safe'
 import { currentReferenceMonth } from '@/lib/reference-month'
 
-type UnitResult =
-  | { unitId: string; ok: true; emitted: number; skipped: number; blocked: number; errors: number }
-  | { unitId: string; ok: false; error: string }
-
-// Cron diário (Vercel Cron, vercel.json roda "0 11 * * *"). Cada Unit só é processada quando
-// o dia corrente já alcançou o closingDay da própria régua — isso é o que dá o retry de
-// D+1/D+2 de uma Invoice ERROR (RN-13): o cron passa todo dia pela mesma Unit depois do
-// closingDay, e emitUnitInvoices → emitInvoice já sabe reaproveitar/re-tentar o que ficou ERROR.
+// Cron diário (Vercel Cron, vercel.json roda "0 11 * * *"). Seleção de Units elegíveis e
+// orquestração por RN-13 vivem em emitDueInvoicesForActiveUnits (billing.service.ts) — a
+// rota só autentica e delega (achado de code review: lógica de negócio não pertence aqui).
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: Request) {
@@ -28,35 +21,9 @@ export async function GET(req: Request) {
   }
 
   const referenceMonth = currentReferenceMonth()
-  const results: UnitResult[] = []
 
   try {
-    const units = await prisma.unit.findMany({
-      where: { status: 'ACTIVE', billingConfig: { autoBilling: true } },
-      select: { id: true, asaasApiKeyEnc: true, billingConfig: { select: { closingDay: true } } },
-    })
-
-    const today = new Date().getUTCDate()
-
-    for (const unit of units) {
-      if (!unit.billingConfig) continue
-      if (today < unit.billingConfig.closingDay) continue
-
-      if (!unit.asaasApiKeyEnc) {
-        results.push({ unitId: unit.id, ok: false, error: 'sem asaasApiKeyEnc' })
-        continue
-      }
-
-      try {
-        const asaasApiKey = await decrypt(unit.asaasApiKeyEnc)
-        const r = await emitUnitInvoices(unit.id, referenceMonth, asaasApiKey)
-        results.push({ unitId: unit.id, ok: true, emitted: r.emitted, skipped: r.skipped, blocked: r.blocked, errors: r.errors })
-      } catch (err) {
-        console.error(`[GET /api/cron/billing] unit=${unit.id}`, err)
-        results.push({ unitId: unit.id, ok: false, error: err instanceof Error ? err.message : 'erro desconhecido' })
-      }
-    }
-
+    const results = await emitDueInvoicesForActiveUnits(referenceMonth)
     return NextResponse.json({ referenceMonth, results }, { status: 200 })
   } catch (err) {
     return errorResponse(err, { route: 'GET /api/cron/billing' })

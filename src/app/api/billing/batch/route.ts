@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import { decrypt } from '@/lib/crypto'
-import { emitBatchInvoices, MissingAsaasKeyError } from '@/lib/services/billing.service'
+import { emitBatchInvoices, resolveUnitAsaasKey } from '@/lib/services/billing.service'
 import { errorResponse } from '@/lib/errors/handle'
 import { guardOrientador } from '@/lib/api/guard'
 import { EmitBatchBodySchema } from '@/lib/validations/billing'
@@ -17,13 +15,7 @@ export async function POST(req: Request) {
     const rawBody = await req.json().catch(() => ({}))
     const { subjectId, referenceMonth = currentReferenceMonth() } = EmitBatchBodySchema.parse(rawBody)
 
-    const unit = await prisma.unit.findUnique({
-      where: { id: ctx.unitId },
-      select: { asaasApiKeyEnc: true },
-    })
-    if (!unit?.asaasApiKeyEnc) throw new MissingAsaasKeyError()
-    const asaasApiKey = await decrypt(unit.asaasApiKeyEnc)
-
+    const asaasApiKey = await resolveUnitAsaasKey(ctx.unitId)
     const result = await emitBatchInvoices(ctx.unitId, subjectId, referenceMonth, asaasApiKey)
     return NextResponse.json(result, { status: 200 })
   } catch (err) {
