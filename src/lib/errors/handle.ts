@@ -16,6 +16,12 @@ export interface ErrorContext {
   unitId?: string
   /** Sobrescreve a mensagem amigável padrão, se quiser algo específico. */
   userMessage?: string
+  /**
+   * true só em rota admin-only (Admin IX). Rota tenant-facing (orientador/responsável)
+   * nunca deve setar isso — `detail` (causa técnica real: erro do Prisma, do decrypt, etc.)
+   * fica de fora da resposta HTTP, mesmo inspecionável via DevTools de rede.
+   */
+  exposeDetail?: boolean
 }
 
 export interface HandledError {
@@ -65,13 +71,14 @@ export function handleError(error: unknown, ctx: ErrorContext): HandledError {
 
 /**
  * Atalho: trata o erro e já devolve o NextResponse padronizado.
- * Resposta sempre inclui `error` (amigável), `code` e `detail` (causa técnica real).
+ * Resposta sempre inclui `error` (amigável) e `code`. `detail` (causa técnica real)
+ * só entra no corpo quando `ctx.exposeDetail` for true — reservado para rota admin.
  * Use nas rotas: `return errorResponse(err, { route: '...' })`.
  */
 export function errorResponse(error: unknown, ctx: ErrorContext): NextResponse {
   const h = handleError(error, ctx)
   return NextResponse.json(
-    { error: h.message, code: h.code, detail: h.detail },
+    { error: h.message, code: h.code, ...(ctx.exposeDetail ? { detail: h.detail } : {}) },
     { status: h.status }
   )
 }

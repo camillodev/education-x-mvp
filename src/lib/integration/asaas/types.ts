@@ -3,22 +3,29 @@
 export type AsaasEnv = "sandbox" | "production";
 export type AsaasMode = "mock" | "live";
 
-export type AsaasBillingType = "BOLETO" | "CREDIT_CARD" | "PIX" | "UNDEFINED";
+// Listas de valores como const (não só o type) para que consumidores como Zod (ex:
+// src/app/api/webhook/route.ts) derivem o schema de validação daqui em vez de duplicar os
+// literais manualmente — regra do projeto "Zod schema = fonte de tipos", aplicada ao inverso
+// aqui porque este arquivo já é a fonte curada desses enums vindos da API Asaas.
+export const ASAAS_BILLING_TYPES = ["BOLETO", "CREDIT_CARD", "PIX", "UNDEFINED"] as const;
+export type AsaasBillingType = (typeof ASAAS_BILLING_TYPES)[number];
 
-export type AsaasPaymentStatus =
-  | "PENDING"
-  | "RECEIVED"
-  | "CONFIRMED"
-  | "OVERDUE"
-  | "REFUNDED"
-  | "RECEIVED_IN_CASH"
-  | "REFUND_REQUESTED"
-  | "CHARGEBACK_REQUESTED"
-  | "CHARGEBACK_DISPUTE"
-  | "AWAITING_CHARGEBACK_REVERSAL"
-  | "DUNNING_REQUESTED"
-  | "DUNNING_RECEIVED"
-  | "AWAITING_RISK_ANALYSIS";
+export const ASAAS_PAYMENT_STATUSES = [
+  "PENDING",
+  "RECEIVED",
+  "CONFIRMED",
+  "OVERDUE",
+  "REFUNDED",
+  "RECEIVED_IN_CASH",
+  "REFUND_REQUESTED",
+  "CHARGEBACK_REQUESTED",
+  "CHARGEBACK_DISPUTE",
+  "AWAITING_CHARGEBACK_REVERSAL",
+  "DUNNING_REQUESTED",
+  "DUNNING_RECEIVED",
+  "AWAITING_RISK_ANALYSIS",
+] as const;
+export type AsaasPaymentStatus = (typeof ASAAS_PAYMENT_STATUSES)[number];
 
 export type AsaasNotificationEvent =
   | "PAYMENT_CREATED"
@@ -209,7 +216,12 @@ export interface AsaasNotificationSettings {
 // --- Webhook event (received by our handler) ---
 
 export interface AsaasWebhookPayload {
+  // `id` do envelope (ex: "evt_..."), NÃO payment.id — é a chave de idempotência do evento
+  // (Asaas usa entrega at-least-once; o mesmo `id` pode ser reenviado). Ver
+  // docs.asaas.com/docs/como-implementar-idempotencia-em-webhooks.
+  id: string;
   event: string;
+  dateCreated?: string;
   payment: {
     id: string;
     status: AsaasPaymentStatus;
@@ -217,6 +229,9 @@ export interface AsaasWebhookPayload {
     paymentDate?: string;
     clientPaymentDate?: string;
     externalReference?: string;
-    billingType: AsaasBillingType;
+    // string solto (não AsaasBillingType) de propósito: nosso webhook handler não consome esse
+    // campo, e a Asaas pode adicionar valores novos sem aviso — travar num enum estrito aqui
+    // rejeitaria um pagamento real só por um billingType desconhecido que nunca é lido.
+    billingType: string;
   };
 }

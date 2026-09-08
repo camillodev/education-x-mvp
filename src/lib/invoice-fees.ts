@@ -1,7 +1,7 @@
-// Função pura extraída de invoice-detail.service.ts pra poder ser importada em Client
-// Components (a tela de detalhe usa isso pra exibir multa/juros) sem puxar Prisma/forUnit
-// pro bundle do browser — importar o service inteiro nesse caso inflava o bundle de
-// /cobrancas/[id] de ~5kB pra ~150kB (Prisma Client entrando no client-side).
+// Função pura de cálculo de multa/juros por atraso, separada de invoice-detail.service.ts
+// pra poder ser importada em Client Components sem puxar Prisma/forUnit pro bundle do
+// browser — importar o service inteiro nesse caso inflava o bundle client (Prisma Client
+// entrando no client-side).
 export function calculateLateFeeAndInterest(
   billingConfig: { lateFeePercent: number; monthlyInterestBp: number },
   amountCents: number,

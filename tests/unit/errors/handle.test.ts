@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { handleError } from '@/lib/errors/handle'
+import { handleError, errorResponse } from '@/lib/errors/handle'
 import { DuplicateCnpjError, UnitNotFoundError } from '@/lib/services/onboarding.service'
 import { GuardianNotFoundError } from '@/lib/services/approval.service'
 
@@ -43,5 +43,28 @@ describe('handleError', () => {
   it('mapeia GuardianNotFoundError para NOT_FOUND', () => {
     const out = handleError(new GuardianNotFoundError(), { route: 'POST /x' })
     expect(out.code).toBe('NOT_FOUND')
+  })
+})
+
+describe('errorResponse', () => {
+  beforeEach(() => vi.spyOn(console, 'error').mockImplementation(() => {}))
+  afterEach(() => vi.restoreAllMocks())
+
+  // Achado de code review: errorResponse era chamado por rota tenant-facing
+  // (GET /api/invoices) que vazava a causa técnica real (Prisma, decrypt, etc.) no JSON
+  // — inspecionável via DevTools de rede mesmo sem aparecer na UI. `detail` agora só
+  // entra na resposta quando a rota é explicitamente admin (`exposeDetail: true`).
+  it('sem exposeDetail (rota tenant-facing): resposta não inclui detail', async () => {
+    const res = errorResponse(new Error('connection refused at 5432'), { route: 'GET /api/invoices', unitId: 'u1' })
+    const body = await res.json()
+    expect(body.detail).toBeUndefined()
+    expect(body.error).toBeDefined()
+    expect(body.code).toBe('INTERNAL')
+  })
+
+  it('com exposeDetail:true (rota admin): resposta inclui detail', async () => {
+    const res = errorResponse(new Error('connection refused at 5432'), { route: 'GET /api/escolas', exposeDetail: true })
+    const body = await res.json()
+    expect(body.detail).toBe('connection refused at 5432')
   })
 })

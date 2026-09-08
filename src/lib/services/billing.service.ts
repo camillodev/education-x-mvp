@@ -1,7 +1,8 @@
 import { Prisma } from '@prisma/client'
-import { forUnit } from '../db'
+import { forUnit, prisma } from '../db'
 import { getAsaasClient } from '../integration/asaas/client'
-import type { Invoice } from '@prisma/client'
+import { decrypt } from '../crypto'
+import type { Invoice, InvoiceStatus } from '@prisma/client'
 
 export class EnrollmentNotStartedError extends Error {
   readonly status = 422
@@ -17,6 +18,15 @@ export class MissingAsaasKeyError extends Error {
     super('Unit sem asaasApiKeyEnc configurada — não é possível emitir cobrança')
     this.name = 'MissingAsaasKeyError'
   }
+}
+
+// Busca + decrypt da chave Asaas da Unit — extraído dos route handlers de emissão
+// (batch e avulsa duplicavam este bloco idêntico; achado de code review).
+export async function resolveUnitAsaasKey(unitId: string): Promise<string> {
+  const db = forUnit(unitId)
+  const unit = await db.unit.findUnique({ where: { id: unitId }, select: { asaasApiKeyEnc: true } })
+  if (!unit?.asaasApiKeyEnc) throw new MissingAsaasKeyError()
+  return decrypt(unit.asaasApiKeyEnc)
 }
 
 // Cálculos de data em UTC sempre — Enrollment.startedAt é um timestamp absoluto e
@@ -245,4 +255,134 @@ export async function emitUnitInvoices(
     select: { id: true },
   })
   return emitForEnrollments(unitId, enrollments.map((e) => e.id), referenceMonth, asaasApiKey)
+}
+
+export type UnitEmitResult =
+  | { unitId: string; ok: true; emitted: number; skipped: number; blocked: number; errors: number }
+  | { unitId: string; ok: false; error: string }
+
+// RN-13 — orquestração do cron diário: seleciona Units com autoBilling ativo, só processa
+// as que já alcançaram o closingDay da própria régua (retry de D+1/D+2 vem de graça: o cron
+// passa todo dia pela mesma Unit depois do closingDay, e emitUnitInvoices → emitInvoice já
+// sabe reaproveitar/re-tentar o que ficou ERROR). Extraído do route handler do cron — era
+// lógica de negócio vivendo na rota (achado de code review).
+export async function emitDueInvoicesForActiveUnits(referenceMonth: string): Promise<UnitEmitResult[]> {
+  const units = await prisma.unit.findMany({
+    where: { status: 'ACTIVE', billingConfig: { autoBilling: true } },
+    select: { id: true, asaasApiKeyEnc: true, billingConfig: { select: { closingDay: true } } },
+  })
+
+  const today = new Date().getUTCDate()
+  const results: UnitEmitResult[] = []
+
+  for (const unit of units) {
+    if (!unit.billingConfig) continue
+    if (today < unit.billingConfig.closingDay) continue
+
+    if (!unit.asaasApiKeyEnc) {
+      results.push({ unitId: unit.id, ok: false, error: 'sem asaasApiKeyEnc' })
+      continue
+    }
+
+    try {
+      const asaasApiKey = await decrypt(unit.asaasApiKeyEnc)
+      const r = await emitUnitInvoices(unit.id, referenceMonth, asaasApiKey)
+      results.push({ unitId: unit.id, ok: true, emitted: r.emitted, skipped: r.skipped, blocked: r.blocked, errors: r.errors })
+    } catch (err) {
+      console.error(`[emitDueInvoicesForActiveUnits] unit=${unit.id}`, err)
+      results.push({ unitId: unit.id, ok: false, error: err instanceof Error ? err.message : 'erro desconhecido' })
+    }
+  }
+
+  return results
+}
+
+export interface ListInvoicesFilters {
+  page?: number
+  status?: InvoiceStatus
+  referenceMonth?: string
+}
+
+export interface InvoiceListItem {
+  id: string
+  // enrollmentId é necessário pro frontend montar a URL de reemissão (POST
+  // /api/enrollments/[id]/invoices, EDU-24 — espera enrollmentId no path, não invoiceId).
+  // Vem grátis: é FK direto de Invoice, sem query extra (achado do RED do EDU-27 frontend).
+  enrollmentId: string
+  status: string
+  referenceMonth: string
+  amountCents: number
+  dueDate: Date
+  guardianName: string
+  studentName: string
+  subjectName: string
+}
+
+export interface ListInvoicesResult {
+  items: InvoiceListItem[]
+  page: number
+  totalPages: number
+  total: number
+}
+
+const PAGE_SIZE = 20
+
+// EDU-27 — lista de cobranças da Unit (US-F2-06), com paginação e filtros de status/mês.
+export async function listInvoices(
+  unitId: string,
+  filters: ListInvoicesFilters
+): Promise<ListInvoicesResult> {
+  const db = forUnit(unitId)
+  const page = filters.page ?? 1
+
+  const where: Prisma.InvoiceWhereInput = {
+    ...(filters.status !== undefined ? { status: filters.status } : {}),
+    ...(filters.referenceMonth !== undefined ? { referenceMonth: filters.referenceMonth } : {}),
+  }
+
+  const [rows, total] = await Promise.all([
+    db.invoice.findMany({
+      where,
+      // Vencimento mais próximo primeiro — é o que a secretaria precisa agir primeiro
+      // (cobrança vencida/vencendo), não o oposto (achado de code review, EDU-27).
+      orderBy: { dueDate: 'asc' },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      // select explícito (não include): listInvoices usa só 6 escalares de Invoice —
+      // include traria os 18 campos da model inteira, incluindo idempotencyKey,
+      // asaasBarCode, netAmountCents etc. (achado de code review).
+      select: {
+        id: true,
+        enrollmentId: true,
+        status: true,
+        referenceMonth: true,
+        amountCents: true,
+        dueDate: true,
+        enrollment: {
+          select: {
+            guardian: { select: { id: true, name: true } },
+            student: { select: { id: true, nameEnc: true } },
+            subject: { select: { id: true, name: true } },
+          },
+        },
+      },
+    }),
+    db.invoice.count({ where }),
+  ])
+
+  const items = await Promise.all(
+    rows.map(async (row) => ({
+      id: row.id,
+      enrollmentId: row.enrollmentId,
+      status: row.status,
+      referenceMonth: row.referenceMonth,
+      amountCents: row.amountCents,
+      dueDate: row.dueDate,
+      guardianName: row.enrollment.guardian.name,
+      studentName: await decrypt(row.enrollment.student.nameEnc),
+      subjectName: row.enrollment.subject.name,
+    }))
+  )
+
+  return { items, page, totalPages: Math.ceil(total / PAGE_SIZE), total }
 }
