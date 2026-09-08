@@ -28,7 +28,7 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
         : safe
     return NextResponse.json(payload, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'GET /api/escolas/[unitId]', unitId })
+    return errorResponse(err, { route: 'GET /api/escolas/[unitId]', unitId, exposeDetail: true })
   }
 }
 
@@ -56,6 +56,6 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     const updated = await updateSchool(unitId, parsed.data)
     return NextResponse.json(toSafeUnit(updated as unknown as Record<string, unknown>), { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'PATCH /api/escolas/[unitId]', unitId })
+    return errorResponse(err, { route: 'PATCH /api/escolas/[unitId]', unitId, exposeDetail: true })
   }
 }

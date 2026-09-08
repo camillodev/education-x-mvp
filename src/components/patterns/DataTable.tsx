@@ -43,6 +43,12 @@ export interface DataTableProps<TData, TFilter extends string = string> {
   pageSize?: number;
   emptyMessage?: string;
   onRowClick?: (row: TData) => void;
+  /**
+   * Esconde busca e paginação internas (client-side) — usar quando `data` já
+   * chega filtrada/paginada por uma fonte externa (API com busca/paginação
+   * server-side). A tabela em si e o empty state continuam funcionando normal.
+   */
+  hideBuiltinControls?: boolean;
 }
 
 export function DataTable<TData, TFilter extends string = string>({
@@ -58,6 +64,7 @@ export function DataTable<TData, TFilter extends string = string>({
   pageSize = 8,
   emptyMessage = "Nenhum resultado encontrado.",
   onRowClick,
+  hideBuiltinControls = false,
 }: DataTableProps<TData, TFilter>) {
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [sorting, setSorting] = React.useState<
@@ -95,7 +102,7 @@ export function DataTable<TData, TFilter extends string = string>({
     <div>
       <SectionHead title={title} sub={sub} action={action} />
 
-      {(filterOptions || true) && (
+      {!hideBuiltinControls && (
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <div className="min-w-0 flex-1 basis-64">
             <Input
@@ -192,7 +199,7 @@ export function DataTable<TData, TFilter extends string = string>({
         </TableBody>
       </Table>
 
-      {totalRows > 0 && (
+      {!hideBuiltinControls && totalRows > 0 && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <span className="text-xs text-(--color-text-subtle)">
             {from}–{to} de {totalRows}
@@ -227,6 +234,54 @@ export function DataTable<TData, TFilter extends string = string>({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Paginação server-side (quando a fonte de dados já pagina fora do DataTable) ──
+
+export interface DataTablePaginationProps {
+  page: number;
+  totalPages: number;
+  onPrev: () => void;
+  onNext: () => void;
+  label?: string;
+  className?: string;
+}
+
+export function DataTablePagination({
+  page,
+  totalPages,
+  onPrev,
+  onNext,
+  label,
+  className,
+}: DataTablePaginationProps) {
+  return (
+    <div className={`flex items-center justify-between px-[18px] py-3 ${className ?? ""}`}>
+      <Button
+        variant="tertiary"
+        size="sm"
+        onClick={onPrev}
+        disabled={page <= 1}
+        aria-label="Página anterior"
+        iconLeft="chevron-left"
+      >
+        Anterior
+      </Button>
+      <span className="text-sm text-(--color-text-subtle)">
+        {label ?? `Página ${page} de ${totalPages}`}
+      </span>
+      <Button
+        variant="tertiary"
+        size="sm"
+        onClick={onNext}
+        disabled={page >= totalPages}
+        aria-label="Próxima página"
+        iconRight="chevron-right"
+      >
+        Próxima
+      </Button>
     </div>
   );
 }

@@ -24,6 +24,6 @@ export async function GET(req: NextRequest) {
     }))
     return NextResponse.json(list, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'GET /api/escolas' })
+    return errorResponse(err, { route: 'GET /api/escolas', exposeDetail: true })
   }
 }

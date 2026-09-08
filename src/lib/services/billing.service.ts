@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client'
-import { forUnit } from '../db'
+import { forUnit, prisma } from '../db'
 import { getAsaasClient } from '../integration/asaas/client'
 import { decrypt } from '../crypto'
 import type { Invoice, InvoiceStatus } from '@prisma/client'
@@ -18,6 +18,15 @@ export class MissingAsaasKeyError extends Error {
     super('Unit sem asaasApiKeyEnc configurada — não é possível emitir cobrança')
     this.name = 'MissingAsaasKeyError'
   }
+}
+
+// Busca + decrypt da chave Asaas da Unit — extraído dos route handlers de emissão
+// (batch e avulsa duplicavam este bloco idêntico; achado de code review).
+export async function resolveUnitAsaasKey(unitId: string): Promise<string> {
+  const db = forUnit(unitId)
+  const unit = await db.unit.findUnique({ where: { id: unitId }, select: { asaasApiKeyEnc: true } })
+  if (!unit?.asaasApiKeyEnc) throw new MissingAsaasKeyError()
+  return decrypt(unit.asaasApiKeyEnc)
 }
 
 // Cálculos de data em UTC sempre — Enrollment.startedAt é um timestamp absoluto e
@@ -248,6 +257,46 @@ export async function emitUnitInvoices(
   return emitForEnrollments(unitId, enrollments.map((e) => e.id), referenceMonth, asaasApiKey)
 }
 
+export type UnitEmitResult =
+  | { unitId: string; ok: true; emitted: number; skipped: number; blocked: number; errors: number }
+  | { unitId: string; ok: false; error: string }
+
+// RN-13 — orquestração do cron diário: seleciona Units com autoBilling ativo, só processa
+// as que já alcançaram o closingDay da própria régua (retry de D+1/D+2 vem de graça: o cron
+// passa todo dia pela mesma Unit depois do closingDay, e emitUnitInvoices → emitInvoice já
+// sabe reaproveitar/re-tentar o que ficou ERROR). Extraído do route handler do cron — era
+// lógica de negócio vivendo na rota (achado de code review).
+export async function emitDueInvoicesForActiveUnits(referenceMonth: string): Promise<UnitEmitResult[]> {
+  const units = await prisma.unit.findMany({
+    where: { status: 'ACTIVE', billingConfig: { autoBilling: true } },
+    select: { id: true, asaasApiKeyEnc: true, billingConfig: { select: { closingDay: true } } },
+  })
+
+  const today = new Date().getUTCDate()
+  const results: UnitEmitResult[] = []
+
+  for (const unit of units) {
+    if (!unit.billingConfig) continue
+    if (today < unit.billingConfig.closingDay) continue
+
+    if (!unit.asaasApiKeyEnc) {
+      results.push({ unitId: unit.id, ok: false, error: 'sem asaasApiKeyEnc' })
+      continue
+    }
+
+    try {
+      const asaasApiKey = await decrypt(unit.asaasApiKeyEnc)
+      const r = await emitUnitInvoices(unit.id, referenceMonth, asaasApiKey)
+      results.push({ unitId: unit.id, ok: true, emitted: r.emitted, skipped: r.skipped, blocked: r.blocked, errors: r.errors })
+    } catch (err) {
+      console.error(`[emitDueInvoicesForActiveUnits] unit=${unit.id}`, err)
+      results.push({ unitId: unit.id, ok: false, error: err instanceof Error ? err.message : 'erro desconhecido' })
+    }
+  }
+
+  return results
+}
+
 export interface ListInvoicesFilters {
   page?: number
   status?: InvoiceStatus
@@ -299,7 +348,16 @@ export async function listInvoices(
       orderBy: { dueDate: 'asc' },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
-      include: {
+      // select explícito (não include): listInvoices usa só 6 escalares de Invoice —
+      // include traria os 18 campos da model inteira, incluindo idempotencyKey,
+      // asaasBarCode, netAmountCents etc. (achado de code review).
+      select: {
+        id: true,
+        enrollmentId: true,
+        status: true,
+        referenceMonth: true,
+        amountCents: true,
+        dueDate: true,
         enrollment: {
           select: {
             guardian: { select: { id: true, name: true } },

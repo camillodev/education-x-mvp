@@ -13,7 +13,10 @@ vi.mock('@/lib/services/billing.service', async () => {
 })
 
 const findUnique = vi.fn()
-vi.mock('@/lib/db', () => ({ prisma: { unit: { findUnique: (...a: unknown[]) => findUnique(...a) } } }))
+vi.mock('@/lib/db', () => ({
+  // resolveUnitAsaasKey (billing.service.ts) usa forUnit(unitId).unit.findUnique.
+  forUnit: () => ({ unit: { findUnique: (...a: unknown[]) => findUnique(...a) } }),
+}))
 
 const decrypt = vi.fn()
 vi.mock('@/lib/crypto', () => ({ decrypt: (...a: unknown[]) => decrypt(...a) }))

@@ -2,7 +2,7 @@
 
 import { useInvoices } from '@/hooks/use-invoices'
 import { InvoicesTable } from '@/components/billing/InvoicesTable'
-import { DataTablePagination } from '@/components/DataTable'
+import { DataTablePagination } from '@/components/patterns/DataTable'
 import { Segmented } from '@/components/ui/segmented'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'

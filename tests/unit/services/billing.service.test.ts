@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Prisma } from '@prisma/client'
-import { forUnit } from '@/lib/db'
+import { forUnit, prisma } from '@/lib/db'
 import {
   emitInvoice,
   emitBatchInvoices,
   emitUnitInvoices,
+  emitDueInvoicesForActiveUnits,
   EnrollmentNotStartedError,
 } from '@/lib/services/billing.service'
 
@@ -32,6 +33,7 @@ vi.mock('@/lib/db', () => {
   const enrollmentFindUniqueOrThrow = vi.fn()
   const enrollmentUpdate = vi.fn()
   const enrollmentFindMany = vi.fn()
+  const unitFindMany = vi.fn()
   return {
     forUnit: vi.fn(() => ({
       invoice: {
@@ -47,6 +49,9 @@ vi.mock('@/lib/db', () => {
         findMany: enrollmentFindMany,
       },
     })),
+    // emitDueInvoicesForActiveUnits usa prisma.unit direto (não forUnit — Unit não é
+    // tenant-scoped, é a própria entidade tenant).
+    prisma: { unit: { findMany: unitFindMany } },
   }
 })
 
@@ -496,6 +501,95 @@ describe('emitUnitInvoices', () => {
       expect.objectContaining({ where: { id: 'enr-1' } })
     )
     expect(mockCreatePayment).toHaveBeenCalledTimes(1)
+  })
+})
+
+// Migrado de cron-billing.route.test.ts (achado de code review: seleção de Units elegíveis
+// e orquestração RN-13 viviam no route handler do cron, não no service).
+describe('emitDueInvoicesForActiveUnits', () => {
+  const unitFindMany = prisma.unit.findMany as unknown as ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-10T12:00:00Z'))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('busca Units candidatas com a query Prisma esperada (status ACTIVE + autoBilling + closingDay)', async () => {
+    unitFindMany.mockResolvedValue([])
+
+    await emitDueInvoicesForActiveUnits('2026-03')
+
+    expect(unitFindMany).toHaveBeenCalledWith({
+      where: { status: 'ACTIVE', billingConfig: { autoBilling: true } },
+      select: { id: true, asaasApiKeyEnc: true, billingConfig: { select: { closingDay: true } } },
+    })
+  })
+
+  it('gate por closingDay: Unit com closingDay maior que o dia corrente é pulada, não aparece em results', async () => {
+    // "hoje" fixado em 2026-03-10 (dia 10)
+    unitFindMany.mockResolvedValue([
+      { id: 'unit-cedo', asaasApiKeyEnc: 'enc:chave1', billingConfig: { closingDay: 5 } }, // <= 10: processa
+      { id: 'unit-tarde', asaasApiKeyEnc: 'enc:chave2', billingConfig: { closingDay: 20 } }, // > 10: pula
+    ])
+    const db = forUnit('unit-cedo') as unknown as MockForUnitDb
+    db.enrollment.findMany.mockResolvedValue([])
+
+    const results = await emitDueInvoicesForActiveUnits('2026-03')
+
+    expect(results.map((r) => r.unitId)).toEqual(['unit-cedo'])
+  })
+
+  it('Unit sem asaasApiKeyEnc não chama emissão, mas entra em results com ok:false e error', async () => {
+    unitFindMany.mockResolvedValue([
+      { id: 'unit-sem-chave', asaasApiKeyEnc: null, billingConfig: { closingDay: 5 } },
+    ])
+
+    const results = await emitDueInvoicesForActiveUnits('2026-03')
+
+    expect(results).toEqual([
+      expect.objectContaining({ unitId: 'unit-sem-chave', ok: false, error: expect.any(String) }),
+    ])
+  })
+
+  it('Unit com chave válida dentro do gate: emite e agrega resultado com os 4 campos', async () => {
+    unitFindMany.mockResolvedValue([
+      { id: 'unit-1', asaasApiKeyEnc: 'enc:chave1', billingConfig: { closingDay: 5 } },
+    ])
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.enrollment.findMany.mockResolvedValue([{ id: 'enr-1' }])
+    db.invoice.findUnique.mockResolvedValue(null)
+    db.enrollment.findUniqueOrThrow.mockResolvedValue({ ...ENROLLMENT_BASE, id: 'enr-1' })
+    db.invoice.create.mockResolvedValue(RESERVED_INVOICE)
+    db.invoice.update.mockResolvedValue({ ...RESERVED_INVOICE, status: 'PENDING' })
+
+    const results = await emitDueInvoicesForActiveUnits('2026-03')
+
+    expect(results).toEqual([
+      expect.objectContaining({ unitId: 'unit-1', ok: true, emitted: 1, skipped: 0, blocked: 0, errors: 0 }),
+    ])
+  })
+
+  it('Unit cuja emissão rejeita não derruba as demais — entra em results com ok:false, outras continuam', async () => {
+    unitFindMany.mockResolvedValue([
+      { id: 'unit-falha', asaasApiKeyEnc: 'enc:chave1', billingConfig: { closingDay: 5 } },
+      { id: 'unit-ok', asaasApiKeyEnc: 'enc:chave2', billingConfig: { closingDay: 5 } },
+    ])
+    const dbFalha = forUnit('unit-falha') as unknown as MockForUnitDb
+    dbFalha.enrollment.findMany.mockRejectedValueOnce(new Error('Asaas fora do ar'))
+    const dbOk = forUnit('unit-ok') as unknown as MockForUnitDb
+    dbOk.enrollment.findMany.mockResolvedValueOnce([])
+
+    const results = await emitDueInvoicesForActiveUnits('2026-03')
+
+    expect(results).toEqual([
+      expect.objectContaining({ unitId: 'unit-falha', ok: false, error: 'Asaas fora do ar' }),
+      expect.objectContaining({ unitId: 'unit-ok', ok: true, emitted: 0, skipped: 0, blocked: 0, errors: 0 }),
+    ])
   })
 })
 

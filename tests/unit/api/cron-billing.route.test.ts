@@ -1,15 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-const emitUnitInvoices = vi.fn()
-vi.mock('@/lib/services/billing.service', () => ({
-  emitUnitInvoices: (...a: unknown[]) => emitUnitInvoices(...a),
-}))
-
-const findMany = vi.fn()
-vi.mock('@/lib/db', () => ({ prisma: { unit: { findMany: (...a: unknown[]) => findMany(...a) } } }))
-
-const decrypt = vi.fn()
-vi.mock('@/lib/crypto', () => ({ decrypt: (...a: unknown[]) => decrypt(...a) }))
+const emitDueInvoicesForActiveUnits = vi.fn()
+vi.mock('@/lib/services/billing.service', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/services/billing.service')>('@/lib/services/billing.service')
+  return { ...actual, emitDueInvoicesForActiveUnits: (...a: unknown[]) => emitDueInvoicesForActiveUnits(...a) }
+})
 
 import { GET } from '@/app/api/cron/billing/route'
 
@@ -22,9 +17,7 @@ function makeRequest(authHeader?: string) {
 const ORIGINAL_ENV = process.env.CRON_SECRET
 
 beforeEach(() => {
-  emitUnitInvoices.mockReset()
-  findMany.mockReset()
-  decrypt.mockReset()
+  emitDueInvoicesForActiveUnits.mockReset()
   process.env.CRON_SECRET = 'test-cron-secret'
   vi.useFakeTimers()
   vi.setSystemTime(new Date('2026-03-10T12:00:00Z'))
@@ -36,111 +29,57 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+// A rota só autentica e delega — o gate por closingDay, decrypt e agregação de resultados
+// vivem em emitDueInvoicesForActiveUnits (billing.service.test.ts), extraídos daqui como
+// achado de code review (lógica de negócio não pertence ao route handler).
+
 it('401 sem Authorization header', async () => {
   const res = await GET(makeRequest())
   expect(res.status).toBe(401)
-  expect(emitUnitInvoices).not.toHaveBeenCalled()
+  expect(emitDueInvoicesForActiveUnits).not.toHaveBeenCalled()
 })
 
 it('401 com Bearer token errado', async () => {
   const res = await GET(makeRequest('Bearer token-errado'))
   expect(res.status).toBe(401)
-  expect(emitUnitInvoices).not.toHaveBeenCalled()
+  expect(emitDueInvoicesForActiveUnits).not.toHaveBeenCalled()
 })
 
 it('500 sem CRON_SECRET configurado — nunca aceita qualquer token quando o secret não existe', async () => {
   delete process.env.CRON_SECRET
   const res = await GET(makeRequest('Bearer qualquer-coisa'))
   expect(res.status).toBe(500)
-  expect(emitUnitInvoices).not.toHaveBeenCalled()
+  expect(emitDueInvoicesForActiveUnits).not.toHaveBeenCalled()
 })
 
-it('busca Units candidatas com a query Prisma esperada (status ACTIVE + autoBilling + closingDay)', async () => {
-  findMany.mockResolvedValue([])
-
-  await GET(makeRequest('Bearer test-cron-secret'))
-
-  expect(findMany).toHaveBeenCalledWith({
-    where: { status: 'ACTIVE', billingConfig: { autoBilling: true } },
-    select: { id: true, asaasApiKeyEnc: true, billingConfig: { select: { closingDay: true } } },
-  })
-})
-
-it('gate por closingDay: Unit com closingDay maior que o dia corrente é pulada, não aparece em results', async () => {
-  // "hoje" fixado em 2026-03-10 (dia 10)
-  findMany.mockResolvedValue([
-    { id: 'unit-cedo', asaasApiKeyEnc: 'enc:chave1', billingConfig: { closingDay: 5 } }, // <= 10: processa
-    { id: 'unit-tarde', asaasApiKeyEnc: 'enc:chave2', billingConfig: { closingDay: 20 } }, // > 10: pula
-  ])
-  decrypt.mockImplementation(async (v: string) => v.replace('enc:', ''))
-  emitUnitInvoices.mockResolvedValue({ emitted: 1, skipped: 0, blocked: 0, errors: 0 })
+it('autenticado: delega para emitDueInvoicesForActiveUnits com o referenceMonth do dia corrente', async () => {
+  emitDueInvoicesForActiveUnits.mockResolvedValue([])
 
   const res = await GET(makeRequest('Bearer test-cron-secret'))
   const json = await res.json()
 
-  expect(emitUnitInvoices).toHaveBeenCalledTimes(1)
-  expect(emitUnitInvoices).toHaveBeenCalledWith('unit-cedo', expect.stringMatching(/^\d{4}-\d{2}$/), 'chave1')
-  expect(json.results.map((r: { unitId: string }) => r.unitId)).toEqual(['unit-cedo'])
-})
-
-it('Unit sem asaasApiKeyEnc não chama emitUnitInvoices, mas entra em results com ok:false e error', async () => {
-  findMany.mockResolvedValue([
-    { id: 'unit-sem-chave', asaasApiKeyEnc: null, billingConfig: { closingDay: 5 } },
-  ])
-
-  const res = await GET(makeRequest('Bearer test-cron-secret'))
-  const json = await res.json()
-
-  expect(emitUnitInvoices).not.toHaveBeenCalled()
-  expect(json.results).toEqual([
-    expect.objectContaining({ unitId: 'unit-sem-chave', ok: false, error: expect.any(String) }),
-  ])
-})
-
-it('Unit com chave válida dentro do gate: decrypt depois emitUnitInvoices, resultado agregado com os 4 campos', async () => {
-  findMany.mockResolvedValue([
-    { id: 'unit-1', asaasApiKeyEnc: 'enc:chave1', billingConfig: { closingDay: 5 } },
-  ])
-  decrypt.mockImplementation(async (v: string) => v.replace('enc:', ''))
-  emitUnitInvoices.mockResolvedValue({ emitted: 2, skipped: 1, blocked: 0, errors: 0 })
-
-  const res = await GET(makeRequest('Bearer test-cron-secret'))
-  const json = await res.json()
-
-  expect(decrypt).toHaveBeenCalledWith('enc:chave1')
-  expect(emitUnitInvoices).toHaveBeenCalledWith('unit-1', expect.stringMatching(/^\d{4}-\d{2}$/), 'chave1')
-  expect(json.results).toEqual([
-    expect.objectContaining({ unitId: 'unit-1', ok: true, emitted: 2, skipped: 1, blocked: 0, errors: 0 }),
-  ])
-})
-
-it('Unit cujo emitUnitInvoices rejeita não derruba as demais — entra em results com ok:false, outras continuam', async () => {
-  findMany.mockResolvedValue([
-    { id: 'unit-falha', asaasApiKeyEnc: 'enc:chave1', billingConfig: { closingDay: 5 } },
-    { id: 'unit-ok', asaasApiKeyEnc: 'enc:chave2', billingConfig: { closingDay: 5 } },
-  ])
-  decrypt.mockImplementation(async (v: string) => v.replace('enc:', ''))
-  emitUnitInvoices
-    .mockRejectedValueOnce(new Error('Asaas fora do ar'))
-    .mockResolvedValueOnce({ emitted: 1, skipped: 0, blocked: 0, errors: 0 })
-
-  const res = await GET(makeRequest('Bearer test-cron-secret'))
-  const json = await res.json()
-
-  expect(emitUnitInvoices).toHaveBeenCalledTimes(2)
-  expect(json.results).toEqual([
-    expect.objectContaining({ unitId: 'unit-falha', ok: false, error: 'Asaas fora do ar' }),
-    expect.objectContaining({ unitId: 'unit-ok', ok: true, emitted: 1, skipped: 0, blocked: 0, errors: 0 }),
-  ])
-})
-
-it('resposta 200 autenticada traz referenceMonth no formato YYYY-MM e results', async () => {
-  findMany.mockResolvedValue([])
-
-  const res = await GET(makeRequest('Bearer test-cron-secret'))
-  const json = await res.json()
-
+  expect(emitDueInvoicesForActiveUnits).toHaveBeenCalledWith('2026-03')
   expect(res.status).toBe(200)
   expect(json.referenceMonth).toBe('2026-03')
   expect(json.results).toEqual([])
+})
+
+it('resposta 200 propaga os results retornados pelo service', async () => {
+  emitDueInvoicesForActiveUnits.mockResolvedValue([
+    { unitId: 'unit-1', ok: true, emitted: 2, skipped: 1, blocked: 0, errors: 0 },
+  ])
+
+  const res = await GET(makeRequest('Bearer test-cron-secret'))
+  const json = await res.json()
+
+  expect(json.results).toEqual([
+    { unitId: 'unit-1', ok: true, emitted: 2, skipped: 1, blocked: 0, errors: 0 },
+  ])
+})
+
+it('500 se emitDueInvoicesForActiveUnits rejeitar', async () => {
+  emitDueInvoicesForActiveUnits.mockRejectedValue(new Error('falha inesperada'))
+
+  const res = await GET(makeRequest('Bearer test-cron-secret'))
+  expect(res.status).toBe(500)
 })
