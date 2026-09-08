@@ -14,6 +14,7 @@ import type {
   AsaasNotificationSettings,
   AsaasPayment,
   AsaasPaymentFilters,
+  AsaasPixQrCode,
   AsaasSubAccountResponse,
 } from "./types";
 
@@ -106,6 +107,10 @@ export class AsaasLiveClient implements AsaasClient {
       `/payments${this.buildQuery(filters as Record<string, unknown>)}`,
     );
     return res.data;
+  }
+
+  async getPixQrCode(id: string): Promise<AsaasPixQrCode> {
+    return this.request<AsaasPixQrCode>("GET", `/payments/${id}/pixQrCode`);
   }
 
   async createInvoice(

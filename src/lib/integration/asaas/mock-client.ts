@@ -12,6 +12,7 @@ import type {
   AsaasNotificationSettings,
   AsaasPayment,
   AsaasPaymentFilters,
+  AsaasPixQrCode,
   AsaasSubAccountResponse,
 } from "./types";
 
@@ -161,6 +162,15 @@ export class AsaasMockClient implements AsaasClient {
         netValue: 95,
       }
     );
+  }
+
+  async getPixQrCode(id: string): Promise<AsaasPixQrCode> {
+    return {
+      encodedImage:
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      payload: `00020101021226730014br.gov.bcb.pix2551pix-h.asaas.com/pixqrcode/cobv/mock_${id}`,
+      expirationDate: "2099-01-01 23:59:59",
+    };
   }
 
   async updateNotificationSettings(
