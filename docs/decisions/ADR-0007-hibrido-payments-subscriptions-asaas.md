@@ -1,6 +1,6 @@
 # ADR-0007: Emissão híbrida — `POST /payments` na 1ª competência, `subscriptions` a partir da 2ª
 
-**Status:** Accepted (Gate 2 — Rafa, 2026-09-08)
+**Status:** Accepted (Gate 2 — Rafa, 2026-09-08) · **Emendado em 2026-09-09** (ver "Emenda 1")
 **Data:** 2026-09-08
 
 ## Contexto
@@ -31,12 +31,13 @@ documento registra a decisão fechada, não uma proposta aberta.
 2. **A partir da 2ª competência "limpa"** (a que não precisa de rolagem) → `POST /subscriptions`
    com `cycle: MONTHLY` e `nextDueDate` = vencimento do próximo ciclo. A Asaas assume a geração
    das cobranças seguintes.
-3. **`dueDay` fica imutável no MVP.** Uma vez definido para a `Unit`, não há tela/fluxo que
-   permita alterá-lo. Isso elimina a única falha real identificada na análise: se `dueDay` fosse
-   editável, a mudança afetaria todas as `Enrollment`s de uma escola de uma vez
-   (`BillingConfig` é `@unique` por `unitId`), e cada `subscription` já criada ficaria com um
-   `nextDueDate`/offset de competência dessincronizado do novo `dueDay`, sem nada detectar.
-   Travando a edição, essa classe de bug deixa de poder existir.
+3. **`dueDay` fica imutável no MVP — a nível de `Unit` E de `Enrollment`.** Uma vez definido para
+   a `Unit`, não há tela/fluxo que permita alterá-lo. Isso elimina a única falha real identificada
+   na análise: se `dueDay` fosse editável, a mudança afetaria todas as `Enrollment`s de uma escola
+   de uma vez (`BillingConfig` é `@unique` por `unitId`), e cada `subscription` já criada ficaria
+   com um `nextDueDate`/offset de competência dessincronizado do novo `dueDay`, sem nada detectar.
+   Travando a edição, essa classe de bug deixa de poder existir. **(Ver Emenda 1 — o mesmo
+   raciocínio se aplica a `Enrollment.customDueDay`, campo não coberto na análise original.)**
 4. **RN-10 (rolagem) sempre sai como avulso, nunca dentro de uma `subscription` já criada.** Se
    uma competência cair depois do `dueDay` (matrícula tardia, atraso de processamento), ela vira
    `payment` avulso com vencimento curto (`dueDate = D+7`), e uma `subscription` nova é criada
@@ -116,6 +117,44 @@ controle específico.
 antes de qualquer `subscription` entrar em produção.** Hoje não existe rota de webhook
 implementada — é pré-requisito de implementação, não deste ADR em si.
 
+## Emenda 1 (2026-09-09) — remoção de `Enrollment.customDueDay`
+
+**Achado:** a decisão #3 original ("`dueDay` fica imutável no MVP") raciocinou só a nível de
+`Unit`/`BillingConfig`. Existe, porém, `Enrollment.customDueDay` (`Int?`) no schema desde a
+migration de matrícula (`20260821014226_add_enrollment_matricula`) — um campo pensado como
+override de `dueDay` *por matrícula*, antecipado no schema "para quando F2/F3 precisasse"
+(`.specs/SCHEMA-CONSOLIDADO.md`), mas **nunca ligado a nenhuma lógica**: nenhuma tela edita, e
+`emitInvoice()` (`billing.service.ts`) usa só `billingConfig.dueDay` para calcular `dueDate` —
+`customDueDay` é lido em zero lugares do código.
+
+Se esse campo fosse ativado no futuro sem essa emenda, ele furaria exatamente a garantia que a
+decisão #3 afirma dar: cada `Enrollment` poderia dessincronizar sua própria `subscription`
+individualmente, mesmo com `Unit.dueDay` travado — o argumento "sem edição, não existe cenário de
+N subscriptions desalinhadas de uma vez" deixaria de valer, porque a divergência não precisaria
+ser em massa para causar o mesmo bug.
+
+**Decisão:** remover `Enrollment.customDueDay` do schema (migration de remoção, não só marcar como
+não usado) em vez de mantê-lo morto. `dueDay` continua sendo uma propriedade exclusiva da `Unit`,
+sem exceção por matrícula, no MVP inteiro — não só na versão inicial da decisão #3.
+
+## Emenda 2 (2026-09-09) — janela de reconciliação da régua, não redesenho
+
+Ao planejar a régua de cobrança (EDU-29/30, ainda não implementada), surgiu a dúvida se o modelo
+reativo do item 7 (`Invoice` só nasce ao receber `PAYMENT_CREATED`) cria uma janela sistemática em
+que a régua não teria `Invoice` local para avaliar. Cruzando os parâmetros já decididos neste ADR:
+a geração antecipada é de **14 dias** (decisão #5) e o primeiro passo da régua planejada é o
+lembrete de **D-5**. Se esse timing se confirmar em sandbox (ver "Verificação pendente" abaixo), a
+`Invoice` já existe ~9 dias antes de a régua olhar pela primeira vez — **não há janela estrutural
+sem `Invoice`**.
+
+O risco real não é de design da régua, é de **entrega do webhook**: `PAYMENT_CREATED` pode falhar
+ou nunca chegar (a Asaas pausa a fila de webhooks após 15 falhas consecutivas — ver comentário em
+`src/app/api/webhook/route.ts`). Isso é um problema de **reconciliação** (detectar uma
+`subscription` cujo ciclo devia ter gerado `Invoice`, baseado no `nextDueDate` esperado, e não
+gerou após X dias), não uma revisão de arquitetura da régua. EDU-29/30 seguem com o desenho já
+existente, ganhando apenas uma dependência declarada de um mecanismo de reconciliação a ser criado
+à parte.
+
 ## O que fica fora de escopo deste ADR
 
 - Régua de avisos (notificações automáticas) e negativação (`POST /paymentDunning`) — recursos
@@ -124,6 +163,8 @@ implementada — é pré-requisito de implementação, não deste ADR em si.
   remoção do ramo `BLOCKED` morto em `emitInvoice` — decidido aqui, implementado à parte
   (Task Contract próprio, passa por `code-implementer` + `test-writer`).
 - Implementação do handler de webhook em si — depende deste ADR, mas não é parte dele.
+- Implementação do mecanismo de reconciliação descrito na Emenda 2 — decidido aqui como
+  necessidade, implementado à parte.
 
 ## Verificação pendente antes de implementar
 
