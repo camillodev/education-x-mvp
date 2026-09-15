@@ -22,8 +22,6 @@ A spec de matrícula (`mvp-02`) é a **dona** do `Enrollment` (é o fluxo que o 
 | **`isFirstChargeDone: Boolean`** | **mvp-03** (acrescenta) | controla proporcional vs 1º boleto |
 | **`invoices Invoice[]`** | **mvp-03** (acrescenta) | relação com as cobranças geradas |
 
-> Havia também `customDueDay: Int?` (override do `dueDay` da BillingConfig), acrescentado por `mvp-03` — **removido** pela Emenda 1 do ADR-0007 (EDU-66): nunca foi ligado a nenhuma lógica e furaria a garantia de `dueDay` travado a nível de `Unit`.
-
 **Ação nas specs:** `mvp-03` remove o bloco `model Enrollment` redefinido e passa a dizer *"Enrollment é criado em mvp-02; esta spec adiciona os campos `isFirstChargeDone` e a relação `invoices`"*.
 
 ## 2. `Invoice` / `Payment` — dono: `mvp-03-cobranca-automatica`
