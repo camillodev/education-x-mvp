@@ -253,7 +253,6 @@ model Enrollment {
   confirmationToken  String?          @unique
 
   // Campos antecipados para F2/F3 (cobrança/dunning) — mesma tabela, spec SCHEMA-CONSOLIDADO.md
-  customDueDay      Int?
   isFirstChargeDone Boolean   @default(false)
   dunningPaused     Boolean   @default(false)
   startedAt         DateTime?

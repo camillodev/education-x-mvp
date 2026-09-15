@@ -73,7 +73,7 @@ O schema atual tem: `Unit`, `BillingConfig`, `Subject`, `Guardian`, `TermsVersio
 | `Attendant` / `TimeSlot` / `ScheduleAssignment` | bkl-01 | — | gestão de horários (2º lançamento) |
 
 ⚠️ **Conflitos resolvidos** (detalhe em [`DECISOES-SHAPE.md`](DECISOES-SHAPE.md)):
-1. **`Enrollment` — dono `mvp-02`.** Usa `EnrollmentPlan` + `agreedPriceCents`/`finalPriceCents` + desconto em 3 campos + `EnrollmentStatus`. A `mvp-03` só referencia e acrescenta `customDueDay`, `isFirstChargeDone`, relação `invoices`.
+1. **`Enrollment` — dono `mvp-02`.** Usa `EnrollmentPlan` + `agreedPriceCents`/`finalPriceCents` + desconto em 3 campos + `EnrollmentStatus`. A `mvp-03` só referencia e acrescenta `isFirstChargeDone`, relação `invoices` (havia também `customDueDay`, removido — ver Emenda 1 do ADR-0007, EDU-66).
 2. **`Invoice`/`Payment` — dono `mvp-03`**, schema único, referenciado pelas demais.
 3. **Tokens de cartão distintos:** `CardToken` (f2-02, responsável) vs `asaasCardTokenEnc` em Unit (f2-04, escola) — donos diferentes, manter separados.
 4. **`BankAccount` como model separado** (não campos em Unit) — decisão de `mvp-06`.

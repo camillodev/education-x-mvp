@@ -135,7 +135,8 @@ model Enrollment {
   confirmedAt                DateTime?
 
   // Cobranca (fluxo 03)
-  customDueDay      Int?    // dia de vencimento customizado; senao usa BillingConfig.dueDay
+  // customDueDay (Int?) removido — Emenda 1 do ADR-0007 (EDU-66): nunca foi ligado a
+  // nenhuma logica e furaria a garantia de dueDay travado a nivel de Unit.
   isFirstChargeDone Boolean @default(false) // true apos a 1a Invoice ser gerada
 
   // Regua de negativacao (spec nova mvp-045)
@@ -429,13 +430,15 @@ Recomendação: **faseada**, uma migration por fluxo de produto, na ordem abaixo
 
 | Ordem | Migration | Conteúdo | Depende de |
 |---|---|---|---|
-| 1 | `add-enrollment-matricula` | Enums `EnrollmentPlan`, `EnrollmentStatus`, `GuardianType`. Models `Student`, `Enrollment` (sem `invoices` relation ainda funcional — Invoice não existe, mas Prisma permite declarar a relação e criar a tabela `invoices` só na migration seguinte não é possível pois a FK seria inválida; **portanto a migration 1 já deve incluir os campos de `Enrollment` que dependem de billing** — `customDueDay`, `isFirstChargeDone`, `dunningPaused` — mesmo que sua lógica de negócio só ligue na migration 2/3. Ver nota abaixo). Alterações em `Guardian` (`selfPayer`, `type`, `serasaScore`, `serasaCheckedAt`). Relações inversas em `Unit`/`Subject`. | schema atual |
+| 1 | `add-enrollment-matricula` | Enums `EnrollmentPlan`, `EnrollmentStatus`, `GuardianType`. Models `Student`, `Enrollment` (sem `invoices` relation ainda funcional — Invoice não existe, mas Prisma permite declarar a relação e criar a tabela `invoices` só na migration seguinte não é possível pois a FK seria inválida; **portanto a migration 1 já deve incluir os campos de `Enrollment` que dependem de billing** — `customDueDay` (removido depois, ver nota), `isFirstChargeDone`, `dunningPaused` — mesmo que sua lógica de negócio só ligue na migration 2/3. Ver nota abaixo). Alterações em `Guardian` (`selfPayer`, `type`, `serasaScore`, `serasaCheckedAt`). Relações inversas em `Unit`/`Subject`. | schema atual |
 | 2 | `add-billing-invoice-payment` | Enum `InvoiceStatus`, `FirstChargeMode`. Models `Invoice`, `Payment`. Campo `BillingConfig.firstChargeMode`. Relação `Enrollment.invoices`, `Unit.invoices`/`payments`. | migration 1 |
 | 3 | `add-dunning` | Enums `DunningAction`, `DunningStatus`. Models `DunningConfig`, `DunningLog`, `Dunning`. Campo `Guardian.dunningOptOut`. Relações `Invoice.dunning`/`dunningLogs`, `Unit.dunningConfig`/`dunnings`/`dunningLogs`. | migration 2 (FK `Dunning.invoiceId` → `Invoice`) |
 | 4 | `add-portal-responsavel` | Models `CardToken`, `PortalSession`. Relações `Guardian.cardTokens`/`portalSessions`, `Unit.cardTokens`/`portalSessions`. | migration 1 (FK `guardianId` → `Guardian`) |
 | 5 | `add-dashboard-indexes` | Índices compostos de performance: `Invoice[unitId,status]`, `[unitId,paidAt]`, `[unitId,dueDate]`, `[unitId,referenceMonth]`; `Enrollment[unitId,status]`, `[unitId,cancelledAt]`; `Dunning[unitId,status]`. Campo `Invoice.billingType`, campos NFS-e dormentes. Sem models novos — puramente índices + colunas leitura. | migrations 1–3 |
 
 **Nota sobre a migration 1 antecipar campos de billing/dunning em `Enrollment`:** `customDueDay`, `isFirstChargeDone` e `dunningPaused` vivem fisicamente na tabela `enrollments`, que só é criada na migration 1. Não há como "adicionar" esses campos numa migration posterior sem um `ALTER TABLE` redundante — então a opção mais limpa é declarar os 3 campos já na migration 1 (com defaults seguros: `false`/`null`), mesmo que a *lógica* de negócio que os popula (cron de cobrança, régua de negativação) só seja implementada nas migrations/PRs 2 e 3. Isso é diferente de "pular a ordem" — a coluna existe cedo, mas fica ociosa até o fluxo dono da lógica ligar.
+
+**Atualização (Emenda 1 do ADR-0007, EDU-66, 2026-09):** `customDueDay` foi removido do schema numa migration posterior (`remove_enrollment_custom_due_day`) — ficou ocioso desde a migration 1 (nunca foi ligado a nenhuma lógica) e, se ativado, furaria a garantia de `dueDay` travado a nível de `Unit`. `isFirstChargeDone` e `dunningPaused` permanecem como descrito acima.
 
 Alternativa rejeitada: migration única (`add-education-x-mvp-core`) cobrindo tudo de uma vez. Rejeitada porque quebra o princípio anti-over-engineering do produto (shippar o menor loop primeiro) e acopla deploys que são independentes no roadmap (ex: dashboard de leitura pura do f2-01 não deveria esperar negativação implementada).
 
