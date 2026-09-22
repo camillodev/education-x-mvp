@@ -1,12 +1,12 @@
-# ADR-0008: Schema da régua de cobrança e negativação automática
+# ADR-0008: Schema da negativação automática (régua de avisos nativa Asaas)
 
 **Status:** Proposed (aguarda Gate 2 — assinatura do Rafa)
-**Data:** 2026-09-21
+**Data:** 2026-09-21 · **Revisado:** 2026-09-22 (ver Emenda 1)
 
 ## Contexto
 
-A régua D-5/D+3/D+10/D+30 (`.specs/mvp-045-regua-negativacao.md`) precisa de estrutura de dados
-antes de qualquer linha de código. O schema atual não tem nenhum dos três models de dunning, e o
+A negativação automática (`.specs/mvp-045-regua-negativacao.md`) precisa de estrutura de dados
+antes de qualquer linha de código. O schema atual não tem nenhum dos models de dunning, e o
 enum `InvoiceStatus` não expressa "negativada" nem "regularizada". A decisão é irreversível por
 dois motivos que não se revertem num PR pequeno: (1) estender `InvoiceStatus` muda a semântica de
 toda query de receita já escrita e de todas as futuras; (2) `Dunning` guarda o `asaasDunningId` de
@@ -14,32 +14,56 @@ uma negativação real no SPC/Serasa — errar a cardinalidade aqui significa ne
 responsável duas vezes, com custo de R$ 9,90 por chamada e dano de reputação de crédito de um
 terceiro.
 
+O **timing dos avisos pré-negativação** é da régua nativa do Asaas (D-3 / D0 / D+1, fixa, a nível
+de subconta) — decisão de produto do Rafa em 2026-09-22, ver Emenda 1. O que continua sendo
+feature própria é a **decisão de quando negativar**: o Asaas envia os avisos, não decide negativar.
+Esse prazo é fixo em **D+60** e mora numa constante de código, não num model configurável.
+
 As duas fontes de verdade (`mvp-045` §4 e `.specs/SCHEMA-CONSOLIDADO.md` §2.2) **divergem em dois
 pontos** — este ADR resolve ambos. `mvp-05-negativacao.md` está SUPERSEDED e não foi usado.
 ADR-0007 não é contrariado: sua seção "fora de escopo" exclui explicitamente régua e negativação,
-e sua Emenda 2 já resolveu a dúvida de janela (geração antecipada de 14 dias > lembrete D-5, logo
-a `Invoice` sempre existe quando a régua olha) e declarou reconciliação como dependência à parte.
+e sua Emenda 2 já resolveu a dúvida de janela (geração antecipada de 14 dias, logo a `Invoice`
+sempre existe muito antes de D+60) e declarou reconciliação como dependência à parte.
 
 ## Decisão
 
-Três models novos (`DunningConfig` 1:1 `Unit`, `DunningLog` 1:N `Invoice`, `Dunning` 1:1
-`Invoice`), dois enums novos (`DunningAction`, `DunningStatus`), dois valores novos em
-`InvoiceStatus`, e um campo booleano em model existente (`Guardian.dunningOptOut`;
-`Enrollment.dunningPaused` **já existe**, `schema.prisma:257` — não recriar). Bloco Prisma exato
-no Anexo A.
+Dois models novos (`DunningLog` 1:N `Invoice`, `Dunning` 1:1 `Invoice`), dois enums novos
+(`DunningAction`, `DunningStatus`), dois valores novos em `InvoiceStatus`, um campo booleano em
+model existente (`Guardian.dunningOptOut`; `Enrollment.dunningPaused` **já existe**,
+`schema.prisma:257` — não recriar), e uma constante `NEGATIVATION_DAYS_AFTER_OVERDUE = 60` em
+`src/lib/dunning.ts`. **Não existe model `DunningConfig`** — ver Emenda 1. Bloco Prisma exato no
+Anexo A.
+
+### Onde mora a constante: `src/lib/dunning.ts`, não dentro do service
+
+`NEGATIVATION_DAYS_AFTER_OVERDUE = 60` fica em `src/lib/dunning.ts` — arquivo novo, puro, sem I/O,
+irmão de `src/lib/pricing.ts`. É uma regra de negócio pura, e o padrão do repo para isso já existe:
+`pricing.ts` é exatamente isso — cálculo testável isolado, sem I/O, importável dos dois lados.
+`src/lib/data/plans.ts` não serve de molde aqui porque é um *catálogo* (array de registros); isto
+é uma regra única.
+
+O critério de posicionamento não é estético, é **fan-out de import**. `backend.md` coloca tudo que
+toca Prisma sob `src/lib/services/`. Hoje o único leitor da constante é o engine de negativação, e
+pela regra anti-over-engineering do repo isso por si só não justificaria arquivo novo — mas o custo
+de criá-lo é zero e ele preserva a opção: qualquer string de UI que venha a exibir o prazo ("a
+dívida vai para o SPC/Serasa 60 dias após o vencimento") importa a constante sem arrastar Prisma
+para a fronteira do cliente. Se morasse em `dunning-engine.service.ts`, essa porta ficaria fechada.
+
+Não vira `DunningConfig` com `@default(60)` nem env var: o valor é a mesma regra para toda escola
+(é disso que se trata a reversão), e env var esconderia uma regra de negócio num lugar onde teste
+não alcança.
 
 ### Divergências entre as fontes — resolvidas aqui
 
 **D1 — vocabulário de `DunningLog.result`: `"success"` é canônico.** `mvp-045` §4 define
 `"success" | "error: <msg>"`; `SCHEMA-CONSOLIDADO` linha 276 sugere `"sent" | "skipped_opt_out" |
-"failed"`. Vence `"success"` porque é **load-bearing em quatro lugares** de `mvp-045` (R2 e R8 —
-o guard de idempotência; §7b — a derivação de etapa do dashboard; §9 — o DoD binário), contra um
-comentário parentético no consolidado. Se o implementador gravar `"sent"`, o guard de R2
-(`SHALL NOT disparar uma action que já possua DunningLog com result = "success"`) **nunca casa**, e
-todo cron re-dispara todas as etapas de todas as invoices — silenciosamente, a R$ 0,55 por
-mensagem e R$ 9,90 por negativação repetida. `"skipped_opt_out"` é morto por construção e **não
-deve ser implementado**: R7 manda não gravar log nenhum sob pausa, e o DoD §9 item 7 prova que
-opt-out não gera log de `NEGATIVATION`. Não existe caminho de skip-logging neste desenho.
+"failed"`. Vence `"success"` porque é **load-bearing** em `mvp-045` (R2 e R8 — o guard de
+idempotência; §9 — o DoD binário), contra um comentário parentético no consolidado. Se o
+implementador gravar `"sent"`, o guard de R2 (`SHALL NOT disparar uma action que já possua
+DunningLog com result = "success"`) **nunca casa**, e todo cron re-dispara a negativação —
+silenciosamente, a R$ 9,90 por repetição. `"skipped_opt_out"` é morto por construção e **não deve
+ser implementado**: R7 manda não gravar log nenhum sob pausa, e o DoD §9 item 7 prova que opt-out
+não gera log de `NEGATIVATION`. Não existe caminho de skip-logging neste desenho.
 
 **D2 — `feeCents` é ~990 (R$ 9,90), não 2990.** O comentário `// taxa negativacao (R$29,90 = 2990)`
 em `SCHEMA-CONSOLIDADO` linha 300 está obsoleto; `mvp-045` §10.3 corrige explicitamente o valor do
@@ -96,10 +120,13 @@ não invenção nova.
 
 O critério é "esta feature consome a query?", não "o consolidado lista o índice".
 
-- **`@@index([unitId, dueDate])` entra.** R1 varre `Invoice` por Unit e o `DunningEngine` calcula
+- **`@@index([unitId, dueDate])` entra.** O cron varre `Invoice` por Unit e calcula
   `diasVsVencimento` a partir de `dueDate` — é literalmente a query central desta feature, rodando
-  diariamente sobre a tabela que mais cresce. Sem ele a varredura cai no `@@index([unitId])` simples
-  e filtra o resto em memória (anti-padrão explícito de `database.md`).
+  diariamente sobre a tabela que mais cresce. A reversão da Emenda 1 não muda isso: a varredura
+  continua idêntica, só compara `diasVsVencimento` contra a constante fixa
+  `NEGATIVATION_DAYS_AFTER_OVERDUE` em vez de contra `DunningConfig.negativationDaysAfter`. Sem o
+  índice a varredura cai no `@@index([unitId])` simples e filtra o resto em memória (anti-padrão
+  explícito de `database.md`).
 - **`@@index([unitId, paidAt])` fica fora.** É índice de dashboard f2-01, com zero consumidor nesta
   feature. Adicionar índice sem query que o use é custo de escrita em toda emissão de cobrança sem
   benefício de leitura.
@@ -109,7 +136,7 @@ de dashboard à migration 5 (`add-dashboard-indexes`), separada da migration 3 (
 `@@index([unitId, status])` já foi puxado para o schema atual com um comentário explicando a query
 EDU-27 que o exigia. Este ADR segue a mesma regra: índice entra junto com a query que o justifica.
 
-> **Nota para o `code-implementer`:** a varredura de R1 filtra `status IN (PENDING, OVERDUE)` **e**
+> **Nota para o `code-implementer`:** a varredura filtra `status IN (PENDING, OVERDUE)` **e**
 > `dueDate`. O índice teoricamente mais apertado seria `[unitId, status, dueDate]`. Seguimos
 > `[unitId, dueDate]` por ser a leitura literal da fonte, e porque `[unitId, status]` já existe — o
 > planner escolhe um dos dois. Se a varredura diária aparecer lenta em `EXPLAIN ANALYZE` depois, o
@@ -126,8 +153,13 @@ não por disciplina de código.
 ✅ **Opt-out e pausa são legíveis numa query só** (`Enrollment.dunningPaused` + `Guardian.dunningOptOut`),
 sem N+1 no cron diário.
 
-✅ **Índice da query central da régua entra junto com a régua** — a varredura diária nasce indexada
+✅ **Índice da query central entra junto com a query** — a varredura diária nasce indexada
 em vez de virar um incidente de performance quando a base crescer.
+
+✅ **Superfície irreversível menor que a da v1.** Sem `DunningConfig`, não existe tabela de
+configuração por escola para migrar, nem defaults gravados em linha que virem dado legado se o
+produto mudar de ideia sobre os prazos. Mudar `60` é um PR de uma linha; mudar uma coluna
+`negativationDaysAfter` já preenchida em N escolas seria backfill com decisão por tenant.
 
 ⚠️ **`status = 'PAID'` deixa de significar "dinheiro entrou" — este é o principal efeito
 irreversível.** Depois de R17, uma cobrança **paga** fica em `REGULARIZED`, não em `PAID`, com
@@ -145,18 +177,38 @@ R17.** Quando `PAYMENT_RECEIVED` chega para uma Invoice `NEGATIVATED`, o destino
 promove para PAID" (linhas 116-117) precisa ganhar essa exceção na Fatia 4. Não é mudança deste ADR
 — é integração que ele torna obrigatória, e que o `code-implementer` precisa ver declarada.
 
-⚠️ **O cron precisa de duas queries, não uma.** Como a varredura de R1 filtra
+⚠️ **Não existe mais kill-switch de régua por escola.** `DunningConfig.active` era o que R1 e R9
+usavam para pular uma Unit inteira no cron; com o model removido, a leitura literal é que **a
+negativação automática roda para toda Unit, incondicionalmente**. `Enrollment.dunningPaused` e
+`Guardian.dunningOptOut` continuam existindo, mas são granulares — nenhum dos dois desliga a
+feature para uma escola de uma vez. Se o Rafa quiser o kill-switch de volta (ex.: `Unit.dunningActive`),
+é **decisão nova de Gate 2**, não algo para o `code-implementer` inventar na migration. Declarado
+aqui exatamente para que essa lacuna não seja preenchida por conta própria.
+
+⚠️ **Janela de ~59 dias sem contato próprio entre o último aviso nativo e a negativação.** A régua
+nativa Asaas termina em D+1; a negativação acontece em D+60. Nesse intervalo o Education X não
+dispara nada por conta própria. O aviso legal do CDC (art. 43, 10 dias antes da inclusão, ~D+50) é
+responsabilidade do Asaas e continua registrado em `Dunning.warningSentAt` — **não confundir com os
+avisos D-3/D0/D+1**, são mecanismos diferentes. Nota sobre R8: `Guardian.dunningOptOut` **não
+consegue** suprimir os avisos nativos, porque eles são configurados a nível de subconta, não por
+responsável — ou seja, a semântica de R8 ("avisos continuam, negativação não") sobrevive à
+reversão, mas agora por mecanismo, não por desenho. Aceito como consequência da escolha de
+simplicidade; se a conversão de inadimplência ficar ruim, a correção é adicionar um aviso próprio
+em D+30, o que não exige mudar nada deste schema.
+
+⚠️ **O cron precisa de duas queries, não uma.** Como a varredura filtra
 `status IN (PENDING, OVERDUE)`, uma Invoice `NEGATIVATED` sai do escopo dela — correto, porque a
 baixa é webhook-driven (R17). Mas isso significa que a reconciliação de polling de R18 tem que ser
 uma **segunda query sobre `Dunning`** (status pendente há > 1h), não um ramo da varredura de Invoice.
 
-⚠️ **`DunningLog` cresce sem limite** (até 4-5 linhas por Invoice por ciclo, mais retries). Aceito:
-é tabela de auditoria de uma operação que toca crédito de terceiro, e `@@index([invoiceId, action])`
-mantém a leitura barata. Arquivamento é problema de escala, não de MVP.
+⚠️ **`DunningLog` cresce sem limite** (agora ~1-2 linhas por Invoice negativada, mais retries —
+menos que na v1, que logava 4-5 etapas). Aceito: é tabela de auditoria de uma operação que toca
+crédito de terceiro, e `@@index([invoiceId, action])` mantém a leitura barata. Arquivamento é
+problema de escala, não de MVP.
 
 ⚠️ **Estado real do banco não verificado.** O contrato deste agente pede checar o schema real via
 `supabase` read-only porque `schema.prisma` pode estar dessincronizado de produção — o servidor MCP
-`supabase` falhou ao conectar nesta sessão (`JWT could not be decoded`). A conferência continua
+`supabase` falhou ao conectar nas duas sessões (`JWT could not be decoded`). A conferência continua
 **devida antes de rodar a migration**, não feita.
 
 ## Alternativas consideradas
@@ -175,8 +227,13 @@ mantém a leitura barata. Arquivamento é problema de escala, não de MVP.
 - **Adicionar os quatro índices de dashboard nesta migration**: custo de escrita sem query
   consumidora; contraria o faseamento já decidido em `SCHEMA-CONSOLIDADO` §3 (migration 5).
 - **Enum `DunningStatus` com 4 estados** (`EMAVISO`/`ELEGIVEL`/..., desenho do `mvp-05`): pressupõe
-  decisão manual em cada etapa; com régua automática esses estados viram entradas de `DunningLog`
-  via `DunningAction`, não status.
+  decisão manual em cada etapa; com negativação automática esses estados viram entradas de
+  `DunningLog` via `DunningAction`, não status.
+- **Manter `DunningConfig` só para o prazo de negativação** (um campo em vez de quatro): tabela,
+  migration, relação 1:1, endpoint e tela para guardar um número que é igual em toda escola —
+  ver Emenda 1.
+- **`NEGATIVATION_DAYS_AFTER_OVERDUE` como env var**: esconde regra de negócio fora do código
+  testável e permite divergência silenciosa entre preview e produção.
 
 ## O que fica irreversível
 
@@ -191,20 +248,103 @@ mantém a leitura barata. Arquivamento é problema de escala, não de MVP.
 4. **`DunningLog` sem unique constraint.** Adicionar a constraint depois falharia contra as linhas
    de retry já gravadas.
 
+**Não entra nesta lista:** o valor `60` e a régua nativa. Trocar o número é um PR de uma linha;
+voltar a uma régua própria configurável é adicionar `DunningConfig` depois, aditivamente, sem
+desfazer nada do que está aqui. A Emenda 1 **reduziu** a superfície irreversível deste ADR — os
+quatro itens acima são exatamente os mesmos da v1, nenhum dependia de `DunningConfig`.
+
+## Emenda 1 (2026-09-22) — régua de avisos nativa do Asaas, negativação fixa em D+60
+
+**Origem: decisão de produto do Rafa, não achado técnico.** A v1 deste ADR (2026-09-21) desenhava
+um model `DunningConfig` 1:1 com `Unit`, com quatro prazos configuráveis por escola
+(`reminderDaysBefore` D-5 / `warning1DaysAfter` D+3 / `warning2DaysAfter` D+10 /
+`negativationDaysAfter` D+30) mais um toggle `active`. Em 2026-09-22 o Rafa reverteu essa direção:
+**o timing dos avisos pré-negativação passa a ser a régua nativa do Asaas** (D-3 antes do
+vencimento / D0 no vencimento / D+1 após, fixa, configurada a nível de subconta).
+
+O raciocínio de `mvp-045` §1 e §10.1 — que a régua nativa é rígida e não configurável por escola —
+**continua factualmente correto**; não foi invalidado por nenhuma descoberta técnica nova. A
+reversão é uma escolha consciente de **simplicidade sobre configurabilidade na v1**, feita pelo
+Rafa, aceitando a rigidez que a spec original rejeitava. É consistente com o ICP já declarado no
+`CLAUDE.md` ("franquias micro, dono decide, sem TI dedicado → simplicidade > configurabilidade"),
+mas o registro honesto é que a causa é a decisão dele, não uma dedução a partir do ICP.
+
+**Escopo exato da reversão (confirmado com o Rafa em duas perguntas):**
+
+1. **Só o TIMING dos avisos vira nativo.** O Asaas envia os avisos; **ele não decide negativar**.
+   A decisão de quando negativar continua sendo feature própria do Education X — cron próprio,
+   `POST /paymentDunnings` próprio, `DunningLog` próprio.
+2. **Prazo de negativação fixo em D+60**, especificado explicitamente pelo Rafa (não 30, não 15).
+
+**Mudanças no schema:**
+
+- **`DunningConfig` é removido inteiro** — model, relação inversa `Unit.dunningConfig`, e todas as
+  menções no corpo do ADR. Nunca chegou a existir no banco (o ADR estava `Proposed`, sem migration
+  rodada), então não há migration de remoção: é só não criar.
+- **`NEGATIVATION_DAYS_AFTER_OVERDUE = 60`** passa a viver em `src/lib/dunning.ts` (justificativa
+  na seção "Onde mora a constante").
+- **`DunningAction` encolhe de 5 para 2 valores.** Ver abaixo — é a parte menos óbvia da emenda,
+  **e é uma decisão do `system-architect`, não do Rafa** — está listada no Gate 2 abaixo para
+  assinatura explícita, não como fato consumado.
+
+**Por que `REMINDER`/`WARNING1`/`WARNING2` saem do enum (decisão do arquiteto, sujeita ao Gate 2).**
+Esses três valores só existiam porque a régua própria decidia o momento de cada aviso e registrava
+o disparo (`mvp-045` §5d). Com o timing delegado ao Asaas, **nenhum código do Education X escreve
+esses logs**: não há callback por notificação enviada (`mvp-045` §2a — não existe endpoint
+dedicado de aviso; a pendência P1 da spec morre junto com a régua própria), e o cliente tipado
+Asaas expõe apenas `createDunning`, `removeDunning` e `getDunning`
+(`src/lib/integration/asaas/asaas-client.interface.ts:39-42`) — nenhum método de envio de
+notificação. Verificado por varredura: hoje há **zero escritores** dos três valores em `src/`.
+Manter enum value que nada escreve é dívida com custo assimétrico — em Postgres, **adicionar**
+valor a enum é trivial e **remover** exige migration. Na dúvida, o enum menor. Se um aviso próprio
+voltar (ver a ⚠️ da janela de 59 dias), `ALTER TYPE ... ADD VALUE` resolve sem tocar em nada mais.
+
+**Consequência derivada:** a derivação de etapa de `mvp-045` §7b colapsa de seis estados para três
+— `NONE` → `NEGATIVATED` → `REGULARIZED`. A coluna "Etapa da régua" do dashboard F5 fica com três
+badges, não seis.
+
+**Contradição declarada com `mvp-045`, para não ser reimplementada por engano.** Esta emenda
+contraria diretamente a **decisão fechada #1** da spec ("Régua própria e configurável substitui a
+régua nativa Asaas — a régua nativa descrita no mvp-04 é abandonada"). Também tornam-se **void**:
+R3, R4, R5 (etapas D-5/D+3/D+10), R9 (`DunningConfig.active`), a parte de R1 que filtra por
+`Unit.dunningConfig.active`, as cinco primeiras linhas da tabela de confronto §3, a Fatia 1 na
+parte de `DunningConfig`, e a tela de settings da Fatia 5 (os 4 campos numéricos + toggle deixam de
+ter o que configurar). R2, R6, R7, R8, R10-R18 seguem válidos, com `DunningConfig.negativationDaysAfter`
+lido como `NEGATIVATION_DAYS_AFTER_OVERDUE`. **A spec `mvp-045` não foi editada** (fora do escopo
+deste ADR) — quem for implementar deve ler este ADR como a fonte que prevalece, e não recriar
+`DunningConfig` a partir da spec.
+
+**O que esta emenda NÃO toca:** os quatro pontos de design não triviais (a/b/c/d), o índice
+`@@index([unitId, dueDate])`, as duas divergências D1/D2, e as ⚠️ sobre `PAID→REGULARIZED` e o
+achado de `webhook.service.ts:87`. Nenhum deles dependia de `DunningConfig`.
+
+## Gate 2 — três pontos que precisam da assinatura explícita do Rafa
+
+1. **`DunningAction` com 2 valores** (`NEGATIVATION`/`CANCELLATION`) em vez dos 5 originais da
+   spec — decisão do `system-architect`, justificada acima, **não confirmada com Rafa ainda**.
+   Alternativa: manter os 5 valores mesmo sem escritor hoje, caso um aviso próprio volte antes de
+   valer a pena editar o enum de novo.
+2. **Não existe mais kill-switch de negativação por escola.** Sem `DunningConfig.active`, a
+   negativação roda para toda Unit sempre. Se precisar de liga/desliga por escola, é decisão nova
+   (ex.: `Unit.dunningActive`), fora do escopo desta migration.
+3. **Janela de ~59 dias sem contato próprio** entre o último aviso nativo (D+1) e a negativação
+   (D+60) — aceitar como está, ou pedir um aviso próprio intermediário (não muda este schema).
+
 ## Anexo A — Bloco Prisma final (pronto para `prisma/schema.prisma`)
 
-> Valores conferidos contra `mvp-045` §4 e `SCHEMA-CONSOLIDADO` §2.2, com D1 e D2 aplicados.
+> Valores conferidos contra `mvp-045` §4 e `SCHEMA-CONSOLIDADO` §2.2, com D1 e D2 aplicados e a
+> Emenda 1 (sem `DunningConfig`, `DunningAction` com 2 valores — ver Gate 2 item 1) incorporada.
 > `Enrollment.dunningPaused` **já existe** (`schema.prisma:257`) e não aparece abaixo — não recriar.
 
 ```prisma
 // ─── Enums novos ──────────────────────────────────────────────────────────────
 
 enum DunningAction {
-  REMINDER     // D-5: lembrete pré-vencimento
-  WARNING1     // D+3: primeiro aviso de atraso
-  WARNING2     // D+10: aviso final (negativação iminente)
-  NEGATIVATION // D+30: negativação automática (POST /paymentDunnings)
+  NEGATIVATION // negativação automática em D+60 (POST /paymentDunnings)
   CANCELLATION // baixa da negativação (DELETE /paymentDunnings ou pagamento recebido)
+  // SEM REMINDER/WARNING1/WARNING2 (ADR-0008 Emenda 1, Gate 2 item 1): o timing dos avisos
+  // pré-negativação é da régua nativa do Asaas (D-3/D0/D+1, nível de subconta) — nenhum código
+  // nosso os escreve. Confirmar com Rafa antes de codar.
 }
 
 enum DunningStatus {
@@ -228,25 +368,6 @@ enum DunningStatus {
 
 // ─── Models novos ─────────────────────────────────────────────────────────────
 
-model DunningConfig {
-  id     String @id @default(cuid())
-  unitId String @unique // 1:1 com Unit (invariante 5, simétrico a BillingConfig)
-
-  reminderDaysBefore    Int @default(5)  // D-5: lembrete antes do vencimento
-  warning1DaysAfter     Int @default(3)  // D+3: primeiro aviso de atraso
-  warning2DaysAfter     Int @default(10) // D+10: aviso final
-  negativationDaysAfter Int @default(30) // D+30: negativação automática
-
-  active Boolean @default(true) // liga/desliga a régua inteira da unidade
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
-
-  @@map("dunning_configs")
-}
-
 model DunningLog {
   id        String        @id @default(cuid())
   unitId    String
@@ -254,7 +375,7 @@ model DunningLog {
   action    DunningAction
   // Vocabulário canônico (ADR-0008 D1): "success" | "error: <mensagem curta, sem PII>".
   // NÃO usar "sent"/"failed"/"skipped_opt_out" — o guard de idempotência (R2/R8) compara
-  // literalmente contra "success" e silenciosamente re-dispara a régua se o valor divergir.
+  // literalmente contra "success" e silenciosamente re-dispara a negativação se o valor divergir.
   result    String
 
   createdAt DateTime @default(now())
@@ -286,7 +407,8 @@ model Dunning {
   //                 Sem @default: persistir sempre o valor real retornado pelo Asaas.
 
   // Auditoria / timeline
-  warningSentAt DateTime? // quando o Asaas confirmou o aviso CDC (10 dias antes)
+  warningSentAt DateTime? // quando o Asaas confirmou o aviso CDC (10 dias antes, ~D+50).
+  //                         NÃO é um dos avisos D-3/D0/D+1 da régua nativa — mecanismo distinto.
   requestedAt   DateTime? // quando POST /paymentDunnings foi confirmado
   resolvedAt    DateTime? // quando a baixa foi dada ou o pagamento recebido
 
@@ -307,7 +429,7 @@ model Dunning {
 // ─── Adicionar ao model Guardian existente (schema.prisma:192) ────────────────
 // Campo novo, junto aos demais escalares (antes de createdAt):
 //
-//   dunningOptOut Boolean @default(false) // avisos continuam; negativação NUNCA ocorre (R8)
+//   dunningOptOut Boolean @default(false) // negativação NUNCA ocorre para este responsável (R8)
 
 // ─── Adicionar ao model Invoice existente (schema.prisma:312) ─────────────────
 // Relações inversas, junto a `payments   Payment[]`:
@@ -317,18 +439,29 @@ model Dunning {
 //
 // Índice novo, junto aos existentes (ver seção de índices deste ADR):
 //
-//   @@index([unitId, dueDate]) // ADR-0008 — varredura diária do cron da régua (R1)
+//   @@index([unitId, dueDate]) // ADR-0008 — varredura diária do cron de negativação
 //
 // NÃO adicionar @@index([unitId, paidAt]) — fica para a migration de dashboard (f2-01).
 
 // ─── Adicionar ao model Unit existente (schema.prisma:76) ─────────────────────
 // Relações inversas, junto a `payments  Payment[]`:
 //
-//   dunningConfig DunningConfig?
-//   dunnings      Dunning[]
-//   dunningLogs   DunningLog[]
+//   dunnings    Dunning[]
+//   dunningLogs DunningLog[]
+//
+// SEM dunningConfig — o model não existe (ADR-0008 Emenda 1).
+```
+
+**Constante de negócio (não é schema — `src/lib/dunning.ts`, arquivo novo):**
+
+```typescript
+// Prazo fixo de negativação, contado a partir do vencimento da Invoice.
+// Decisão de produto (Rafa, 2026-09-22) — ADR-0008 Emenda 1. Igual para toda escola:
+// não é configurável por Unit, por isso é constante e não coluna.
+// Os avisos pré-negativação (D-3/D0/D+1) são da régua nativa do Asaas, não daqui.
+export const NEGATIVATION_DAYS_AFTER_OVERDUE = 60
 ```
 
 **Migration:** `prisma/migrations/YYYYMMDDHHMMSS_add-dunning/` (padrão do repo). Puramente aditiva —
-nenhuma coluna existente vira `NOT NULL`, nenhum `DROP`. Os dois booleanos novos entram com
-`@default(false)`, então não exigem backfill.
+nenhuma coluna existente vira `NOT NULL`, nenhum `DROP`. O booleano novo entra com
+`@default(false)`, então não exige backfill.
