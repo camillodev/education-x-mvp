@@ -64,6 +64,21 @@ enum InvoiceStatus {
   CANCELLED // cancelada manualmente ou pela escola
   BLOCKED // não pode ser gerada (Guardian sem asaasCustomerId)
   ERROR // falha na criação no Asaas
+  NEGATIVATED // ADR-0008 — negativada no SPC/Serasa
+  REGULARIZED // ADR-0008 — negativação cancelada (pagamento recebido)
+}
+
+enum DunningAction {
+  NEGATIVATION // negativação MANUAL (orientador clica; elegível a partir de D+60) — Emenda 2
+  CANCELLATION // baixa da negativação (DELETE /paymentDunnings ou pagamento recebido)
+  // SEM REMINDER/WARNING1/WARNING2 (ADR-0008 Emenda 1, confirmado Gate 2): o timing dos avisos
+  // pré-negativação é da régua nativa do Asaas (D-3/D0/D+1, nível de subconta) — nenhum código
+  // nosso os escreve.
+}
+
+enum DunningStatus {
+  NEGATIVATED // POST /paymentDunnings confirmado pelo Asaas
+  REGULARIZED // baixa dada (DELETE /paymentDunnings ou pagamento recebido)
 }
 
 enum FirstChargeMode {
@@ -123,6 +138,8 @@ model Unit {
   termsAcceptances TermsAcceptance[]
   invoices         Invoice[]
   payments         Payment[]
+  dunnings         Dunning[]
+  dunningLogs      DunningLog[]
 
   @@map("units")
 }
@@ -202,6 +219,8 @@ model Guardian {
   phoneEnc String?
 
   asaasCustomerId String?
+
+  dunningOptOut Boolean @default(false) // negativação NUNCA ocorre para este responsável (R8)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -341,9 +360,11 @@ model Invoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  unit       Unit       @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
-  payments   Payment[]
+  unit        Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  enrollment  Enrollment   @relation(fields: [enrollmentId], references: [id])
+  payments    Payment[]
+  dunning     Dunning?
+  dunningLogs DunningLog[]
 
   @@index([unitId])
   @@index([enrollmentId])
@@ -354,6 +375,8 @@ model Invoice {
   // no índice simples de unitId e faz scan do resto sob o filtro.
   @@index([unitId, status])
   @@index([unitId, referenceMonth])
+  // ADR-0008 — varredura diária do cron de negativação (elegibilidade D+60)
+  @@index([unitId, dueDate])
   @@map("invoices")
 }
 
@@ -382,4 +405,66 @@ model Payment {
   @@index([invoiceId])
   @@index([asaasPaymentId])
   @@map("payments")
+}
+
+// ─── Dunning (negativação) ──────────────────────────────────────────────────────
+
+model DunningLog {
+  id        String        @id @default(cuid())
+  unitId    String
+  invoiceId String
+  action    DunningAction
+  // Vocabulário canônico (ADR-0008 D1): "success" | "error: <mensagem curta, sem PII>".
+  // NÃO usar "sent"/"failed"/"skipped_opt_out" — o guard de idempotência (R2/R8) compara
+  // literalmente contra "success" e silenciosamente re-dispara a negativação se o valor divergir.
+  result    String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  unit    Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  // SEM @@unique([invoiceId, action]) — proposital (ADR-0008 (a)): idempotência é regra de
+  // negócio no service, e a constraint impediria o retry de etapa falha exigido por R13/R14.
+  @@index([unitId])
+  @@index([invoiceId, action])
+  @@map("dunning_logs")
+}
+
+model Dunning {
+  id        String @id @default(cuid())
+  unitId    String
+  invoiceId String @unique // 1:1 real com Invoice (ADR-0008 (b)) — torna dupla negativação
+  //                          não-representável e permite upsert no retry de R14
+
+  // Asaas
+  asaasDunningId String? // preenchido após POST /paymentDunnings
+  status         DunningStatus @default(NEGATIVATED)
+
+  // Valores em centavos — conversão na borda do cliente Asaas (response * 100)
+  valueCents Int? // dívida negativada (response.value * 100)
+  feeCents   Int? // taxa de negativação (response.feeValue * 100; ~990 = R$ 9,90 na prática).
+  //                 Sem @default: persistir sempre o valor real retornado pelo Asaas.
+
+  // Auditoria / timeline
+  warningSentAt DateTime? // quando o Asaas confirmou o aviso CDC (10 dias antes, ~D+50).
+  //                         NÃO é um dos avisos D-3/D0/D+1 da régua nativa — mecanismo distinto.
+  requestedAt   DateTime? // quando POST /paymentDunnings foi confirmado
+  resolvedAt    DateTime? // quando a baixa foi dada ou o pagamento recebido
+
+  // clerkUserId de quem clicou "negativar" (ADR-0008 (d) + Emenda 2). Nullable por design (uma
+  // futura negativação automática usaria null), mas na prática atual é SEMPRE preenchido — toda
+  // negativação hoje nasce de um clique do orientador, nunca de um cron.
+  actorId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  unit    Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([unitId])
+  @@index([unitId, status])
+  @@map("dunnings")
 }

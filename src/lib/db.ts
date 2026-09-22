@@ -18,6 +18,8 @@ export const TENANT_MODELS = [
   'enrollment',
   'invoice',
   'payment',
+  'dunning',
+  'dunninglog',
 ]
 
 export function forUnit(unitId: string) {

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, it, expect, vi } from 'vitest'
 import { forUnit } from '../../../src/lib/db'
 
@@ -83,17 +85,49 @@ describe('forUnit — lógica de injeção de unitId', () => {
     ])
   })
 
-  it('modelos não-tenant não recebem injeção (Unit, TermsVersion)', () => {
-    const TENANT_MODELS = ['subject', 'guardian', 'billingconfig', 'termsacceptance', 'student', 'enrollment']
-    expect(TENANT_MODELS.includes('unit')).toBe(false)
-    expect(TENANT_MODELS.includes('termsversion')).toBe(false)
-    expect(TENANT_MODELS.includes('subject')).toBe(true)
-    expect(TENANT_MODELS.includes('guardian')).toBe(true)
+  it('modelos não-tenant não recebem injeção (Unit, TermsVersion)', async () => {
+    const { TENANT_MODELS } = await import('../../../src/lib/db')
+    expect(TENANT_MODELS).not.toContain('unit')
+    // TermsVersion tem unitId opcional (null = versão global da plataforma) — não é tenant-scoped
+    expect(TENANT_MODELS).not.toContain('termsversion')
+    expect(TENANT_MODELS).toContain('subject')
+    expect(TENANT_MODELS).toContain('guardian')
   })
 
   it('Student e Enrollment (matrícula) fazem parte do isolamento de tenant', async () => {
     const { TENANT_MODELS } = await import('../../../src/lib/db')
     expect(TENANT_MODELS).toContain('student')
     expect(TENANT_MODELS).toContain('enrollment')
+  })
+
+  it('Dunning e DunningLog fazem parte do isolamento de tenant', async () => {
+    const { TENANT_MODELS } = await import('../../../src/lib/db')
+    expect(TENANT_MODELS).toContain('dunning')
+    expect(TENANT_MODELS).toContain('dunninglog')
+  })
+
+  it('todo model com unitId obrigatório no schema está em TENANT_MODELS (paridade)', async () => {
+    const { TENANT_MODELS } = await import('../../../src/lib/db')
+    const schema = readFileSync(
+      join(__dirname, '../../../prisma/schema.prisma'),
+      'utf-8',
+    )
+
+    // Extrai nomes de model que têm "unitId String" (obrigatório) no corpo — não "unitId String?"
+    // (opcional, ex: TermsVersion, que representa dado que pode ser global da plataforma).
+    const modelsWithRequiredUnitId: string[] = []
+    const modelBlocks = schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)
+    for (const [, modelName, body] of modelBlocks) {
+      if (/^\s*unitId\s+String\s*(\/\/|$)/m.test(body)) {
+        modelsWithRequiredUnitId.push(modelName.toLowerCase())
+      }
+    }
+
+    // Falha aqui = alguém adicionou um model tenant-scoped ao schema sem registrá-lo em
+    // TENANT_MODELS — isolamento de tenant quebraria silenciosamente (ver ADR-0008 / EDU-74).
+    expect(modelsWithRequiredUnitId.length).toBeGreaterThan(0)
+    for (const model of modelsWithRequiredUnitId) {
+      expect(TENANT_MODELS, `model "${model}" tem unitId obrigatório mas falta em TENANT_MODELS`).toContain(model)
+    }
   })
 })
