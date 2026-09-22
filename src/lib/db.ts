@@ -18,6 +18,8 @@ export const TENANT_MODELS = [
   'enrollment',
   'invoice',
   'payment',
+  'dunning',
+  'dunninglog',
 ]
 
 export function forUnit(unitId: string) {
@@ -58,6 +60,20 @@ export function forUnit(unitId: string) {
           if (operation === 'create') {
             const typedArgs = args as { data?: Record<string, unknown> }
             typedArgs.data = { ...typedArgs.data, unitId }
+          }
+
+          if (operation === 'upsert') {
+            // upsert precisa de unitId tanto em `where` (pra não casar registro de outra Unit)
+            // quanto em `create` (pra não criar registro órfão de tenant) — achado de code
+            // review (ADR-0008/EDU-74): o retry de negativação (R14) faz upsert por invoiceId,
+            // e sem isso o isolamento de tenant ficava furado exatamente na única operação de
+            // escrita que o ADR nomeia como necessária pra Dunning.
+            const typedArgs = args as {
+              where?: Record<string, unknown>
+              create?: Record<string, unknown>
+            }
+            typedArgs.where = { ...typedArgs.where, unitId }
+            typedArgs.create = { ...typedArgs.create, unitId }
           }
 
           if (operation === 'createMany') {

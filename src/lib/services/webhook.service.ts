@@ -73,18 +73,23 @@ export async function processPaymentEvent(
 }
 
 async function handlePaymentReceived(
-  invoice: { id: string; unitId: string; asaasPaymentId: string | null },
+  invoice: { id: string; unitId: string; asaasPaymentId: string | null; status: string },
   payload: AsaasWebhookPayload
 ): Promise<{ handled: boolean }> {
   const amountCents = Math.round(payload.payment.value * 100)
   const paidAt = parsePaidAt(payload.payment.paymentDate, payload.dateCreated)
+  // Regra R17 (mvp-045 / ADR-0008 EDU-74): uma Invoice que estava NEGATIVATED nunca pode virar
+  // PAID de novo — isso apagaria o histórico de que ela foi ao SPC/Serasa. O destino correto é
+  // REGULARIZED. Para qualquer outro status (PENDING, ERROR, OVERDUE), o guard assimétrico
+  // original continua valendo: dinheiro que entrou sempre reconcilia para PAID.
+  const wasNegativated = invoice.status === 'NEGATIVATED'
   // Vincula asaasPaymentId à Invoice sempre — cobre o caminho em que ela foi resolvida só por
   // externalReference (idempotencyKey) porque a emissão original (billing.service.ts) tinha
   // falhado ANTES de persistir asaasPaymentId (ex.: Invoice ERROR criada mas createPayment
   // ainda não tinha voltado). Sem isso, a Invoice fica PAID mas sem vínculo Asaas gravado, e
   // o guard de consistência (F2, abaixo) fica permanentemente desarmado pra ela.
   const invoiceUpdateData = {
-    status: 'PAID' as const,
+    status: (wasNegativated ? 'REGULARIZED' : 'PAID') as 'REGULARIZED' | 'PAID',
     paidAt,
     paidAmountCents: amountCents,
     asaasPaymentId: payload.payment.id,
@@ -113,8 +118,8 @@ async function handlePaymentReceived(
           webhookEventId: payload.id,
         },
       }),
-      // Guard assimétrico: PAYMENT_RECEIVED sempre promove para PAID, independente do status
-      // atual (PENDING, ERROR ou OVERDUE) — dinheiro que entrou sempre reconcilia.
+      // Guard assimétrico: PAYMENT_RECEIVED sempre promove a Invoice (PENDING/ERROR/OVERDUE →
+      // PAID; NEGATIVATED → REGULARIZED, regra R17 acima) — dinheiro que entrou sempre reconcilia.
       prisma.invoice.update({
         where: { id: invoice.id },
         data: invoiceUpdateData,
@@ -131,12 +136,30 @@ async function handlePaymentReceived(
         where: { id: invoice.id },
         data: invoiceUpdateData,
       })
+      if (wasNegativated) {
+        await regularizeDunning(invoice.id)
+      }
       return { handled: true }
     }
     throw error
   }
 
+  if (wasNegativated) {
+    await regularizeDunning(invoice.id)
+  }
+
   return { handled: true }
+}
+
+// Dá baixa na negativação (registro interno) quando a Invoice que a originou é paga. Não chama
+// o cliente Asaas (DELETE /paymentDunnings) daqui — essa chamada externa é responsabilidade do
+// service de dunning (EDU-73), que observa essa mudança de status e reconcilia com o Asaas.
+// Aqui garantimos só que o registro local nunca fica desalinhado com o InvoiceStatus.
+async function regularizeDunning(invoiceId: string): Promise<void> {
+  await prisma.dunning.updateMany({
+    where: { invoiceId, status: 'NEGATIVATED' },
+    data: { status: 'REGULARIZED', resolvedAt: new Date() },
+  })
 }
 
 async function handlePaymentOverdue(invoice: { id: string; status: string }): Promise<{ handled: boolean }> {
