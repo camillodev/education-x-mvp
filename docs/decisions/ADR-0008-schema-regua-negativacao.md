@@ -1,23 +1,24 @@
-# ADR-0008: Schema da negativação automática (régua de avisos nativa Asaas)
+# ADR-0008: Schema da negativação (régua de avisos nativa Asaas + negativação manual)
 
-**Status:** Proposed (aguarda Gate 2 — assinatura do Rafa)
-**Data:** 2026-09-21 · **Revisado:** 2026-09-22 (ver Emenda 1)
+**Status:** Accepted (Gate 2 assinado por Rafa em 2026-09-22)
+**Data:** 2026-09-21 · **Revisado:** 2026-09-22 (ver Emenda 1 e Emenda 2)
 
 ## Contexto
 
-A negativação automática (`.specs/mvp-045-regua-negativacao.md`) precisa de estrutura de dados
-antes de qualquer linha de código. O schema atual não tem nenhum dos models de dunning, e o
-enum `InvoiceStatus` não expressa "negativada" nem "regularizada". A decisão é irreversível por
-dois motivos que não se revertem num PR pequeno: (1) estender `InvoiceStatus` muda a semântica de
-toda query de receita já escrita e de todas as futuras; (2) `Dunning` guarda o `asaasDunningId` de
-uma negativação real no SPC/Serasa — errar a cardinalidade aqui significa negativar o mesmo
-responsável duas vezes, com custo de R$ 9,90 por chamada e dano de reputação de crédito de um
-terceiro.
+A negativação (`.specs/mvp-045-regua-negativacao.md`, parcialmente superada — ver Emenda 2) precisa
+de estrutura de dados antes de qualquer linha de código. O schema atual não tem nenhum dos models
+de dunning, e o enum `InvoiceStatus` não expressa "negativada" nem "regularizada". A decisão é
+irreversível por dois motivos que não se revertem num PR pequeno: (1) estender `InvoiceStatus`
+muda a semântica de toda query de receita já escrita e de todas as futuras; (2) `Dunning` guarda o
+`asaasDunningId` de uma negativação real no SPC/Serasa — errar a cardinalidade aqui significa
+negativar o mesmo responsável duas vezes, com custo de R$ 9,90 por chamada e dano de reputação de
+crédito de um terceiro.
 
 O **timing dos avisos pré-negativação** é da régua nativa do Asaas (D-3 / D0 / D+1, fixa, a nível
-de subconta) — decisão de produto do Rafa em 2026-09-22, ver Emenda 1. O que continua sendo
-feature própria é a **decisão de quando negativar**: o Asaas envia os avisos, não decide negativar.
-Esse prazo é fixo em **D+60** e mora numa constante de código, não num model configurável.
+de subconta) — decisão de produto do Rafa em 2026-09-22, ver Emenda 1. A **negativação em si é
+ação manual do orientador**, não automática por cron — decisão de produto do Rafa, mesmo dia, ver
+Emenda 2. O sistema só calcula em D+60 que a Invoice está elegível e habilita um botão; o
+`POST /paymentDunnings` só é disparado quando o orientador clica.
 
 As duas fontes de verdade (`mvp-045` §4 e `.specs/SCHEMA-CONSOLIDADO.md` §2.2) **divergem em dois
 pontos** — este ADR resolve ambos. `mvp-05-negativacao.md` está SUPERSEDED e não foi usado.
@@ -185,16 +186,19 @@ feature para uma escola de uma vez. Se o Rafa quiser o kill-switch de volta (ex.
 é **decisão nova de Gate 2**, não algo para o `code-implementer` inventar na migration. Declarado
 aqui exatamente para que essa lacuna não seja preenchida por conta própria.
 
-⚠️ **Janela de ~59 dias sem contato próprio entre o último aviso nativo e a negativação.** A régua
-nativa Asaas termina em D+1; a negativação acontece em D+60. Nesse intervalo o Education X não
-dispara nada por conta própria. O aviso legal do CDC (art. 43, 10 dias antes da inclusão, ~D+50) é
-responsabilidade do Asaas e continua registrado em `Dunning.warningSentAt` — **não confundir com os
-avisos D-3/D0/D+1**, são mecanismos diferentes. Nota sobre R8: `Guardian.dunningOptOut` **não
-consegue** suprimir os avisos nativos, porque eles são configurados a nível de subconta, não por
-responsável — ou seja, a semântica de R8 ("avisos continuam, negativação não") sobrevive à
-reversão, mas agora por mecanismo, não por desenho. Aceito como consequência da escolha de
-simplicidade; se a conversão de inadimplência ficar ruim, a correção é adicionar um aviso próprio
-em D+30, o que não exige mudar nada deste schema.
+⚠️ **Janela de ~59 dias sem contato próprio entre o último aviso nativo e a elegibilidade pra
+negativar.** A régua nativa Asaas termina em D+1; a Invoice fica elegível para negativação manual
+em D+60. Nesse intervalo o Education X não dispara nada por conta própria. O aviso legal do CDC
+(art. 43, 10 dias antes da inclusão, ~D+50) é responsabilidade do Asaas e continua registrado em
+`Dunning.warningSentAt` — **não confundir com os avisos D-3/D0/D+1**, são mecanismos diferentes.
+Nota sobre R8: `Guardian.dunningOptOut` **não consegue** suprimir os avisos nativos, porque eles
+são configurados a nível de subconta, não por responsável — ou seja, a semântica de R8 ("avisos
+continuam, negativação não") sobrevive à reversão, mas agora por mecanismo, não por desenho. Aceito
+como consequência da escolha de simplicidade (confirmado com Rafa — ver Gate 2 e Emenda 2); se a
+conversão de inadimplência ficar ruim, a correção é adicionar um aviso próprio intermediário, o que
+não exige mudar nada deste schema. Com a Emenda 2, o intervalo também deixou de ser "sem ação
+possível" — a partir de D+60 o orientador já pode agir manualmente a qualquer momento, então a
+janela real de inação é só D+1 a D+60, não D+1 até "algo automático acontecer".
 
 ⚠️ **O cron precisa de duas queries, não uma.** Como a varredura filtra
 `status IN (PENDING, OVERDUE)`, uma Invoice `NEGATIVATED` sai do escopo dela — correto, porque a
@@ -318,33 +322,74 @@ deste ADR) — quem for implementar deve ler este ADR como a fonte que prevalece
 `@@index([unitId, dueDate])`, as duas divergências D1/D2, e as ⚠️ sobre `PAID→REGULARIZED` e o
 achado de `webhook.service.ts:87`. Nenhum deles dependia de `DunningConfig`.
 
-## Gate 2 — três pontos que precisam da assinatura explícita do Rafa
+## Gate 2 — respondido por Rafa em 2026-09-22
 
-1. **`DunningAction` com 2 valores** (`NEGATIVATION`/`CANCELLATION`) em vez dos 5 originais da
-   spec — decisão do `system-architect`, justificada acima, **não confirmada com Rafa ainda**.
-   Alternativa: manter os 5 valores mesmo sem escritor hoje, caso um aviso próprio volte antes de
-   valer a pena editar o enum de novo.
-2. **Não existe mais kill-switch de negativação por escola.** Sem `DunningConfig.active`, a
-   negativação roda para toda Unit sempre. Se precisar de liga/desliga por escola, é decisão nova
-   (ex.: `Unit.dunningActive`), fora do escopo desta migration.
-3. **Janela de ~59 dias sem contato próprio** entre o último aviso nativo (D+1) e a negativação
-   (D+60) — aceitar como está, ou pedir um aviso próprio intermediário (não muda este schema).
+1. **`DunningAction` com 2 valores** (`NEGATIVATION`/`CANCELLATION`) — **confirmado**. Enum menor,
+   como proposto pelo `system-architect`.
+2. **Sem kill-switch de negativação por escola** — **confirmado, OK pro MVP**. Negativação sempre
+   habilitada (D+60), sem toggle por `Unit`. Vira ticket novo se a necessidade for real.
+3. **Janela de ~59 dias sem contato próprio** — **superada pela Emenda 2**: a pergunta 3 revelou
+   que a negativação é manual, não automática, então "janela sem contato" deixa de ser o ponto
+   certo — o que existe agora é "janela sem contato até o orientador decidir agir", que é aceito
+   por design (ver Emenda 2).
+
+## Emenda 2 (2026-09-22) — negativação é ação manual do orientador, não automática por cron
+
+**Origem: decisão de produto do Rafa, resposta à pergunta 3 do Gate 2 original.** Ao perguntar
+sobre a janela sem contato entre o aviso nativo e a negativação automática, a resposta do Rafa
+revelou uma mudança maior do que a pergunta antecipava: **"o que devemos fazer é aparecer após 60
+dias a opção do orientador negativar. Mas ele irá clicar no botão de negativar, sendo a decisão
+dele."** Confirmado explicitamente: o sistema só **habilita** a ação em D+60 (calcula que a Invoice
+está elegível); o `POST /paymentDunnings` só é disparado quando um humano clica.
+
+Isso reverte a premissa central de `mvp-045` (negativação automática via cron, "sem intervenção
+humana", `actorId` tipicamente `null`) de volta para o comportamento de `mvp-05-negativacao.md`
+(SUPERSEDED até esta emenda) — **mas só na parte de "quem decide negativar"**. A régua de avisos
+nativa (Emenda 1) e o prazo fixo D+60 (em vez do D+15 de `mvp-05`) continuam como decidido.
+
+**O que muda no design:**
+
+- **Não existe cron que chama `POST /paymentDunnings` automaticamente.** Existe, no máximo, um
+  job/query que calcula diariamente (ou em tempo real, sem persistir estado — a decidir no
+  `feature-architect` do EDU-73) quais Invoices `OVERDUE` passaram de D+60, para popular a UI
+  ("elegível para negativar"). Nenhuma escrita em `Dunning`/`DunningLog` acontece nessa varredura.
+- **`Dunning.actorId` deixa de ser tipicamente `null`.** Como toda negativação agora nasce de um
+  clique, `actorId` (`clerkUserId` de quem clicou) é preenchido **sempre** que uma linha `Dunning`
+  é criada. O campo continua `String?` no schema (nullable) — não vira obrigatório — porque a
+  nulidade ainda é o mecanismo correto para expressar "automático" se algum fluxo automático voltar
+  a existir no futuro (ver ponto (d) da seção de design, que não muda). Mas na prática de hoje, o
+  código do EDU-73 sempre vai preencher esse campo.
+- **`DunningAction.NEGATIVATION`** passa a ser registrado no `DunningLog` como resultado de uma
+  ação de API disparada pelo clique (`POST /api/invoices/:id/negativar` ou rota equivalente, a
+  definir no EDU-73), não de um cron. O guard de idempotência (D1, "success") continua igual — só
+  muda quem inicia a chamada.
+- **O título do ticket EDU-73 ("Negativação automática cron + webhook") está desatualizado** — a
+  parte de webhook (baixa automática ao `PAYMENT_RECEIVED`, regra R17) continua automática e válida;
+  só a parte de "cron dispara a negativação" deixa de existir. Renomear/reescopar o ticket é parte
+  do Task Contract do EDU-73, não deste ADR.
+
+**O que esta emenda NÃO muda:** todos os pontos de schema já decididos — `Dunning`, `DunningLog`,
+extend `InvoiceStatus`, `Guardian.dunningOptOut`, os 4 pontos de design (a/b/c/d), o índice
+`[unitId, dueDate]` (continua necessário — agora para popular a lista de "elegíveis" na UI, em vez
+de para o cron decidir sozinho), e o enum `DunningAction` de 2 valores (Emenda 1, confirmado no
+Gate 2). A régua nativa Asaas para avisos (Emenda 1) também não muda.
 
 ## Anexo A — Bloco Prisma final (pronto para `prisma/schema.prisma`)
 
-> Valores conferidos contra `mvp-045` §4 e `SCHEMA-CONSOLIDADO` §2.2, com D1 e D2 aplicados e a
-> Emenda 1 (sem `DunningConfig`, `DunningAction` com 2 valores — ver Gate 2 item 1) incorporada.
+> Valores conferidos contra `mvp-045` §4 e `SCHEMA-CONSOLIDADO` §2.2, com D1 e D2 aplicados, a
+> Emenda 1 (sem `DunningConfig`, `DunningAction` com 2 valores) e a Emenda 2 (negativação manual,
+> `actorId` sempre preenchido na prática) incorporadas.
 > `Enrollment.dunningPaused` **já existe** (`schema.prisma:257`) e não aparece abaixo — não recriar.
 
 ```prisma
 // ─── Enums novos ──────────────────────────────────────────────────────────────
 
 enum DunningAction {
-  NEGATIVATION // negativação automática em D+60 (POST /paymentDunnings)
+  NEGATIVATION // negativação MANUAL (orientador clica; elegível a partir de D+60) — Emenda 2
   CANCELLATION // baixa da negativação (DELETE /paymentDunnings ou pagamento recebido)
-  // SEM REMINDER/WARNING1/WARNING2 (ADR-0008 Emenda 1, Gate 2 item 1): o timing dos avisos
+  // SEM REMINDER/WARNING1/WARNING2 (ADR-0008 Emenda 1, confirmado Gate 2): o timing dos avisos
   // pré-negativação é da régua nativa do Asaas (D-3/D0/D+1, nível de subconta) — nenhum código
-  // nosso os escreve. Confirmar com Rafa antes de codar.
+  // nosso os escreve.
 }
 
 enum DunningStatus {
@@ -412,7 +457,9 @@ model Dunning {
   requestedAt   DateTime? // quando POST /paymentDunnings foi confirmado
   resolvedAt    DateTime? // quando a baixa foi dada ou o pagamento recebido
 
-  // null = negativação automática pela régua; preenchido (clerkUserId) = ação manual (ADR-0008 (d))
+  // clerkUserId de quem clicou "negativar" (ADR-0008 (d) + Emenda 2). Nullable por design (uma
+  // futura negativação automática usaria null), mas na prática atual é SEMPRE preenchido — toda
+  // negativação hoje nasce de um clique do orientador, nunca de um cron.
   actorId String?
 
   createdAt DateTime @default(now())
