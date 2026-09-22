@@ -4,6 +4,9 @@ CREATE TYPE "DunningAction" AS ENUM ('NEGATIVATION', 'CANCELLATION');
 -- CreateEnum
 CREATE TYPE "DunningStatus" AS ENUM ('NEGATIVATED', 'REGULARIZED');
 
+-- CreateEnum
+CREATE TYPE "DunningLogResult" AS ENUM ('SUCCESS', 'ERROR');
+
 -- AlterEnum
 -- This migration adds more than one value to an enum.
 -- With PostgreSQL versions 11 and earlier, this is not possible
@@ -24,7 +27,8 @@ CREATE TABLE "dunning_logs" (
     "unitId" TEXT NOT NULL,
     "invoiceId" TEXT NOT NULL,
     "action" "DunningAction" NOT NULL,
-    "result" TEXT NOT NULL,
+    "result" "DunningLogResult" NOT NULL,
+    "errorDetail" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

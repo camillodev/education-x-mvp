@@ -81,6 +81,12 @@ enum DunningStatus {
   REGULARIZED // baixa dada (DELETE /paymentDunnings ou pagamento recebido)
 }
 
+enum DunningLogResult {
+  SUCCESS // etapa concluída — guard de idempotência (R2/R8) pula re-disparo quando já SUCCESS
+  ERROR // etapa falhou — DunningLog.errorDetail carrega a mensagem curta (sem PII); pode ser
+  // retentada no próximo cron, já que não há @@unique([invoiceId, action]) bloqueando
+}
+
 enum FirstChargeMode {
   PROPORTIONAL // cobra proporcional aos dias restantes do ciclo (padrão)
   FREE_FIRST_MONTH // não emite Invoice na 1ª competência; cobra cheia a partir do 2º mês
@@ -410,14 +416,15 @@ model Payment {
 // ─── Dunning (negativação) ──────────────────────────────────────────────────────
 
 model DunningLog {
-  id        String        @id @default(cuid())
+  id        String           @id @default(cuid())
   unitId    String
   invoiceId String
   action    DunningAction
-  // Vocabulário canônico (ADR-0008 D1): "success" | "error: <mensagem curta, sem PII>".
-  // NÃO usar "sent"/"failed"/"skipped_opt_out" — o guard de idempotência (R2/R8) compara
-  // literalmente contra "success" e silenciosamente re-dispara a negativação se o valor divergir.
-  result    String
+  // Guard de idempotência (R2/R8) compara contra o enum DunningLogResult.SUCCESS — verificado
+  // em tempo de compilação, não mais string literal (ADR-0008 Emenda 3). errorDetail carrega a
+  // mensagem curta e sem PII, só preenchida quando result = ERROR.
+  result       DunningLogResult
+  errorDetail  String? // só preenchido quando result = ERROR; nunca contém PII
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -427,6 +434,7 @@ model DunningLog {
 
   // SEM @@unique([invoiceId, action]) — proposital (ADR-0008 (a)): idempotência é regra de
   // negócio no service, e a constraint impediria o retry de etapa falha exigido por R13/R14.
+  // Isso é ortogonal ao tipo de `result` (Emenda 3) — nenhum dos dois exige o outro.
   @@index([unitId])
   @@index([invoiceId, action])
   @@map("dunning_logs")

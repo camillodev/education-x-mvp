@@ -56,15 +56,16 @@ não alcança.
 
 ### Divergências entre as fontes — resolvidas aqui
 
-**D1 — vocabulário de `DunningLog.result`: `"success"` é canônico.** `mvp-045` §4 define
-`"success" | "error: <msg>"`; `SCHEMA-CONSOLIDADO` linha 276 sugere `"sent" | "skipped_opt_out" |
-"failed"`. Vence `"success"` porque é **load-bearing** em `mvp-045` (R2 e R8 — o guard de
-idempotência; §9 — o DoD binário), contra um comentário parentético no consolidado. Se o
-implementador gravar `"sent"`, o guard de R2 (`SHALL NOT disparar uma action que já possua
-DunningLog com result = "success"`) **nunca casa**, e todo cron re-dispara a negativação —
-silenciosamente, a R$ 9,90 por repetição. `"skipped_opt_out"` é morto por construção e **não deve
-ser implementado**: R7 manda não gravar log nenhum sob pausa, e o DoD §9 item 7 prova que opt-out
-não gera log de `NEGATIVATION`. Não existe caminho de skip-logging neste desenho.
+**D1 — vocabulário de `DunningLog.result`: o valor canônico da v1/v2 deste ADR era a string
+`"success"`.** `mvp-045` §4 define `"success" | "error: <msg>"`; `SCHEMA-CONSOLIDADO` linha 276
+sugere `"sent" | "skipped_opt_out" | "failed"`. `"success"` vencia porque era **load-bearing** em
+`mvp-045` (R2 e R8 — o guard de idempotência; §9 — o DoD binário), contra um comentário parentético
+no consolidado. `"skipped_opt_out"` é morto por construção e **não deve ser implementado**: R7
+manda não gravar log nenhum sob pausa, e o DoD §9 item 7 prova que opt-out não gera log de
+`NEGATIVATION`. Não existe caminho de skip-logging neste desenho. **A partir da Emenda 3, o campo
+`result` é o enum `DunningLogResult` (`SUCCESS`/`ERROR`), não mais `String` livre** — o vocabulário
+correto passa a ser garantido pelo tipo, não por convenção de comentário. Ver Emenda 3 para o
+raciocínio completo; esta seção fica como registro histórico da decisão original.
 
 **D2 — `feeCents` é ~990 (R$ 9,90), não 2990.** O comentário `// taxa negativacao (R$29,90 = 2990)`
 em `SCHEMA-CONSOLIDADO` linha 300 está obsoleto; `mvp-045` §10.3 corrige explicitamente o valor do
@@ -374,11 +375,53 @@ extend `InvoiceStatus`, `Guardian.dunningOptOut`, os 4 pontos de design (a/b/c/d
 de para o cron decidir sozinho), e o enum `DunningAction` de 2 valores (Emenda 1, confirmado no
 Gate 2). A régua nativa Asaas para avisos (Emenda 1) também não muda.
 
+## Emenda 3 (2026-09-22) — `DunningLog.result` vira enum, não mais `String` livre
+
+**Origem: revisão de spec-compliance (pergunta do Rafa sobre a decisão original).** D1 justificava
+não usar `@@unique([invoiceId, action])` — uma decisão correta sobre a **chave** de idempotência,
+que precisa permitir múltiplas tentativas (retry de falha). Mas a v1/v2 deste ADR estendeu esse
+mesmo raciocínio ao **tipo do campo `result`**, deixando-o `String` livre "porque enum quebraria o
+retry" — e essa segunda parte não se sustenta: as duas decisões são ortogonais. Nenhuma delas
+depende da outra.
+
+**Por que são ortogonais.** O que o retry precisa é poder gravar uma segunda linha em
+`DunningLog` (mesma `invoiceId`+`action`) sem colidir com a primeira — isso é resolvido só pela
+ausência de `@@unique`. O *tipo* de `result` nessa segunda linha pode ser um enum de 2 valores sem
+afetar em nada essa capacidade: `ERROR` continua gravável quantas vezes for preciso, exatamente
+como `"error: ..."` gravava. Nada em `@@unique` versus enum se toca.
+
+**O problema real que ficou sem endereçamento na v1/v2.** O comentário no schema dizia
+"vocabulário canônico: `"success"` | `"error: <msg>"`" — mas isso é convenção de comentário, sem
+constraint de banco. Se o `code-implementer` do EDU-73 gravar `"Success"` (maiúscula), `"sent"`,
+ou qualquer variação, o guard de idempotência (`result === "success"`) nunca casa, e a negativação
+é retentada indevidamente — silenciosamente, a R$ 9,90 por repetição (mesmo cenário que D1 já
+descrevia como risco, sem notar que o próprio design escolhido não o mitigava).
+
+**Decisão:** `result` vira `enum DunningLogResult { SUCCESS, ERROR }`. A mensagem de erro (antes
+concatenada em `"error: <mensagem>"`) migra para um campo novo, `errorDetail String?`, preenchido
+só quando `result = ERROR`. Isso:
+- Move o guard de idempotência de comparação de string literal para comparação de enum, verificada
+  em tempo de compilação pelo Prisma Client — um typo no service vira erro de build, não bug
+  silencioso em produção.
+- Preserva 100% da flexibilidade de retry que D1 já garantia (nenhuma mudança em `@@unique`).
+- Separa "o que aconteceu" (`result`, estruturado) de "por que" (`errorDetail`, texto livre e sem
+  PII) — mais fácil de agregar/filtrar no futuro (ex.: dashboard de erros de negativação) do que
+  fazer parsing de prefixo `"error: "` em uma coluna de texto.
+
+**O que esta emenda NÃO muda:** a ausência de `@@unique([invoiceId, action])` (D1's argumento
+original sobre a chave continua correto e intacto), os 4 pontos de design (a/b/c/d), as Emendas 1
+e 2, e qualquer outro campo do schema. É uma correção pontual e local ao tipo de um campo.
+
+**Migration:** como esta migration (`add_dunning`) ainda não foi aplicada em produção nenhuma vez
+(gerada só com `--create-only`, nunca `deploy`), o campo foi corrigido no mesmo arquivo de
+migration em vez de empilhar uma segunda migration para uma feature que ainda não existe em
+produção — mais limpo para quem for ler o histórico depois.
+
 ## Anexo A — Bloco Prisma final (pronto para `prisma/schema.prisma`)
 
 > Valores conferidos contra `mvp-045` §4 e `SCHEMA-CONSOLIDADO` §2.2, com D1 e D2 aplicados, a
-> Emenda 1 (sem `DunningConfig`, `DunningAction` com 2 valores) e a Emenda 2 (negativação manual,
-> `actorId` sempre preenchido na prática) incorporadas.
+> Emenda 1 (sem `DunningConfig`, `DunningAction` com 2 valores), a Emenda 2 (negativação manual,
+> `actorId` sempre preenchido na prática) e a Emenda 3 (`DunningLog.result` como enum) incorporadas.
 > `Enrollment.dunningPaused` **já existe** (`schema.prisma:257`) e não aparece abaixo — não recriar.
 
 ```prisma
@@ -413,15 +456,22 @@ enum DunningStatus {
 
 // ─── Models novos ─────────────────────────────────────────────────────────────
 
+enum DunningLogResult {
+  SUCCESS // etapa concluída — guard de idempotência (R2/R8) pula re-disparo quando já SUCCESS
+  ERROR // etapa falhou — DunningLog.errorDetail carrega a mensagem curta (sem PII); pode ser
+  // retentada no próximo cron, já que não há @@unique([invoiceId, action]) bloqueando
+}
+
 model DunningLog {
-  id        String        @id @default(cuid())
-  unitId    String
-  invoiceId String
-  action    DunningAction
-  // Vocabulário canônico (ADR-0008 D1): "success" | "error: <mensagem curta, sem PII>".
-  // NÃO usar "sent"/"failed"/"skipped_opt_out" — o guard de idempotência (R2/R8) compara
-  // literalmente contra "success" e silenciosamente re-dispara a negativação se o valor divergir.
-  result    String
+  id          String           @id @default(cuid())
+  unitId      String
+  invoiceId   String
+  action      DunningAction
+  // Guard de idempotência (R2/R8) compara contra DunningLogResult.SUCCESS — verificado em tempo
+  // de compilação, não mais string literal (ADR-0008 Emenda 3). errorDetail carrega a mensagem
+  // curta e sem PII, só preenchida quando result = ERROR.
+  result      DunningLogResult
+  errorDetail String? // só preenchido quando result = ERROR; nunca contém PII
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -431,6 +481,7 @@ model DunningLog {
 
   // SEM @@unique([invoiceId, action]) — proposital (ADR-0008 (a)): idempotência é regra de
   // negócio no service, e a constraint impediria o retry de etapa falha exigido por R13/R14.
+  // Ortogonal ao tipo de `result` (Emenda 3) — nenhum dos dois exige o outro.
   @@index([unitId])
   @@index([invoiceId, action])
   @@map("dunning_logs")
