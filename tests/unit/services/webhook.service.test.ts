@@ -8,6 +8,7 @@ vi.mock('@/lib/db', () => {
   const invoiceFindFirst = vi.fn()
   const invoiceUpdate = vi.fn()
   const paymentCreate = vi.fn()
+  const dunningUpdateMany = vi.fn().mockResolvedValue({ count: 0 })
   // Simula prisma.$transaction([...]) no modo array: executa cada operação passada (já são
   // Promises retornadas pelos mocks de create/update acima) e propaga a primeira rejeição —
   // suficiente para os testes daqui, que não precisam de rollback real, só do encadeamento
@@ -22,6 +23,9 @@ vi.mock('@/lib/db', () => {
       payment: {
         create: paymentCreate,
       },
+      dunning: {
+        updateMany: dunningUpdateMany,
+      },
       $transaction: transaction,
     },
   }
@@ -34,6 +38,9 @@ type MockDb = {
   }
   payment: {
     create: ReturnType<typeof vi.fn>
+  }
+  dunning: {
+    updateMany: ReturnType<typeof vi.fn>
   }
   $transaction: ReturnType<typeof vi.fn>
 }
@@ -88,6 +95,7 @@ describe('processPaymentEvent', () => {
     // qualquer override feito num teste vaze pro próximo.
     vi.clearAllMocks()
     db.$transaction.mockImplementation(async (ops: Promise<unknown>[]) => Promise.all(ops))
+    db.dunning.updateMany.mockResolvedValue({ count: 0 })
   })
 
   it('PAYMENT_RECEIVED em Invoice PENDING: cria Payment e promove Invoice para PAID', async () => {
@@ -226,6 +234,39 @@ describe('processPaymentEvent', () => {
     expect(db.payment.create).not.toHaveBeenCalled()
     expect(db.invoice.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 'inv-1' }, data: expect.objectContaining({ status: 'OVERDUE' }) })
+    )
+  })
+
+  it('PAYMENT_RECEIVED em Invoice NEGATIVATED: promove para REGULARIZED (não PAID) e dá baixa na negativação via Dunning.update', async () => {
+    // Regra R17 (mvp-045 / ADR-0008): uma cobrança negativada que recebe o pagamento não pode
+    // voltar a ser "PAID" — o histórico de que ela foi negativada (SPC/Serasa) não pode
+    // desaparecer silenciosamente. O destino correto é REGULARIZED, e a baixa da negativação em
+    // si (DELETE /paymentDunnings no Asaas) é sinalizada gravando Dunning.resolvedAt +
+    // status: REGULARIZED — quem efetivamente chama o cliente Asaas é o service de dunning
+    // (EDU-73); aqui só garantimos que o webhook não promove incondicionalmente para PAID.
+    const invoiceNegativated = { ...INVOICE_PENDING, id: 'inv-neg', status: 'NEGATIVATED' }
+    db.invoice.findFirst.mockResolvedValue(invoiceNegativated)
+    db.payment.create.mockResolvedValue({ id: 'pay-record-neg' })
+    db.invoice.update.mockResolvedValue({ ...invoiceNegativated, status: 'REGULARIZED' })
+    db.dunning.updateMany.mockResolvedValue({ count: 1 })
+
+    const result = await processPaymentEvent(buildPayload())
+
+    expect(result).toEqual({ handled: true })
+    expect(db.invoice.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'inv-neg' },
+        data: expect.objectContaining({ status: 'REGULARIZED' }),
+      })
+    )
+    expect(db.invoice.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'PAID' }) })
+    )
+    expect(db.dunning.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { invoiceId: 'inv-neg', status: 'NEGATIVATED' },
+        data: expect.objectContaining({ status: 'REGULARIZED' }),
+      })
     )
   })
 

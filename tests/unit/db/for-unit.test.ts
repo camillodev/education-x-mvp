@@ -66,6 +66,27 @@ describe('forUnit — lógica de injeção de unitId', () => {
     })
   })
 
+  it('injeção em upsert: where e create.data recebem unitId (ADR-0008 exige upsert por invoiceId no retry de Dunning)', () => {
+    const unitId = 'unit-test-123'
+    const args: {
+      where?: Record<string, unknown>
+      create?: Record<string, unknown>
+      update?: Record<string, unknown>
+    } = {
+      where: { invoiceId: 'inv-1' },
+      create: { invoiceId: 'inv-1', status: 'NEGATIVATED' },
+      update: { status: 'NEGATIVATED' },
+    }
+
+    // Simular o que a extension deve fazer para upsert (mesmo tratamento de where que
+    // update/delete, mesmo tratamento de data que create — só que upsert tem os dois campos)
+    args.where = { ...args.where, unitId }
+    args.create = { ...args.create, unitId }
+
+    expect(args.where).toEqual({ invoiceId: 'inv-1', unitId: 'unit-test-123' })
+    expect(args.create).toEqual({ invoiceId: 'inv-1', status: 'NEGATIVATED', unitId: 'unit-test-123' })
+  })
+
   it('injeção em createMany: todos os items recebem unitId', () => {
     const unitId = 'unit-test-123'
     const args: { data?: Array<Record<string, unknown>> } = {
@@ -115,10 +136,14 @@ describe('forUnit — lógica de injeção de unitId', () => {
 
     // Extrai nomes de model que têm "unitId String" (obrigatório) no corpo — não "unitId String?"
     // (opcional, ex: TermsVersion, que representa dado que pode ser global da plataforma).
+    // O boundary é "\s|$" (não só "//" ou fim de linha) porque "String" pode ser seguida por um
+    // atributo inline (ex: "unitId String @unique" em BillingConfig) antes de qualquer comentário
+    // — achado de code review (EDU-74): a versão anterior da regex não capturava esse caso e o
+    // teste passava só por coincidência (o model já estava hardcoded em TENANT_MODELS).
     const modelsWithRequiredUnitId: string[] = []
     const modelBlocks = schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)
     for (const [, modelName, body] of modelBlocks) {
-      if (/^\s*unitId\s+String\s*(\/\/|$)/m.test(body)) {
+      if (/^\s*unitId\s+String(?:\s|$)/m.test(body)) {
         modelsWithRequiredUnitId.push(modelName.toLowerCase())
       }
     }
