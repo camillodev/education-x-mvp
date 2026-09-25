@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useEditEscola } from '@/hooks/use-edit-escola'
+import { useEditSchool } from '@/hooks/use-edit-school'
 import { Stepper } from '@/components/patterns/Stepper'
 import { StepDados } from '@/components/onboarding/StepDados'
 import { StepFinanceiro } from '@/components/onboarding/StepFinanceiro'
@@ -33,16 +33,16 @@ export default function EditarEscolaPage() {
     state,
     loading,
     goToStep,
-    setDados,
-    setCobranca,
-    setPlano,
+    setDetails,
+    setBilling,
+    setPlan,
     addSubject,
     removeSubject,
     updateSubject,
     submit,
     autoSave,
     canProceed,
-  } = useEditEscola(unitId)
+  } = useEditSchool(unitId)
 
   const [loadingStepIdx, setLoadingStepIdx] = useState(0)
   const { toast } = useToast()
@@ -118,7 +118,7 @@ export default function EditarEscolaPage() {
           Editar escola
         </p>
         <div className="flex items-baseline gap-4">
-          <h1 className="text-2xl font-bold text-(--color-text)">{state.dados.name || 'Escola'}</h1>
+          <h1 className="text-2xl font-bold text-(--color-text)">{state.details.name || 'Escola'}</h1>
           {state.lastSavedAt && (
             <span className="text-xs text-(--color-text-subtle)">
               Salvo às {state.lastSavedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -138,18 +138,18 @@ export default function EditarEscolaPage() {
               <div className="min-w-0">
                 {state.step === 1 && (
                   <StepDados
-                    dados={state.dados}
-                    onChange={setDados}
+                    dados={state.details}
+                    onChange={setDetails}
                     readOnly={{ cnpj: true }}
                   />
                 )}
 
                 {state.step === 2 && (
                   <StepFinanceiro
-                    cobranca={state.cobranca}
-                    plano={state.plano}
-                    onCobrancaChange={setCobranca}
-                    onPlanoChange={setPlano}
+                    cobranca={state.billing}
+                    plano={state.plan}
+                    onCobrancaChange={setBilling}
+                    onPlanoChange={setPlan}
                   />
                 )}
 

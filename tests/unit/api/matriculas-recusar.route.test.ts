@@ -12,7 +12,7 @@ vi.mock('@/lib/services/approval.service', async () => {
   return { ...actual, rejectEnrollment: (...a: unknown[]) => rejectEnrollment(...a) }
 })
 
-import { POST } from '@/app/api/matriculas/[guardianId]/recusar/route'
+import { POST } from '@/app/api/enrollments/[guardianId]/reject/route'
 
 function makeParams(guardianId: string) {
   return { params: Promise.resolve({ guardianId }) }

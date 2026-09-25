@@ -6,7 +6,7 @@ import { guardAdmin } from '@/lib/api/guard'
 // Admin-only. Usa prisma cru (NÃO forUnit): o admin tem unitId='__admin__' e
 // forUnit filtraria a lista pra vazio.
 export async function GET(req: NextRequest) {
-  const denied = await guardAdmin('GET /api/escolas')
+  const denied = await guardAdmin('GET /api/schools')
   if (denied) return denied
 
   try {
@@ -24,6 +24,6 @@ export async function GET(req: NextRequest) {
     }))
     return NextResponse.json(list, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'GET /api/escolas', exposeDetail: true })
+    return errorResponse(err, { route: 'GET /api/schools', exposeDetail: true })
   }
 }

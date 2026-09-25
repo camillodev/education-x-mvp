@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       )
     }
-    console.error('[POST /api/setup/escola] Auth error:', err)
+    console.error('[POST /api/setup/unit] Auth error:', err)
     return NextResponse.json(
       { error: 'Falha na autenticação.', code: 'AUTH_ERROR' },
       { status: 500 }
@@ -88,13 +88,13 @@ export async function POST(req: NextRequest) {
       )
     }
     if (err instanceof AsaasProvisionError) {
-      console.error('[POST /api/setup/escola] Asaas error:', err)
+      console.error('[POST /api/setup/unit] Asaas error:', err)
       return NextResponse.json(
         { error: 'Falha ao provisionar subconta de pagamento.', code: 'ASAAS_PROVISION' },
         { status: 502 }
       )
     }
-    console.error('[POST /api/setup/escola] Unexpected error:', err)
+    console.error('[POST /api/setup/unit] Unexpected error:', err)
     return NextResponse.json(
       { error: 'Erro inesperado ao cadastrar escola.', code: 'INTERNAL' },
       { status: 500 }

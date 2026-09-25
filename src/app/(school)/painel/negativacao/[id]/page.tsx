@@ -113,7 +113,7 @@ export default function NegativacaoDetalhePage({ params }: { params: Promise<{ i
   const router = useRouter();
   const { toast } = useToast();
   const [modal, setModal] = useState<"negativar" | "optout" | null>(null);
-  const { data, loading, error } = useMockResource<DunningRecord[]>("/api/mock/negativacao");
+  const { data, loading, error } = useMockResource<DunningRecord[]>("/api/mock/dunning");
   const records = useMemo(() => data ?? [], [data]);
   const record = records.find((r) => r.id === id);
 

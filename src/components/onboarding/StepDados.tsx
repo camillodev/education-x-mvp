@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import type { DadosState } from '@/hooks/use-onboarding'
+import type { DetailsState } from '@/hooks/use-onboarding'
 import { isValidCnpj, isValidBrMobile } from '@/lib/validations/br-documents'
 import { lookupCnpj, CnpjNotFoundError } from '@/lib/data/cnpj-lookup'
 import { useToast } from '@/components/ui/toast'
@@ -11,8 +11,8 @@ import { CardEndereco } from './CardEndereco'
 import { CardResponsavel } from './CardResponsavel'
 
 interface Props {
-  dados: DadosState
-  onChange: (dados: Partial<DadosState>) => void
+  dados: DetailsState
+  onChange: (dados: Partial<DetailsState>) => void
   readOnly?: { cnpj?: boolean }
 }
 
@@ -53,7 +53,7 @@ export function StepDados({ dados, onChange, readOnly }: Props) {
     lookupCnpj(cnpj, controller.signal)
       .then((data) => {
         // Substitui atomicamente; só preenche campos vazios pra não pisar no que o user digitou.
-        const patch: Partial<DadosState> = {
+        const patch: Partial<DetailsState> = {
           legalName: data.legalName,
           tradeName: data.tradeName,
           cnpjStatus: data.status,
@@ -112,7 +112,7 @@ export function StepDados({ dados, onChange, readOnly }: Props) {
       if (!data.erro) {
         // Preenche só o que o ViaCEP retornou (campos vazios não apagam o que já existe).
         // Sobrescreve de forma atômica — nunca concatena com o valor anterior.
-        const patch: Partial<DadosState> = {}
+        const patch: Partial<DetailsState> = {}
         if (data.logradouro) patch.address = data.logradouro
         if (data.bairro) patch.neighborhood = data.bairro
         if (data.localidade) patch.city = data.localidade

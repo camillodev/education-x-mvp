@@ -128,7 +128,7 @@ export default function CobrancaDetalhePage({ params }: { params: Promise<{ id: 
   const router = useRouter();
   const { toast } = useToast();
   const [cancelOpen, setCancelOpen] = useState(false);
-  const { data, loading, error } = useMockResource<CobrancasResponse>("/api/mock/cobrancas");
+  const { data, loading, error } = useMockResource<CobrancasResponse>("/api/mock/invoices");
   const invoices = useMemo(() => data?.invoices ?? [], [data]);
   const invoice = invoices.find((c) => c.id === id);
 

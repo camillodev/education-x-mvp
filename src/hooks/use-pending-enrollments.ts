@@ -27,11 +27,11 @@ export function usePendingEnrollments() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/matriculas/pendentes')
+      const res = await fetch('/api/enrollments/pendentes')
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string; code?: string; detail?: string }
         console.error(
-          `[usePendingEnrollments] GET /api/matriculas/pendentes falhou (${res.status} ${body.code ?? ''}):`,
+          `[usePendingEnrollments] GET /api/enrollments/pendentes falhou (${res.status} ${body.code ?? ''}):`,
           body.detail ?? '(sem detail)'
         )
         setError(body.error ?? 'Falha ao carregar matrículas pendentes.')
@@ -52,7 +52,7 @@ export function usePendingEnrollments() {
 
   const approve = useCallback(
     async (guardianId: string) => {
-      const res = await fetch(`/api/matriculas/${guardianId}/aprovar`, { method: 'POST' })
+      const res = await fetch(`/api/enrollments/${guardianId}/aprovar`, { method: 'POST' })
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string }
         throw new Error(body.error ?? 'Falha ao aprovar matrícula.')
@@ -64,7 +64,7 @@ export function usePendingEnrollments() {
 
   const reject = useCallback(
     async (guardianId: string) => {
-      const res = await fetch(`/api/matriculas/${guardianId}/recusar`, { method: 'POST' })
+      const res = await fetch(`/api/enrollments/${guardianId}/recusar`, { method: 'POST' })
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string }
         throw new Error(body.error ?? 'Falha ao recusar matrícula.')

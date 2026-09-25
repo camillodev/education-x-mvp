@@ -1,16 +1,16 @@
 'use client'
 
-import type { OnboardingState, DadosState, CobrancaState, PlanoState } from '@/hooks/use-onboarding'
+import type { OnboardingState, DetailsState, BillingState, PlanState } from '@/hooks/use-onboarding'
 import type { SubjectInput } from '@/lib/validations/unit'
 import { formatBRL, maskCnpj } from '@/lib/format'
 import { getPlan } from '@/lib/data/plans'
 import { computeDiscountedCents } from '@/lib/pricing'
 
-// Aceita OnboardingState ou qualquer estado compatível (ex: EditEscolaState)
+// Aceita OnboardingState ou qualquer estado compatível (ex: EditSchoolState)
 type RevisaoCompatState = {
-  dados: DadosState
-  cobranca: CobrancaState
-  plano: PlanoState
+  details: DetailsState
+  billing: BillingState
+  plan: PlanState
   subjects: SubjectInput[]
   status: OnboardingState['status']
   errorMsg?: string
@@ -37,7 +37,7 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps, submitL
         </div>
         <h2 className="text-xl font-semibold text-gray-800">Escola cadastrada!</h2>
         <p className="max-w-md text-sm text-gray-500">
-          Enviamos um e-mail para <strong>{state.dados.responsibleEmail}</strong> com o link de
+          Enviamos um e-mail para <strong>{state.details.responsibleEmail}</strong> com o link de
           confirmação. A escola fica pendente até o responsável aceitar os termos. Só então a
           conta é ativada.
         </p>
@@ -91,24 +91,24 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps, submitL
         <dl className="grid gap-1 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-gray-400">Nome</dt>
-            <dd className="font-medium">{state.dados.name || '—'}</dd>
+            <dd className="font-medium">{state.details.name || '—'}</dd>
           </div>
           <div>
             <dt className="text-gray-400">CNPJ</dt>
-            <dd className="font-medium">{state.dados.cnpj ? maskCnpj(state.dados.cnpj) : '—'}</dd>
+            <dd className="font-medium">{state.details.cnpj ? maskCnpj(state.details.cnpj) : '—'}</dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-gray-400">Endereço</dt>
             <dd className="font-medium">
-              {state.dados.address}, {state.dados.number}
-              {state.dados.complement ? ` — ${state.dados.complement}` : ''} ·{' '}
-              {state.dados.neighborhood} · {state.dados.city} — {state.dados.state}
+              {state.details.address}, {state.details.number}
+              {state.details.complement ? ` — ${state.details.complement}` : ''} ·{' '}
+              {state.details.neighborhood} · {state.details.city} — {state.details.state}
             </dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-gray-400">Responsável</dt>
             <dd className="font-medium">
-              {state.dados.responsibleName} · {state.dados.responsibleEmail}
+              {state.details.responsibleName} · {state.details.responsibleEmail}
             </dd>
           </div>
         </dl>
@@ -129,30 +129,30 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps, submitL
         <dl className="grid gap-1 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-gray-400">Fechamento (cobrança + plano)</dt>
-            <dd className="font-medium">Dia {state.cobranca.closingDay}</dd>
+            <dd className="font-medium">Dia {state.billing.closingDay}</dd>
           </div>
           <div>
             <dt className="text-gray-400">Vencimento</dt>
-            <dd className="font-medium">Dia {state.cobranca.dueDay}</dd>
+            <dd className="font-medium">Dia {state.billing.dueDay}</dd>
           </div>
           <div>
             <dt className="text-gray-400">Multa</dt>
-            <dd className="font-medium">{(state.cobranca.lateFeePercent / 100).toFixed(2)}%</dd>
+            <dd className="font-medium">{(state.billing.lateFeePercent / 100).toFixed(2)}%</dd>
           </div>
           <div>
             <dt className="text-gray-400">Juros</dt>
-            <dd className="font-medium">{(state.cobranca.monthlyInterestBp / 100).toFixed(2)}% a.m.</dd>
+            <dd className="font-medium">{(state.billing.monthlyInterestBp / 100).toFixed(2)}% a.m.</dd>
           </div>
           <div>
             <dt className="text-gray-400">Taxa do cartão</dt>
             <dd className="font-medium">
-              {state.cobranca.cardFeePayer === 'ESCOLA' ? 'Escola' : 'Responsável'}
+              {state.billing.cardFeePayer === 'ESCOLA' ? 'Escola' : 'Responsável'}
             </dd>
           </div>
           <div>
             <dt className="text-gray-400">Taxa de negativação</dt>
             <dd className="font-medium">
-              {state.cobranca.negativacaoFeePayer === 'ESCOLA' ? 'Escola' : 'Responsável'}
+              {state.billing.negativacaoFeePayer === 'ESCOLA' ? 'Escola' : 'Responsável'}
             </dd>
           </div>
         </dl>
@@ -160,11 +160,11 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps, submitL
 
       {/* Bloco: Plano */}
       {(() => {
-        const plan = getPlan(state.plano.planId)
+        const plan = getPlan(state.plan.planId)
         if (!plan) return null
-        const hasDiscount = state.plano.discountEnabled && state.plano.discountValue.trim() !== ''
+        const hasDiscount = state.plan.discountEnabled && state.plan.discountValue.trim() !== ''
         const { finalCents } = hasDiscount
-          ? computeDiscountedCents(plan.priceCents, state.plano.discountType, state.plano.discountValue)
+          ? computeDiscountedCents(plan.priceCents, state.plan.discountType, state.plan.discountValue)
           : { finalCents: plan.priceCents }
         return (
           <div className="rounded-md border border-gray-200 p-4">
@@ -183,7 +183,7 @@ export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps, submitL
                 <dt className="text-gray-400">Plano</dt>
                 <dd className="font-medium">
                   {plan.name}
-                  {state.plano.isBeta && (
+                  {state.plan.isBeta && (
                     <span className="ml-2 rounded bg-[var(--color-primary-softer)] px-1.5 py-0.5 text-xs font-medium text-[var(--color-primary)]">
                       Beta
                     </span>

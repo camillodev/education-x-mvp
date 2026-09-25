@@ -35,7 +35,7 @@ export default function NovaCobrancaPage() {
   const [discountMode, setDiscountMode] = useState<DiscountMode>("none");
   const [discountValue, setDiscountValue] = useState("0");
 
-  const { data } = useMockResource<Enrollment[]>("/api/mock/matriculas");
+  const { data } = useMockResource<Enrollment[]>("/api/mock/enrollments");
   const enrollments = useMemo(() => data ?? [], [data]);
 
   // Responsáveis únicos das matrículas ativas (fonte real do mock, não lista fixa).

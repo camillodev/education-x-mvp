@@ -138,7 +138,7 @@ function buildColumns(onView: (id: string) => void): ColumnDef<Enrollment, unkno
 export default function PainelMatriculasPage() {
   const router = useRouter();
   const [filter, setFilter] = useState<StatusFilter>("todas");
-  const { data, loading, error } = useMockResource<Enrollment[]>("/api/mock/matriculas");
+  const { data, loading, error } = useMockResource<Enrollment[]>("/api/mock/enrollments");
   const enrollments = useMemo(() => data ?? [], [data]);
   const goToDetail = useCallback(
     (id: string) => router.push(`/painel/matriculas/${id}`),

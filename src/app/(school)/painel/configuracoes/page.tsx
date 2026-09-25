@@ -69,8 +69,8 @@ export default function ConfiguracoesPage() {
   const [faturaPage, setFaturaPage] = useState(0);
   const [faturaSel, setFaturaSel] = useState<PlatformInvoice | null>(null);
 
-  const { data: settings } = useMockResource<SchoolSettings>("/api/mock/configuracoes-escola");
-  const { data: platform } = useMockResource<PlatformResponse>("/api/mock/faturas-plataforma");
+  const { data: settings } = useMockResource<SchoolSettings>("/api/mock/school-settings");
+  const { data: platform } = useMockResource<PlatformResponse>("/api/mock/platform-invoices");
 
   const planos = useMemo(() => platform?.planos ?? [], [platform]);
   const faturas = useMemo(() => platform?.faturas ?? [], [platform]);

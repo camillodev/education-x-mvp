@@ -1,14 +1,14 @@
 'use client'
 
-import type { PlanoState } from '@/hooks/use-onboarding'
+import type { PlanState } from '@/hooks/use-onboarding'
 import { SCHOOL_PLANS, getPlan } from '@/lib/data/plans'
 import { formatBRL } from '@/lib/format'
 import { DiscountField } from '@/components/patterns/DiscountField'
 import type { DiscountType } from '@/lib/pricing'
 
 interface Props {
-  plano: PlanoState
-  onChange: (plano: Partial<PlanoState>) => void
+  plano: PlanState
+  onChange: (plano: Partial<PlanState>) => void
 }
 
 export function StepPlano({ plano, onChange }: Props) {

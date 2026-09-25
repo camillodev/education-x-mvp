@@ -38,7 +38,7 @@ export function FinanceiroBody() {
   const [antecipOpen, setAntecipOpen] = useState(false);
   const [selecionados, setSelecionados] = useState<string[] | null>(null);
 
-  const { data, loading, error } = useMockResource<FinanceiroResponse>("/api/mock/financeiro");
+  const { data, loading, error } = useMockResource<FinanceiroResponse>("/api/mock/financials");
   const saldo = data?.saldo;
   const recebiveis = useMemo(() => data?.recebiveis ?? [], [data]);
 

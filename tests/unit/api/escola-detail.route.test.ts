@@ -16,7 +16,7 @@ vi.mock('@/lib/services/onboarding.service', async () => {
   return { ...actual, updateSchool: (...a: unknown[]) => updateSchool(...a) }
 })
 
-import { GET, PATCH } from '@/app/api/escolas/[unitId]/route'
+import { GET, PATCH } from '@/app/api/schools/[unitId]/route'
 import { ForbiddenError, UnauthorizedError } from '@/lib/auth/unit-context'
 import { UnitNotFoundError } from '@/lib/services/onboarding.service'
 

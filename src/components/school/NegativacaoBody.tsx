@@ -103,7 +103,7 @@ function buildColumns(onView: (id: string) => void): ColumnDef<DunningRecord, un
 export function NegativacaoBody() {
   const router = useRouter();
   const [filter, setFilter] = useState<DunningFilter>("todos");
-  const { data, loading, error } = useMockResource<DunningRecord[]>("/api/mock/negativacao");
+  const { data, loading, error } = useMockResource<DunningRecord[]>("/api/mock/dunning");
   const records = useMemo(() => data ?? [], [data]);
   const goToDetail = useCallback(
     (id: string) => router.push(`/painel/negativacao/${id}`),

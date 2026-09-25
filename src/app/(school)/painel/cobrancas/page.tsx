@@ -104,11 +104,11 @@ export default function CobrancasPage() {
   const initialTab: CobrancasTab = searchParams.get("tab") === "negativacao" ? "negativacao" : "cobrancas";
   const [tab, setTab] = useState<CobrancasTab>(initialTab);
   const [filter, setFilter] = useState<StatusFilter>("todas");
-  const { data, loading, error } = useMockResource<CobrancasResponse>("/api/mock/cobrancas");
+  const { data, loading, error } = useMockResource<CobrancasResponse>("/api/mock/invoices");
   const invoices = useMemo(() => data?.invoices ?? [], [data]);
   const goToDetail = useCallback((id: string) => router.push(`/painel/cobrancas/${id}`), [router]);
   const columns = useMemo(() => buildColumns(goToDetail), [goToDetail]);
-  const { data: dunningRecords } = useMockResource<DunningRecord[]>("/api/mock/negativacao");
+  const { data: dunningRecords } = useMockResource<DunningRecord[]>("/api/mock/dunning");
   const eligibleCount = (dunningRecords ?? []).filter((r) => r.status === "elegivel").length;
 
   const counts = useMemo(

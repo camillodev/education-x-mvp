@@ -18,7 +18,7 @@ vi.mock('@/lib/db', () => ({ prisma: { unit: { findUnique: (...a: unknown[]) => 
 const decrypt = vi.fn()
 vi.mock('@/lib/crypto', () => ({ decrypt: (...a: unknown[]) => decrypt(...a) }))
 
-import { POST } from '@/app/api/matriculas/[guardianId]/aprovar/route'
+import { POST } from '@/app/api/enrollments/[guardianId]/approve/route'
 import { GuardianNotFoundError } from '@/lib/services/approval.service'
 
 function makeParams(guardianId: string) {

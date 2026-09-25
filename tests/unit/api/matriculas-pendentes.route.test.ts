@@ -13,7 +13,7 @@ vi.mock('@/lib/services/approval.service', async () => {
   return { ...actual, listPendingEnrollments: (...a: unknown[]) => listPendingEnrollments(...a) }
 })
 
-import { GET } from '@/app/api/matriculas/pendentes/route'
+import { GET } from '@/app/api/enrollments/pending/route'
 import { ForbiddenError, UnauthorizedError } from '@/lib/auth/unit-context'
 
 beforeEach(() => {

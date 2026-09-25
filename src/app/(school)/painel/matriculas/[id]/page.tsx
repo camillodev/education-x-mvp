@@ -42,7 +42,7 @@ export default function MatriculaDetalhePage({ params }: { params: Promise<{ id:
   const { toast } = useToast();
   const [rejectOpen, setRejectOpen] = useState(false);
 
-  const { data, loading, error } = useMockResource<Enrollment[]>("/api/mock/matriculas");
+  const { data, loading, error } = useMockResource<Enrollment[]>("/api/mock/enrollments");
   const { data: plansData } = useMockResource<EnrollmentPlan[]>("/api/mock/planos");
   const enrollments = useMemo(() => data ?? [], [data]);
   const plans = useMemo(() => plansData ?? [], [plansData]);

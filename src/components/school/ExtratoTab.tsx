@@ -111,7 +111,7 @@ interface FinanceiroResponse {
 
 export function ExtratoTab() {
   const [filter, setFilter] = useState<TipoFilter>("todos");
-  const { data, loading, error } = useMockResource<FinanceiroResponse>("/api/mock/financeiro");
+  const { data, loading, error } = useMockResource<FinanceiroResponse>("/api/mock/financials");
   const entries = useMemo(() => data?.extrato ?? [], [data]);
 
   const filtered =

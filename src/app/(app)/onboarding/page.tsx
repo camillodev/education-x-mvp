@@ -28,9 +28,9 @@ export default function OnboardingPage() {
   const {
     state,
     goToStep,
-    setDados,
-    setCobranca,
-    setPlano,
+    setDetails,
+    setBilling,
+    setPlan,
     addSubject,
     removeSubject,
     updateSubject,
@@ -97,15 +97,15 @@ export default function OnboardingPage() {
 
               <div className="min-w-0">
                 {state.step === 1 && (
-                  <StepDados dados={state.dados} onChange={setDados} />
+                  <StepDados dados={state.details} onChange={setDetails} />
                 )}
 
                 {state.step === 2 && (
                   <StepFinanceiro
-                    cobranca={state.cobranca}
-                    plano={state.plano}
-                    onCobrancaChange={setCobranca}
-                    onPlanoChange={setPlano}
+                    cobranca={state.billing}
+                    plano={state.plan}
+                    onCobrancaChange={setBilling}
+                    onPlanoChange={setPlan}
                   />
                 )}
 

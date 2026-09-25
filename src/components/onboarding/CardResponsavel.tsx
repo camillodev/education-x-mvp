@@ -1,14 +1,14 @@
 'use client'
 
 import { Copy, Mail, Phone, User } from 'lucide-react'
-import type { DadosState } from '@/hooks/use-onboarding'
+import type { DetailsState } from '@/hooks/use-onboarding'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { maskPhone } from './dados-masks'
 
 interface Props {
-  dados: DadosState
-  onChange: (dados: Partial<DadosState>) => void
+  dados: DetailsState
+  onChange: (dados: Partial<DetailsState>) => void
   respEmailError: string
   respPhoneError: string
 }

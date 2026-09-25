@@ -1,10 +1,10 @@
 'use client'
 
-import type { CobrancaState } from '@/hooks/use-onboarding'
+import type { BillingState } from '@/hooks/use-onboarding'
 
 interface Props {
-  cobranca: CobrancaState
-  onChange: (cobranca: Partial<CobrancaState>) => void
+  cobranca: BillingState
+  onChange: (cobranca: Partial<BillingState>) => void
 }
 
 function bpToPercent(bp: number): string {

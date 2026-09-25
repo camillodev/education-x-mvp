@@ -1,16 +1,16 @@
 'use client'
 
-import type { CobrancaState, PlanoState } from '@/hooks/use-onboarding'
+import type { BillingState, PlanState } from '@/hooks/use-onboarding'
 import { SCHOOL_PLANS, getPlan } from '@/lib/data/plans'
 import { formatBRL } from '@/lib/format'
 import { DiscountField } from '@/components/patterns/DiscountField'
 import type { DiscountType } from '@/lib/pricing'
 
 interface Props {
-  cobranca: CobrancaState
-  plano: PlanoState
-  onCobrancaChange: (c: Partial<CobrancaState>) => void
-  onPlanoChange: (p: Partial<PlanoState>) => void
+  cobranca: BillingState
+  plano: PlanState
+  onCobrancaChange: (c: Partial<BillingState>) => void
+  onPlanoChange: (p: Partial<PlanState>) => void
 }
 
 function bpToPercent(bp: number): string {

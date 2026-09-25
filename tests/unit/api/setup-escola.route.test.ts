@@ -19,7 +19,7 @@ vi.mock('../../../src/lib/services/onboarding.service', async () => {
   return { ...actual, createSchool: (...args: unknown[]) => createSchool(...args) }
 })
 
-import { POST } from '../../../src/app/api/setup/escola/route'
+import { POST } from '../../../src/app/api/setup/unit/route'
 import { UnauthorizedError, ForbiddenError } from '../../../src/lib/auth/unit-context'
 import {
   DuplicateCnpjError,

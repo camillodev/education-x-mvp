@@ -123,7 +123,7 @@ const CHART_CONFIG: Record<ReportSummary["id"], ChartConfig> = {
 };
 
 export function RelatoriosTab() {
-  const { data, loading, error } = useMockResource<RelatoriosResponse>("/api/mock/relatorios");
+  const { data, loading, error } = useMockResource<RelatoriosResponse>("/api/mock/reports");
 
   const seriesById = useMemo(
     () => ({

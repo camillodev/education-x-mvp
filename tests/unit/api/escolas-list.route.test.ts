@@ -10,7 +10,7 @@ vi.mock('@/lib/auth/unit-context', async () => {
 const findMany = vi.fn()
 vi.mock('@/lib/db', () => ({ prisma: { unit: { findMany: (...a: unknown[]) => findMany(...a) } } }))
 
-import { GET } from '@/app/api/escolas/route'
+import { GET } from '@/app/api/schools/route'
 import { ForbiddenError, UnauthorizedError } from '@/lib/auth/unit-context'
 
 beforeEach(() => { requireAdmin.mockReset(); findMany.mockReset() })

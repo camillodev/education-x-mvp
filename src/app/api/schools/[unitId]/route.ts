@@ -9,7 +9,7 @@ import { toSafeUnit, toSafeBillingConfig } from '@/lib/serializers/unit'
 type RouteCtx = { params: Promise<{ unitId: string }> }
 
 export async function GET(_req: NextRequest, { params }: RouteCtx) {
-  const denied = await guardAdmin('GET /api/escolas/[unitId]')
+  const denied = await guardAdmin('GET /api/schools/[unitId]')
   if (denied) return denied
   const { unitId } = await params
 
@@ -28,12 +28,12 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
         : safe
     return NextResponse.json(payload, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'GET /api/escolas/[unitId]', unitId, exposeDetail: true })
+    return errorResponse(err, { route: 'GET /api/schools/[unitId]', unitId, exposeDetail: true })
   }
 }
 
 export async function PATCH(req: NextRequest, { params }: RouteCtx) {
-  const denied = await guardAdmin('PATCH /api/escolas/[unitId]')
+  const denied = await guardAdmin('PATCH /api/schools/[unitId]')
   if (denied) return denied
   const { unitId } = await params
 
@@ -56,6 +56,6 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     const updated = await updateSchool(unitId, parsed.data)
     return NextResponse.json(toSafeUnit(updated as unknown as Record<string, unknown>), { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'PATCH /api/escolas/[unitId]', unitId, exposeDetail: true })
+    return errorResponse(err, { route: 'PATCH /api/schools/[unitId]', unitId, exposeDetail: true })
   }
 }

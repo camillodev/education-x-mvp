@@ -90,7 +90,7 @@ export default function DashboardPage() {
   const [tab, setTab] = useState<DashTab>("visao");
   const [forma, setForma] = useState<FormaFilter>("todas");
   const [exportOpen, setExportOpen] = useState(false);
-  const { data, loading, error } = useMockResource<CobrancasResponse>("/api/mock/cobrancas");
+  const { data, loading, error } = useMockResource<CobrancasResponse>("/api/mock/invoices");
 
   const upcomingDues = data?.upcomingDues ?? [];
   const filteredByForma =

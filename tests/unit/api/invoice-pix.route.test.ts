@@ -1,7 +1,7 @@
 import { it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-const guardOrientador = vi.fn()
-vi.mock('@/lib/api/guard', () => ({ guardOrientador: (...a: unknown[]) => guardOrientador(...a) }))
+const guardAdvisor = vi.fn()
+vi.mock('@/lib/api/guard', () => ({ guardAdvisor: (...a: unknown[]) => guardAdvisor(...a) }))
 
 vi.mock('@/lib/services/billing.service', async () => {
   const actual = await vi.importActual<typeof import('@/lib/services/billing.service')>('@/lib/services/billing.service')
@@ -47,7 +47,7 @@ function makeRequest() {
 const CTX = { role: 'orientador', unitId: 'unit-1', userId: 'u1' }
 
 beforeEach(() => {
-  guardOrientador.mockReset()
+  guardAdvisor.mockReset()
   findUnique.mockReset()
   invoiceFindUnique.mockReset()
   forUnit.mockClear()
@@ -62,7 +62,7 @@ afterEach(() => {
 })
 
 it('200 com { pix } quando Invoice tem asaasPaymentId e client resolve o QR', async () => {
-  guardOrientador.mockResolvedValue(CTX)
+  guardAdvisor.mockResolvedValue(CTX)
   invoiceFindUnique.mockResolvedValue({ asaasPaymentId: 'pay_abc' })
   findUnique.mockResolvedValue({ asaasApiKeyEnc: 'enc:x' })
   decrypt.mockResolvedValue('chave-real')
@@ -81,7 +81,7 @@ it('200 com { pix } quando Invoice tem asaasPaymentId e client resolve o QR', as
 })
 
 it('404 quando Invoice não encontrada', async () => {
-  guardOrientador.mockResolvedValue(CTX)
+  guardAdvisor.mockResolvedValue(CTX)
   invoiceFindUnique.mockResolvedValue(null)
 
   const res = await GET(makeRequest(), makeParams('inv-1'))
@@ -92,7 +92,7 @@ it('404 quando Invoice não encontrada', async () => {
 })
 
 it('404 quando Invoice encontrada mas ainda não emitida na Asaas (asaasPaymentId null)', async () => {
-  guardOrientador.mockResolvedValue(CTX)
+  guardAdvisor.mockResolvedValue(CTX)
   invoiceFindUnique.mockResolvedValue({ asaasPaymentId: null })
 
   const res = await GET(makeRequest(), makeParams('inv-1'))
@@ -103,7 +103,7 @@ it('404 quando Invoice encontrada mas ainda não emitida na Asaas (asaasPaymentI
 })
 
 it('409 quando Unit não tem asaasApiKeyEnc', async () => {
-  guardOrientador.mockResolvedValue(CTX)
+  guardAdvisor.mockResolvedValue(CTX)
   invoiceFindUnique.mockResolvedValue({ asaasPaymentId: 'pay_abc' })
   findUnique.mockResolvedValue({ asaasApiKeyEnc: null })
 
