@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/toast'
 import { EMAIL_RE } from './dados-masks'
 import { CardIdentidade } from './CardIdentidade'
 import { CardEndereco } from './CardEndereco'
-import { GuardianCard } from './CardResponsavel'
+import { GuardianCard } from './GuardianCard'
 
 interface Props {
   details: DetailsState

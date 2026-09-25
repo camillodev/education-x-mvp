@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useState } from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { StepDetails } from '@/components/onboarding/StepDados'
+import { StepDetails } from '@/components/onboarding/StepDetails'
 import type { DetailsState } from '@/hooks/use-onboarding'
 
 // O StepDados é controlado: o pai detém o estado. Mockamos o toast e o

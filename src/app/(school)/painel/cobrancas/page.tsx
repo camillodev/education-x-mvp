@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/patterns/DataTable";
 import { Person } from "@/components/patterns/Person";
-import { DunningBody } from "@/components/school/NegativacaoBody";
+import { DunningBody } from "@/components/school/DunningBody";
 import { useMockResource } from "@/hooks/use-mock-resource";
 import { formatBRL } from "@/lib/format";
 import type { DunningRecord, Invoice, InvoiceStatus } from "@/lib/mock/types";

@@ -9,19 +9,19 @@ describe('handleError', () => {
 
   it('loga a causa técnica real com contexto e devolve mensagem amigável', () => {
     const real = new Error('connection refused at 5432')
-    const out = handleError(real, { route: 'PATCH /api/escolas/[unitId]', unitId: 'u1' })
+    const out = handleError(real, { route: 'PATCH /api/schools/[unitId]', unitId: 'u1' })
     expect(out.message).toMatch(/inesperado|erro/i)
     expect(out.code).toBe('INTERNAL')
     expect(console.error).toHaveBeenCalledOnce()
     const logged = (console.error as unknown as { mock: { calls: unknown[][] } }).mock.calls[0].join(' ')
     expect(logged).toContain('connection refused at 5432') // causa real preservada
     expect(logged).toContain('u1')
-    expect(logged).toContain('/api/escolas/[unitId]')
+    expect(logged).toContain('/api/schools/[unitId]')
   })
 
   it('inclui a causa técnica real no campo detail (volta na resposta da API)', () => {
     const real = new Error('connection refused at 5432')
-    const out = handleError(real, { route: 'GET /api/escolas' })
+    const out = handleError(real, { route: 'GET /api/schools' })
     expect(out.detail).toBe('connection refused at 5432')
   })
 
@@ -63,7 +63,7 @@ describe('errorResponse', () => {
   })
 
   it('com exposeDetail:true (rota admin): resposta inclui detail', async () => {
-    const res = errorResponse(new Error('connection refused at 5432'), { route: 'GET /api/escolas', exposeDetail: true })
+    const res = errorResponse(new Error('connection refused at 5432'), { route: 'GET /api/schools', exposeDetail: true })
     const body = await res.json()
     expect(body.detail).toBe('connection refused at 5432')
   })

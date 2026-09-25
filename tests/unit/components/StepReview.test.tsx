@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { StepReview } from '@/components/onboarding/StepRevisao'
+import { StepReview } from '@/components/onboarding/StepReview'
 import type { OnboardingState } from '@/hooks/use-onboarding'
 
 const baseState: OnboardingState = {
