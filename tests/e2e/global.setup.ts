@@ -5,9 +5,8 @@ import { test as setup, expect } from '@playwright/test'
 // Setup roda serial — necessário porque o storageState é compartilhado.
 setup.describe.configure({ mode: 'serial' })
 
-// Email do usuário de teste. Aceita o nome oficial do Clerk (E2E_CLERK_USER_EMAIL)
-// com fallback pro nome já presente no .env (CLERK_TEST_EMAIL).
-const EMAIL = process.env.E2E_CLERK_USER_EMAIL ?? process.env.CLERK_TEST_EMAIL
+// Email do usuário admin de teste, usado pela sessão compartilhada dos specs.
+const EMAIL = process.env.ADMIN_EMAIL
 
 const authFile = path.join(__dirname, '../../playwright/.clerk/user.json')
 
@@ -19,9 +18,7 @@ setup('clerk setup', async () => {
 
 setup('authenticate and save state', async ({ page }) => {
   if (!EMAIL) {
-    throw new Error(
-      'Email de teste ausente: defina E2E_CLERK_USER_EMAIL (ou CLERK_TEST_EMAIL).'
-    )
+    throw new Error('Email de teste ausente: defina ADMIN_EMAIL no .env.local.')
   }
 
   // signIn exige uma página que monte o ClerkProvider. A home (`/`) é pública e
