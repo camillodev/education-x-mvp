@@ -22,7 +22,8 @@ Plataforma de gestão financeira escolar (matrícula → cobrança → recebimen
 3. **Camadas:** Component → Hook → Store → Service → API. Nunca pular.
 4. **Valores em centavos (Int) no app.** Converter pra reais SÓ na borda do cliente Asaas e no frontend. Nunca Float.
 5. **Nomenclatura inglesa** nas entidades: `Unit`, `Guardian`, `Student`, `Invoice`, `Enrollment`. Nunca `Escola`/`Boleto`.
-6. **Idioma:** código e comentários em inglês; UI em pt-BR.
+6. **Idioma:** código, comentários, testes e commits em inglês; UI em pt-BR. Convenções de
+   nomenclatura e regras de comentário (o que manter/remover): `.claude/rules/code-standards.md`.
 7. **Isolamento de tenant:** `unitId` SEMPRE vem da sessão Clerk, NUNCA de parâmetro HTTP (exceto webhook Asaas, validado por token).
 8. **Secrets:** sempre `${VAR}` / env. Nunca hardcoded. Hook bloqueia.
 9. **Branch flow:** `feature/` | `fix/` | `chore/` → PR. Nunca commit direto em `main`/`develop`. Sem `Co-Authored-By`.
