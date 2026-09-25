@@ -5,17 +5,17 @@ import { guardAdvisor } from '@/lib/api/guard'
 
 export async function POST(
   _req: Request,
-  { params }: { params: Promise<{ guardianId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const ctx = await guardAdvisor('POST /api/enrollments/[guardianId]/reject')
+  const ctx = await guardAdvisor('POST /api/enrollments/[id]/reject')
   if (ctx instanceof NextResponse) return ctx
 
-  const { guardianId } = await params
+  const { id: guardianId } = await params
 
   try {
     await rejectEnrollment(ctx.unitId, guardianId)
     return NextResponse.json({ ok: true }, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'POST /api/enrollments/[guardianId]/reject', unitId: ctx.unitId })
+    return errorResponse(err, { route: 'POST /api/enrollments/[id]/reject', unitId: ctx.unitId })
   }
 }

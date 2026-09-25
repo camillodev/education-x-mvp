@@ -7,12 +7,12 @@ import { guardAdvisor } from '@/lib/api/guard'
 
 export async function POST(
   _req: Request,
-  { params }: { params: Promise<{ guardianId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const ctx = await guardAdvisor('POST /api/enrollments/[guardianId]/approve')
+  const ctx = await guardAdvisor('POST /api/enrollments/[id]/approve')
   if (ctx instanceof NextResponse) return ctx
 
-  const { guardianId } = await params
+  const { id: guardianId } = await params
 
   try {
     const unit = await prisma.unit.findUnique({
@@ -24,6 +24,6 @@ export async function POST(
     await approveEnrollment(ctx.unitId, guardianId, asaasApiKey)
     return NextResponse.json({ ok: true }, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'POST /api/enrollments/[guardianId]/approve', unitId: ctx.unitId })
+    return errorResponse(err, { route: 'POST /api/enrollments/[id]/approve', unitId: ctx.unitId })
   }
 }

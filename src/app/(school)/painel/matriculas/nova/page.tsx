@@ -33,7 +33,7 @@ export default function NewEnrollmentPage() {
   const { toast } = useToast();
   const [tab, setTab] = useState<Tab>("cadastro");
 
-  const { data: plansData } = useMockResource<EnrollmentPlan[]>("/api/mock/planos");
+  const { data: plansData } = useMockResource<EnrollmentPlan[]>("/api/mock/plans");
   const plans = useMemo(() => plansData ?? [], [plansData]);
 
   const [pagante, setPagante] = useState("");

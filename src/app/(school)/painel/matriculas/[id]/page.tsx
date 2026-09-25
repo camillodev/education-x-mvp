@@ -43,7 +43,7 @@ export default function EnrollmentDetailPage({ params }: { params: Promise<{ id:
   const [rejectOpen, setRejectOpen] = useState(false);
 
   const { data, loading, error } = useMockResource<Enrollment[]>("/api/mock/enrollments");
-  const { data: plansData } = useMockResource<EnrollmentPlan[]>("/api/mock/planos");
+  const { data: plansData } = useMockResource<EnrollmentPlan[]>("/api/mock/plans");
   const enrollments = useMemo(() => data ?? [], [data]);
   const plans = useMemo(() => plansData ?? [], [plansData]);
   const enrollment = enrollments.find((m) => m.id === id);

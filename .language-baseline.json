@@ -1,5 +1,5 @@
 {
-  ".specs/prototipo/design-handoff/project/app/data.js": 30,
+  ".specs/prototipo/design-handoff/project/app/data.js": 31,
   ".specs/prototipo/design-handoff/project/deck-stage.js": 3,
   "playwright.config.ts": 5,
   "prisma/seed-dev.ts": 2,
@@ -9,6 +9,7 @@
   "src/app/(app)/layout.tsx": 3,
   "src/app/(school)/layout.tsx": 4,
   "src/app/(school)/painel/cobrancas/nova/page.tsx": 1,
+  "src/app/(school)/painel/configuracoes/page.tsx": 1,
   "src/app/(school)/painel/importar/page.tsx": 2,
   "src/app/(school)/painel/matriculas/[id]/page.tsx": 1,
   "src/app/api/billing/batch/route.ts": 1,

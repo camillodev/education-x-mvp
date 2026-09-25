@@ -18,11 +18,11 @@ vi.mock('@/lib/db', () => ({ prisma: { unit: { findUnique: (...a: unknown[]) => 
 const decrypt = vi.fn()
 vi.mock('@/lib/crypto', () => ({ decrypt: (...a: unknown[]) => decrypt(...a) }))
 
-import { POST } from '@/app/api/enrollments/[guardianId]/approve/route'
+import { POST } from '@/app/api/enrollments/[id]/approve/route'
 import { GuardianNotFoundError } from '@/lib/services/approval.service'
 
 function makeParams(guardianId: string) {
-  return { params: Promise.resolve({ guardianId }) }
+  return { params: Promise.resolve({ id: guardianId }) }
 }
 
 beforeEach(() => {
