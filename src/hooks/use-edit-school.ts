@@ -255,7 +255,7 @@ export function useEditSchool(unitId: string) {
       })
       .catch((err) => {
         if (cancelled) return
-        console.error('[edit-escola] load error:', err)
+        console.error('[edit-school] load error:', err)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

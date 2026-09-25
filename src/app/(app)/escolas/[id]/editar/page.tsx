@@ -60,7 +60,7 @@ export default function EditSchoolPage() {
 
   useEffect(() => {
     if (state.status === 'error' && state.errorMsg) {
-      console.error('[edit-escola] submit error:', state.errorMsg)
+      console.error('[edit-school] submit error:', state.errorMsg)
       toast(state.errorMsg, 'error')
     }
   }, [state.status, state.errorMsg, toast])
