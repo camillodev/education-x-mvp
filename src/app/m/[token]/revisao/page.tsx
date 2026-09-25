@@ -6,7 +6,7 @@ import { resolveEnrollmentLink } from '@/lib/services/enrollment.service'
 import { getUnitContract } from '@/lib/services/contract.service'
 import { decrypt } from '@/lib/crypto'
 import { GUARDIAN_COOKIE } from '../dados/cookie'
-import { ReviewForm, type StudentSummary } from './RevisaoForm'
+import { ReviewForm, type StudentSummary } from './ReviewForm'
 
 export const dynamic = 'force-dynamic'
 
