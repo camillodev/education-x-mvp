@@ -72,6 +72,7 @@ Apague as linhas que não se aplicam a este PR.
 - [ ] Nenhum arquivo > 500 linhas
 - [ ] Reuso: não dupliquei componente/função que já existe (atomic; tabela usa o DataTable)
 - [ ] Nomenclatura inglesa nas entidades (`Unit`, `Guardian`, `Invoice`…)
+- [ ] Nomes/comentários seguem `.claude/rules/code-standards.md` (sem ticket/histórico em comentário)
 
 **Dinheiro e dados (produto financeiro)**
 - [ ] Valores em centavos no app; reais só na borda Asaas / frontend

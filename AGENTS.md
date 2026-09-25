@@ -22,7 +22,8 @@ npm run test:e2e     # playwright
 - **TypeScript strict mode** — sempre. Sem `any`.
 - **Arquivo ≤ 500 linhas** — split grande lógica em utils ou hooks.
 - **DRY obrigatório** — zero duplicação, abstrair patterns.
-- **Código em inglês**, UI em pt-BR (i18n pronto em `/locales`).
+- **Código em inglês**, UI em pt-BR. Regras completas de nomenclatura e comentários:
+  `.claude/rules/code-standards.md` (enforced por `pnpm lint`).
 - **Server Actions > Route Handlers** — preferência Next.js App Router.
 - **Zod schema = fonte de tipos** — não deixar type divergir de schema.
 
