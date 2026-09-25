@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useEditSchool } from '@/hooks/use-edit-school'
 import { Stepper } from '@/components/patterns/Stepper'
-import { StepDados } from '@/components/onboarding/StepDados'
-import { StepFinanceiro } from '@/components/onboarding/StepFinanceiro'
+import { StepDetails } from '@/components/onboarding/StepDados'
+import { StepFinancial } from '@/components/onboarding/StepFinanceiro'
 import { StepDocumentos } from '@/components/onboarding/StepDocumentos'
-import { StepRevisao } from '@/components/onboarding/StepRevisao'
+import { StepReview } from '@/components/onboarding/StepRevisao'
 import { useToast } from '@/components/ui/toast'
 import type { SubjectInput, SubjectUpdateInput } from '@/lib/validations/unit'
 
@@ -24,7 +24,7 @@ const LOADING_STEPS = [
   'Pronto!',
 ]
 
-export default function EditarEscolaPage() {
+export default function EditSchoolPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const unitId = params.id
@@ -137,15 +137,15 @@ export default function EditarEscolaPage() {
 
               <div className="min-w-0">
                 {state.step === 1 && (
-                  <StepDados
-                    dados={state.details}
+                  <StepDetails
+                    details={state.details}
                     onChange={setDetails}
                     readOnly={{ cnpj: true }}
                   />
                 )}
 
                 {state.step === 2 && (
-                  <StepFinanceiro
+                  <StepFinancial
                     cobranca={state.billing}
                     plano={state.plan}
                     onCobrancaChange={setBilling}
@@ -179,7 +179,7 @@ export default function EditarEscolaPage() {
                     </div>
                     <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-white p-6 shadow-[var(--shadow-card)]">
                       <div className="label mb-4">REVISÃO</div>
-                      <StepRevisao
+                      <StepReview
                         state={{ ...state, subjects: state.subjects as SubjectInput[] }}
                         onEditStep={(s) => goToStep(s)}
                         onSubmit={submit}
@@ -216,7 +216,7 @@ export default function EditarEscolaPage() {
           ) : (
             <div className="flex justify-center">
               <div className="w-full max-w-2xl bg-white rounded-[var(--radius-lg)] border border-[var(--color-border)] shadow-[var(--shadow-card)] p-6">
-                <StepRevisao
+                <StepReview
                   state={{ ...state, subjects: state.subjects as SubjectInput[] }}
                   onEditStep={(s) => goToStep(s)}
                   onSubmit={submit}

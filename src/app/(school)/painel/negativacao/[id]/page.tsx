@@ -108,7 +108,7 @@ const TONE_BG: Record<NonNullable<StepTone> | "default", string> = {
   default: "var(--color-primary-soft)",
 };
 
-export default function NegativacaoDetalhePage({ params }: { params: Promise<{ id: string }> }) {
+export default function DunningDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const { toast } = useToast();

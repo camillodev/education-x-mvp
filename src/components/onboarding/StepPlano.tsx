@@ -7,12 +7,12 @@ import { DiscountField } from '@/components/patterns/DiscountField'
 import type { DiscountType } from '@/lib/pricing'
 
 interface Props {
-  plano: PlanState
-  onChange: (plano: Partial<PlanState>) => void
+  plan: PlanState
+  onChange: (plan: Partial<PlanState>) => void
 }
 
-export function StepPlano({ plano, onChange }: Props) {
-  const selected = getPlan(plano.planId)
+export function StepPlan({ plan, onChange }: Props) {
+  const selected = getPlan(plan.planId)
 
   return (
     <div className="space-y-6">
@@ -26,7 +26,7 @@ export function StepPlano({ plano, onChange }: Props) {
       {/* Cards de plano (radio) */}
       <div role="radiogroup" aria-label="Plano da escola" className="space-y-3">
         {SCHOOL_PLANS.map((p) => {
-          const active = plano.planId === p.id
+          const active = plan.planId === p.id
           return (
             <button
               key={p.id}
@@ -71,7 +71,7 @@ export function StepPlano({ plano, onChange }: Props) {
         </span>
         <input
           type="checkbox"
-          checked={plano.isBeta}
+          checked={plan.isBeta}
           onChange={(e) => onChange({ isBeta: e.target.checked })}
           className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
           aria-label="Escola no plano beta"
@@ -81,11 +81,11 @@ export function StepPlano({ plano, onChange }: Props) {
       {/* Desconto comercial */}
       <DiscountField
         baseCents={selected?.priceCents ?? 0}
-        enabled={plano.discountEnabled}
+        enabled={plan.discountEnabled}
         onEnabledChange={(b) => onChange({ discountEnabled: b })}
-        type={plano.discountType}
+        type={plan.discountType}
         onTypeChange={(t: DiscountType) => onChange({ discountType: t })}
-        value={plano.discountValue}
+        value={plan.discountValue}
         onValueChange={(v) => onChange({ discountValue: v })}
         label="Aplicar desconto comercial"
       />

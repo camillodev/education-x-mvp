@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useOnboarding } from '@/hooks/use-onboarding'
 import { Stepper } from '@/components/patterns/Stepper'
-import { StepDados } from '@/components/onboarding/StepDados'
-import { StepFinanceiro } from '@/components/onboarding/StepFinanceiro'
+import { StepDetails } from '@/components/onboarding/StepDados'
+import { StepFinancial } from '@/components/onboarding/StepFinanceiro'
 import { StepDocumentos } from '@/components/onboarding/StepDocumentos'
-import { StepRevisao } from '@/components/onboarding/StepRevisao'
+import { StepReview } from '@/components/onboarding/StepRevisao'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/Card'
@@ -97,11 +97,11 @@ export default function OnboardingPage() {
 
               <div className="min-w-0">
                 {state.step === 1 && (
-                  <StepDados dados={state.details} onChange={setDetails} />
+                  <StepDetails details={state.details} onChange={setDetails} />
                 )}
 
                 {state.step === 2 && (
-                  <StepFinanceiro
+                  <StepFinancial
                     cobranca={state.billing}
                     plano={state.plan}
                     onCobrancaChange={setBilling}
@@ -135,7 +135,7 @@ export default function OnboardingPage() {
                     </div>
                     <Card className="p-6">
                       <div className="label mb-4">REVISÃO</div>
-                      <StepRevisao
+                      <StepReview
                         state={state}
                         onEditStep={(s) => goToStep(s)}
                         onSubmit={submit}
@@ -176,7 +176,7 @@ export default function OnboardingPage() {
           ) : (
             <div className="flex justify-center">
               <Card className="w-full max-w-2xl p-6">
-                <StepRevisao
+                <StepReview
                   state={state}
                   onEditStep={(s) => goToStep(s)}
                   onSubmit={submit}

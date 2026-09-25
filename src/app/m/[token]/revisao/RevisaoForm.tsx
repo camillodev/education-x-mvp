@@ -23,7 +23,7 @@ interface Props {
 
 const INITIAL_STATE: AcceptanceStepFormState = {}
 
-export function RevisaoForm({ token, students, planLabel, totalCents, dueDay, contractBody }: Props) {
+export function ReviewForm({ token, students, planLabel, totalCents, dueDay, contractBody }: Props) {
   const action = submitAcceptanceStepAction.bind(null, token)
   const [state, formAction, pending] = useActionState(action, INITIAL_STATE)
   const [accepted, setAccepted] = useState(false)

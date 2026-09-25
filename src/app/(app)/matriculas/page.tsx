@@ -7,7 +7,7 @@ import { PendingEnrollmentsTable } from '@/components/admin/PendingEnrollmentsTa
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
 
-export default function MatriculasPendentesPage() {
+export default function PendingEnrollmentsPage() {
   const { items, loading, error, approve, reject } = usePendingEnrollments()
   const [query, setQuery] = useState('')
   const { toast } = useToast()

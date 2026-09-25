@@ -21,7 +21,7 @@ function percentToBp(percent: string): number {
   return Math.round(parseFloat(percent || '0') * 100)
 }
 
-export function StepFinanceiro({
+export function StepFinancial({
   cobranca,
   plano,
   onCobrancaChange,

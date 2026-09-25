@@ -100,7 +100,7 @@ function buildColumns(onView: (id: string) => void): ColumnDef<DunningRecord, un
   ];
 }
 
-export function NegativacaoBody() {
+export function DunningBody() {
   const router = useRouter();
   const [filter, setFilter] = useState<DunningFilter>("todos");
   const { data, loading, error } = useMockResource<DunningRecord[]>("/api/mock/dunning");

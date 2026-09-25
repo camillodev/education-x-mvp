@@ -13,7 +13,7 @@ interface Props {
   respPhoneError: string
 }
 
-export function CardResponsavel({
+export function GuardianCard({
   dados,
   onChange,
   respEmailError,

@@ -36,7 +36,7 @@ interface Guardian {
   tel: string;
 }
 
-export default function MatriculaDetalhePage({ params }: { params: Promise<{ id: string }> }) {
+export default function EnrollmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const { toast } = useToast();

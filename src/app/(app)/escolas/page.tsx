@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'
 const PAGE_SIZE = 6
 type StatusFilter = 'all' | 'ACTIVE' | 'SUSPENDED'
 
-export default function EscolasPage() {
+export default function SchoolsPage() {
   const { schools, loading, error } = useSchools()
   const [query, setQuery] = useState('')
   const [franchise, setFranchise] = useState('all')

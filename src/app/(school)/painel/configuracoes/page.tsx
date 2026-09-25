@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { SchoolShell } from "@/components/school/SchoolShell";
 import { ReguaAvisos } from "@/components/school/ReguaAvisos";
-import { FaturaDetalheModal } from "@/components/school/FaturaDetalheModal";
+import { InvoiceDetailModal } from "@/components/school/InvoiceDetailModal";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ import type {
 } from "@/lib/mock/types";
 
 type Tab = "dados" | "taxas" | "regua" | "plano";
-type FaturaFilter = "todas" | PlatformInvoiceStatus;
+type InvoiceFilter = "todas" | PlatformInvoiceStatus;
 
 const TABS: SegmentedOption<Tab>[] = [
   { value: "dados", label: "Dados da escola" },
@@ -43,7 +43,7 @@ const TABS: SegmentedOption<Tab>[] = [
   { value: "plano", label: "Meu plano" },
 ];
 
-const FATURA_FILTERS: SegmentedOption<FaturaFilter>[] = [
+const INVOICE_FILTERS: SegmentedOption<InvoiceFilter>[] = [
   { value: "todas", label: "Todas" },
   { value: "aberto", label: "Em aberto" },
   { value: "paga", label: "Pagas" },
@@ -55,9 +55,9 @@ interface PlatformResponse {
   canaisNotificacao: NotificationChannel[];
 }
 
-const FATURAS_PER_PAGE = 5;
+const INVOICES_PER_PAGE = 5;
 
-export default function ConfiguracoesPage() {
+export default function SettingsPage() {
   const { toast } = useToast();
   const [tab, setTab] = useState<Tab>("dados");
   const [contratoObrig, setContratoObrig] = useState(false);
@@ -65,17 +65,17 @@ export default function ConfiguracoesPage() {
   const [taxaNeg, setTaxaNeg] = useState<FeePayer>("responsavel");
   const [planoModal, setPlanoModal] = useState(false);
   const [planoSel, setPlanoSel] = useState("basico");
-  const [faturaFilter, setFaturaFilter] = useState<FaturaFilter>("todas");
-  const [faturaPage, setFaturaPage] = useState(0);
-  const [faturaSel, setFaturaSel] = useState<PlatformInvoice | null>(null);
+  const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>("todas");
+  const [invoicePage, setInvoicePage] = useState(0);
+  const [invoiceSel, setInvoiceSel] = useState<PlatformInvoice | null>(null);
 
   const { data: settings } = useMockResource<SchoolSettings>("/api/mock/school-settings");
   const { data: platform } = useMockResource<PlatformResponse>("/api/mock/platform-invoices");
 
   const planos = useMemo(() => platform?.planos ?? [], [platform]);
-  const faturas = useMemo(() => platform?.faturas ?? [], [platform]);
+  const invoices = useMemo(() => platform?.faturas ?? [], [platform]);
   const canais = useMemo(() => platform?.canaisNotificacao ?? [], [platform]);
-  const planoAtual = planos.find((p) => p.id === "basico");
+  const currentPlan = planos.find((p) => p.id === "basico");
 
   const grupos = settings
     ? [
@@ -112,13 +112,13 @@ export default function ConfiguracoesPage() {
       ]
     : [];
 
-  const faturasFiltradas =
-    faturaFilter === "todas" ? faturas : faturas.filter((f) => f.status === faturaFilter);
-  const totalPages = Math.max(1, Math.ceil(faturasFiltradas.length / FATURAS_PER_PAGE));
-  const page = Math.min(faturaPage, totalPages - 1);
-  const faturasPagina = faturasFiltradas.slice(
-    page * FATURAS_PER_PAGE,
-    (page + 1) * FATURAS_PER_PAGE
+  const filteredInvoices =
+    invoiceFilter === "todas" ? invoices : invoices.filter((f) => f.status === invoiceFilter);
+  const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE));
+  const page = Math.min(invoicePage, totalPages - 1);
+  const invoicesPage = filteredInvoices.slice(
+    page * INVOICES_PER_PAGE,
+    (page + 1) * INVOICES_PER_PAGE
   );
 
   return (
@@ -235,7 +235,7 @@ export default function ConfiguracoesPage() {
 
       {tab === "plano" && (
         <div className="flex flex-col gap-[18px]">
-          {planoAtual && (
+          {currentPlan && (
             <Card className="bg-(--color-primary) p-6 text-white">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
@@ -243,11 +243,11 @@ export default function ConfiguracoesPage() {
                     Seu plano Education X
                   </div>
                   <div className="mt-1.5 text-[30px] font-extrabold tracking-[-0.02em]">
-                    {planoAtual.nome}
+                    {currentPlan.nome}
                   </div>
                   <div className="mt-1 text-sm opacity-90">
-                    {formatBRL(planoAtual.preco)}
-                    {planoAtual.unidade} · até {planoAtual.limite} cobranças/mês
+                    {formatBRL(currentPlan.preco)}
+                    {currentPlan.unidade} · até {currentPlan.limite} cobranças/mês
                   </div>
                   <div className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] opacity-80">
                     <Info size={13} />
@@ -264,9 +264,9 @@ export default function ConfiguracoesPage() {
               </div>
               <div className="mt-[22px] flex flex-wrap gap-7">
                 {[
-                  ["Cobranças no mês", `88 / ${planoAtual.limite}`],
-                  ["Mensalidade", formatBRL(planoAtual.preco)],
-                  ["Próxima fatura", `${formatBRL(planoAtual.preco)} · 05/07`],
+                  ["Cobranças no mês", `88 / ${currentPlan.limite}`],
+                  ["Mensalidade", formatBRL(currentPlan.preco)],
+                  ["Próxima fatura", `${formatBRL(currentPlan.preco)} · 05/07`],
                 ].map(([k, v]) => (
                   <div key={k}>
                     <div className="text-xs opacity-80">{k}</div>
@@ -318,16 +318,16 @@ export default function ConfiguracoesPage() {
               </span>
               <Segmented
                 size="sm"
-                options={FATURA_FILTERS}
-                value={faturaFilter}
+                options={INVOICE_FILTERS}
+                value={invoiceFilter}
                 onChange={(v) => {
-                  setFaturaFilter(v);
-                  setFaturaPage(0);
+                  setInvoiceFilter(v);
+                  setInvoicePage(0);
                 }}
               />
             </div>
             <div className="px-5 py-1.5">
-              {faturasPagina.map((f) => {
+              {invoicesPage.map((f) => {
                 const total = f.itens.reduce((s, i) => s + i.val, 0);
                 return (
                   <div
@@ -351,14 +351,14 @@ export default function ConfiguracoesPage() {
                           Paga
                         </Badge>
                       )}
-                      <Button variant="tertiary" size="sm" onClick={() => setFaturaSel(f)}>
+                      <Button variant="tertiary" size="sm" onClick={() => setInvoiceSel(f)}>
                         Ver fatura
                       </Button>
                     </div>
                   </div>
                 );
               })}
-              {faturasPagina.length === 0 && (
+              {invoicesPage.length === 0 && (
                 <p className="py-6 text-center text-sm text-(--color-text-subtle)">
                   Nenhuma fatura neste filtro.
                 </p>
@@ -367,14 +367,14 @@ export default function ConfiguracoesPage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between gap-3 border-t border-(--color-border-muted) px-5 py-3">
                 <span className="text-[13px] text-(--color-text-subtle)">
-                  {faturasFiltradas.length} fatura{faturasFiltradas.length !== 1 ? "s" : ""}
+                  {filteredInvoices.length} fatura{filteredInvoices.length !== 1 ? "s" : ""}
                 </span>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="secondary"
                     size="sm"
                     disabled={page === 0}
-                    onClick={() => setFaturaPage(page - 1)}
+                    onClick={() => setInvoicePage(page - 1)}
                   >
                     Anterior
                   </Button>
@@ -385,7 +385,7 @@ export default function ConfiguracoesPage() {
                     variant="secondary"
                     size="sm"
                     disabled={page >= totalPages - 1}
-                    onClick={() => setFaturaPage(page + 1)}
+                    onClick={() => setInvoicePage(page + 1)}
                   >
                     Próxima
                   </Button>
@@ -465,7 +465,7 @@ export default function ConfiguracoesPage() {
         </DialogContent>
       </Dialog>
 
-      <FaturaDetalheModal fatura={faturaSel} onClose={() => setFaturaSel(null)} />
+      <InvoiceDetailModal invoice={invoiceSel} onClose={() => setInvoiceSel(null)} />
     </SchoolShell>
   );
 }

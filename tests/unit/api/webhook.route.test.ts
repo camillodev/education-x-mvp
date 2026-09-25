@@ -144,19 +144,19 @@ describe('POST /api/webhook — billingType desconhecido não é motivo de rejei
   // um billingType desconhecido que nunca é usado. Este teste fixa esse comportamento.
   it('payload com billingType desconhecido (não PIX/BOLETO/CREDIT_CARD/UNDEFINED) ainda é validado e delegado ao service', async () => {
     processPaymentEvent.mockResolvedValue({ handled: true })
-    const payloadComBillingTypeNovo = {
+    const payloadWithNewBillingType = {
       ...validPayload,
       payment: { ...validPayload.payment, billingType: 'CRYPTO_FUTURO' },
     }
 
     const res = await route.POST(
-      postRequest(payloadComBillingTypeNovo, { 'asaas-access-token': FAKE_WEBHOOK_SECRET })
+      postRequest(payloadWithNewBillingType, { 'asaas-access-token': FAKE_WEBHOOK_SECRET })
     )
     const json = await res.json()
 
     expect(res.status).toBe(200)
     expect(json).toEqual({ received: true, handled: true })
-    expect(processPaymentEvent).toHaveBeenCalledWith(payloadComBillingTypeNovo)
+    expect(processPaymentEvent).toHaveBeenCalledWith(payloadWithNewBillingType)
   })
 })
 

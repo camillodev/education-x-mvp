@@ -10,7 +10,7 @@ import { formatBRL } from "@/lib/format";
 import type { ChartPoint } from "@/lib/mock/types";
 import type { ReportSummary } from "@/lib/mock/report-summaries";
 
-interface RelatoriosResponse {
+interface ReportsResponse {
   faturamento: ChartPoint[];
   inadimplencia: ChartPoint[];
   alunos: ChartPoint[];
@@ -122,8 +122,8 @@ const CHART_CONFIG: Record<ReportSummary["id"], ChartConfig> = {
   },
 };
 
-export function RelatoriosTab() {
-  const { data, loading, error } = useMockResource<RelatoriosResponse>("/api/mock/reports");
+export function ReportsTab() {
+  const { data, loading, error } = useMockResource<ReportsResponse>("/api/mock/reports");
 
   const seriesById = useMemo(
     () => ({

@@ -6,7 +6,7 @@ import { resolveEnrollmentLink } from '@/lib/services/enrollment.service'
 import { getUnitContract } from '@/lib/services/contract.service'
 import { decrypt } from '@/lib/crypto'
 import { GUARDIAN_COOKIE } from '../dados/cookie'
-import { RevisaoForm, type StudentSummary } from './RevisaoForm'
+import { ReviewForm, type StudentSummary } from './RevisaoForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,7 +21,7 @@ interface Props {
   params: Promise<{ token: string }>
 }
 
-export default async function MatriculaRevisaoPage({ params }: Props) {
+export default async function EnrollmentReviewPage({ params }: Props) {
   const { token } = await params
 
   let unitId: string
@@ -71,7 +71,7 @@ export default async function MatriculaRevisaoPage({ params }: Props) {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12">
-      <RevisaoForm
+      <ReviewForm
         token={token}
         students={[...studentMap.values()]}
         planLabel={PLAN_LABELS[plan] ?? plan}

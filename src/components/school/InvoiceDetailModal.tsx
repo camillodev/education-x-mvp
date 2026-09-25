@@ -10,35 +10,35 @@ import { useToast } from "@/components/ui/toast";
 import { formatBRL } from "@/lib/format";
 import type { PlatformInvoice } from "@/lib/mock/types";
 
-interface FaturaDetalheModalProps {
-  fatura: PlatformInvoice | null;
+interface InvoiceDetailModalProps {
+  invoice: PlatformInvoice | null;
   onClose: () => void;
 }
 
-export function FaturaDetalheModal({ fatura, onClose }: FaturaDetalheModalProps) {
+export function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
   const { toast } = useToast();
   const [view, setView] = useState<"detalhe" | "pix">("detalhe");
   const [copied, setCopied] = useState(false);
 
   // Cada fatura reabre no detalhamento, nunca no PIX da anterior.
   useEffect(() => {
-    if (fatura) setView("detalhe");
-  }, [fatura]);
+    if (invoice) setView("detalhe");
+  }, [invoice]);
 
-  if (!fatura) return null;
+  if (!invoice) return null;
 
-  const total = fatura.itens.reduce((s, i) => s + i.val, 0);
-  const aberto = fatura.status === "aberto";
+  const total = invoice.itens.reduce((s, i) => s + i.val, 0);
+  const aberto = invoice.status === "aberto";
 
   return (
-    <Dialog open={Boolean(fatura)} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={Boolean(invoice)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[460px]">
         <div className="mb-[18px] flex items-start justify-between">
           <div>
             <div className="eyebrow mb-1.5">Fatura Education X</div>
-            <h3 className="m-0 text-xl font-bold">{fatura.mes}</h3>
+            <h3 className="m-0 text-xl font-bold">{invoice.mes}</h3>
             <div className="mt-[3px] text-[13px] text-(--color-text-subtle)">
-              {aberto ? `Vence em ${fatura.venc}` : "Paga"}
+              {aberto ? `Vence em ${invoice.venc}` : "Paga"}
             </div>
           </div>
           {aberto ? (
@@ -53,7 +53,7 @@ export function FaturaDetalheModal({ fatura, onClose }: FaturaDetalheModalProps)
         </div>
 
         <div className="overflow-hidden rounded-(--radius-md) border border-(--color-border)">
-          {fatura.itens.map((item, i) => (
+          {invoice.itens.map((item, i) => (
             <div
               key={i}
               className="flex items-start justify-between gap-3 border-b border-(--color-border-muted) px-4 py-3"
@@ -109,7 +109,7 @@ export function FaturaDetalheModal({ fatura, onClose }: FaturaDetalheModalProps)
           <div className="flex flex-col items-center text-center">
             <div className="text-[26px] font-extrabold tracking-[-0.02em]">{formatBRL(total)}</div>
             <div className="mt-1 mb-[18px] text-[13px] text-(--color-text-subtle)">
-              {fatura.mes} · fatura Education X
+              {invoice.mes} · fatura Education X
             </div>
             <QrCode size={172} />
             <div className="my-3.5 text-[13px] text-(--color-text-subtle)">

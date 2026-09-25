@@ -28,7 +28,7 @@ const TABS: SegmentedOption<Tab>[] = [
   { value: "plano", label: "2 · Plano e cobrança" },
 ];
 
-export default function NovaMatriculaPage() {
+export default function NewEnrollmentPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [tab, setTab] = useState<Tab>("cadastro");
@@ -53,12 +53,12 @@ export default function NovaMatriculaPage() {
 
   const goToList = () => router.push("/painel/matriculas");
 
-  const planoObj = plans.find((p) => p.nome === plano) ?? plans[0];
-  const planoMensal = plans.find((p) => p.id === "mensal") ?? plans[0];
-  const baseMensal = planoMensal?.parcela ?? 0;
-  const comPlano = planoObj?.parcela ?? 0;
+  const planObj = plans.find((p) => p.nome === plano) ?? plans[0];
+  const monthlyPlan = plans.find((p) => p.id === "mensal") ?? plans[0];
+  const baseMensal = monthlyPlan?.parcela ?? 0;
+  const withPlan = planObj?.parcela ?? 0;
   const { discountCents, finalCents: totalMensal } = computeDiscountedCents(
-    comPlano,
+    withPlan,
     descontoTipo,
     descontoVal
   );
@@ -302,7 +302,7 @@ export default function NovaMatriculaPage() {
               <div className="overflow-hidden rounded-(--radius-md) border border-(--color-border)">
                 {[
                   ["Mensalidade cheia", formatBRL(baseMensal)],
-                  [`Desconto do plano ${plano}`, `− ${formatBRL(Math.max(0, baseMensal - comPlano))}`],
+                  [`Desconto do plano ${plano}`, `− ${formatBRL(Math.max(0, baseMensal - withPlan))}`],
                   ["Desconto de negociação", `− ${formatBRL(discountCents)}`],
                   ["Economia anual total", formatBRL(economiaAnual)],
                 ].map(([label, value]) => (

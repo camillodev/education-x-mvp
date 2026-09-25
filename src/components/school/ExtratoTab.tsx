@@ -105,13 +105,13 @@ const COLUMNS: ColumnDef<LedgerEntry, unknown>[] = [
   },
 ];
 
-interface FinanceiroResponse {
+interface FinancialsResponse {
   extrato: LedgerEntry[];
 }
 
-export function ExtratoTab() {
+export function StatementTab() {
   const [filter, setFilter] = useState<TipoFilter>("todos");
-  const { data, loading, error } = useMockResource<FinanceiroResponse>("/api/mock/financials");
+  const { data, loading, error } = useMockResource<FinancialsResponse>("/api/mock/financials");
   const entries = useMemo(() => data?.extrato ?? [], [data]);
 
   const filtered =

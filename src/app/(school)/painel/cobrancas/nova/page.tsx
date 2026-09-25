@@ -25,7 +25,7 @@ const DISCOUNT_OPTIONS: SegmentedOption<DiscountMode>[] = [
   { value: "FIXED", label: "R$" },
 ];
 
-export default function NovaCobrancaPage() {
+export default function NewInvoicePage() {
   const router = useRouter();
   const { toast } = useToast();
   const [guardian, setGuardian] = useState<string | null>(null);

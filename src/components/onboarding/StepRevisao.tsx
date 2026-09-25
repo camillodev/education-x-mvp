@@ -7,7 +7,7 @@ import { getPlan } from '@/lib/data/plans'
 import { computeDiscountedCents } from '@/lib/pricing'
 
 // Aceita OnboardingState ou qualquer estado compatível (ex: EditSchoolState)
-type RevisaoCompatState = {
+type ReviewCompatState = {
   details: DetailsState
   billing: BillingState
   plan: PlanState
@@ -17,14 +17,14 @@ type RevisaoCompatState = {
 }
 
 interface Props {
-  state: RevisaoCompatState
+  state: ReviewCompatState
   onEditStep: (step: 1 | 2 | 3) => void
   onSubmit: () => void
   loadingSteps?: string[]
   submitLabel?: string
 }
 
-export function StepRevisao({ state, onEditStep, onSubmit, loadingSteps, submitLabel }: Props) {
+export function StepReview({ state, onEditStep, onSubmit, loadingSteps, submitLabel }: Props) {
   const isSubmitting = state.status === 'submitting'
 
   if (state.status === 'success') {

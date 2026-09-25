@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { StepRevisao } from '@/components/onboarding/StepRevisao'
+import { StepReview } from '@/components/onboarding/StepRevisao'
 import type { OnboardingState } from '@/hooks/use-onboarding'
 
 const baseState: OnboardingState = {
@@ -51,7 +51,7 @@ function renderReview(state: Partial<OnboardingState> = {}) {
   const onEditStep = vi.fn()
   const onSubmit = vi.fn()
 
-  render(<StepRevisao state={merged} onEditStep={onEditStep} onSubmit={onSubmit} />)
+  render(<StepReview state={merged} onEditStep={onEditStep} onSubmit={onSubmit} />)
 
   return { onEditStep, onSubmit }
 }

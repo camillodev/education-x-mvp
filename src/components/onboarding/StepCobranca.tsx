@@ -3,8 +3,8 @@
 import type { BillingState } from '@/hooks/use-onboarding'
 
 interface Props {
-  cobranca: BillingState
-  onChange: (cobranca: Partial<BillingState>) => void
+  billing: BillingState
+  onChange: (billing: Partial<BillingState>) => void
 }
 
 function bpToPercent(bp: number): string {
@@ -15,7 +15,7 @@ function percentToBp(percent: string): number {
   return Math.round(parseFloat(percent || '0') * 100)
 }
 
-export function StepCobranca({ cobranca, onChange }: Props) {
+export function StepBilling({ billing, onChange }: Props) {
   const inputCls =
     'mt-1 block w-full min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]'
 
@@ -42,7 +42,7 @@ export function StepCobranca({ cobranca, onChange }: Props) {
             type="number"
             min={1}
             max={28}
-            value={cobranca.closingDay}
+            value={billing.closingDay}
             onChange={(e) => onChange({ closingDay: parseInt(e.target.value) || 1 })}
             className={inputCls}
           />
@@ -58,7 +58,7 @@ export function StepCobranca({ cobranca, onChange }: Props) {
             type="number"
             min={1}
             max={28}
-            value={cobranca.dueDay}
+            value={billing.dueDay}
             onChange={(e) => onChange({ dueDay: parseInt(e.target.value) || 1 })}
             className={inputCls}
           />
@@ -74,7 +74,7 @@ export function StepCobranca({ cobranca, onChange }: Props) {
             min={0}
             max={5}
             step={0.01}
-            value={bpToPercent(cobranca.lateFeePercent)}
+            value={bpToPercent(billing.lateFeePercent)}
             onChange={(e) => onChange({ lateFeePercent: percentToBp(e.target.value) })}
             className={inputCls}
           />
@@ -90,7 +90,7 @@ export function StepCobranca({ cobranca, onChange }: Props) {
             min={0}
             max={3}
             step={0.01}
-            value={bpToPercent(cobranca.monthlyInterestBp)}
+            value={bpToPercent(billing.monthlyInterestBp)}
             onChange={(e) => onChange({ monthlyInterestBp: percentToBp(e.target.value) })}
             className={inputCls}
           />
@@ -103,7 +103,7 @@ export function StepCobranca({ cobranca, onChange }: Props) {
           <input
             id="municipalReg"
             type="text"
-            value={cobranca.municipalRegistration}
+            value={billing.municipalRegistration}
             onChange={(e) => onChange({ municipalRegistration: e.target.value })}
             placeholder="Número da inscrição municipal para NFS-e"
             className={inputCls}
@@ -125,7 +125,7 @@ export function StepCobranca({ cobranca, onChange }: Props) {
             </label>
             <select
               id="cardFeePayer"
-              value={cobranca.cardFeePayer}
+              value={billing.cardFeePayer}
               onChange={(e) =>
                 onChange({ cardFeePayer: e.target.value as 'RESPONSAVEL' | 'ESCOLA' })
               }
@@ -145,7 +145,7 @@ export function StepCobranca({ cobranca, onChange }: Props) {
             </label>
             <select
               id="negativacaoFeePayer"
-              value={cobranca.negativacaoFeePayer}
+              value={billing.negativacaoFeePayer}
               onChange={(e) =>
                 onChange({ negativacaoFeePayer: e.target.value as 'RESPONSAVEL' | 'ESCOLA' })
               }

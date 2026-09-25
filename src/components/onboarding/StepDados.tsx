@@ -8,22 +8,22 @@ import { useToast } from '@/components/ui/toast'
 import { EMAIL_RE } from './dados-masks'
 import { CardIdentidade } from './CardIdentidade'
 import { CardEndereco } from './CardEndereco'
-import { CardResponsavel } from './CardResponsavel'
+import { GuardianCard } from './CardResponsavel'
 
 interface Props {
-  dados: DetailsState
-  onChange: (dados: Partial<DetailsState>) => void
+  details: DetailsState
+  onChange: (details: Partial<DetailsState>) => void
   readOnly?: { cnpj?: boolean }
 }
 
-export function StepDados({ dados, onChange, readOnly }: Props) {
+export function StepDetails({ details, onChange, readOnly }: Props) {
   const [loadingCep, setLoadingCep] = useState(false)
   const [loadingCnpj, setLoadingCnpj] = useState(false)
   // CNPJ-first: começa escondendo os demais campos. Inicia revelado quando
   // o usuário está editando um draft que já tem identidade preenchida,
   // ou quando o campo CNPJ está em modo read-only (fluxo de edição).
   const [revealed, setRevealed] = useState(
-    () => readOnly?.cnpj === true || Boolean(dados.legalName || dados.tradeName || dados.name)
+    () => readOnly?.cnpj === true || Boolean(details.legalName || details.tradeName || details.name)
   )
   const { toast } = useToast()
 
@@ -34,8 +34,8 @@ export function StepDados({ dados, onChange, readOnly }: Props) {
   toastRef.current = toast
   const lastLookedUp = useRef<string>('')
   // Snapshot do estado atual pra o effect ler sem virar dependência.
-  const currentRef = useRef(dados)
-  currentRef.current = dados
+  const currentRef = useRef(details)
+  currentRef.current = details
 
   const cnpjReadOnly = readOnly?.cnpj ?? false
 
@@ -43,7 +43,7 @@ export function StepDados({ dados, onChange, readOnly }: Props) {
   // Desabilitado no modo edição (readOnly.cnpj) — dados já chegam pré-preenchidos.
   // Best-effort: erro vai pro console + toast, nunca bloqueia o cadastro.
   useEffect(() => {
-    const cnpj = dados.cnpj
+    const cnpj = details.cnpj
     if (cnpjReadOnly) return
     if (!isValidCnpj(cnpj) || lastLookedUp.current === cnpj) return
     lastLookedUp.current = cnpj
@@ -90,16 +90,16 @@ export function StepDados({ dados, onChange, readOnly }: Props) {
       })
 
     return () => controller.abort()
-  }, [dados.cnpj, cnpjReadOnly])
+  }, [details.cnpj, cnpjReadOnly])
 
   // Inline validation — only surfaced after the user typed something.
-  const cnpjError = dados.cnpj.length > 0 && !isValidCnpj(dados.cnpj) ? 'CNPJ inválido' : ''
-  const emailError = dados.email.length > 0 && !EMAIL_RE.test(dados.email) ? 'E-mail inválido' : ''
-  const phoneError = dados.phone.length > 0 && !isValidBrMobile(dados.phone) ? 'Celular inválido (DDD + 9 dígitos)' : ''
+  const cnpjError = details.cnpj.length > 0 && !isValidCnpj(details.cnpj) ? 'CNPJ inválido' : ''
+  const emailError = details.email.length > 0 && !EMAIL_RE.test(details.email) ? 'E-mail inválido' : ''
+  const phoneError = details.phone.length > 0 && !isValidBrMobile(details.phone) ? 'Celular inválido (DDD + 9 dígitos)' : ''
   const respEmailError =
-    dados.responsibleEmail.length > 0 && !EMAIL_RE.test(dados.responsibleEmail) ? 'E-mail inválido' : ''
+    details.responsibleEmail.length > 0 && !EMAIL_RE.test(details.responsibleEmail) ? 'E-mail inválido' : ''
   const respPhoneError =
-    dados.responsiblePhone.length > 0 && !isValidBrMobile(dados.responsiblePhone) ? 'Celular inválido (DDD + 9 dígitos)' : ''
+    details.responsiblePhone.length > 0 && !isValidBrMobile(details.responsiblePhone) ? 'Celular inválido (DDD + 9 dígitos)' : ''
 
   async function handleCepBlur(cep: string) {
     const digits = cep.replace(/\D/g, '')
@@ -135,7 +135,7 @@ export function StepDados({ dados, onChange, readOnly }: Props) {
       </div>
 
       <CardIdentidade
-        dados={dados}
+        dados={details}
         onChange={onChange}
         cnpjError={cnpjError}
         emailError={emailError}
@@ -150,14 +150,14 @@ export function StepDados({ dados, onChange, readOnly }: Props) {
       {revealed && (
         <div className="animate-[ex-fade-up_.3s_ease] space-y-6">
           <CardEndereco
-            dados={dados}
+            dados={details}
             onChange={onChange}
             onCepBlur={handleCepBlur}
             loadingCep={loadingCep}
           />
 
-          <CardResponsavel
-            dados={dados}
+          <GuardianCard
+            dados={details}
             onChange={onChange}
             respEmailError={respEmailError}
             respPhoneError={respPhoneError}

@@ -10,9 +10,9 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/patterns/DataTable";
-import { FinanceiroBody } from "@/components/school/FinanceiroBody";
-import { ExtratoTab } from "@/components/school/ExtratoTab";
-import { RelatoriosTab } from "@/components/school/RelatoriosTab";
+import { FinancialsBody } from "@/components/school/FinanceiroBody";
+import { StatementTab } from "@/components/school/ExtratoTab";
+import { ReportsTab } from "@/components/school/RelatoriosTab";
 import { ExportModal } from "@/components/patterns/ExportModal";
 import { useMockResource } from "@/hooks/use-mock-resource";
 import { formatBRL } from "@/lib/format";
@@ -81,7 +81,7 @@ const UPCOMING_COLUMNS: ColumnDef<UpcomingDue, unknown>[] = [
   },
 ];
 
-interface CobrancasResponse {
+interface InvoicesResponse {
   upcomingDues: UpcomingDue[];
 }
 
@@ -90,7 +90,7 @@ export default function DashboardPage() {
   const [tab, setTab] = useState<DashTab>("visao");
   const [forma, setForma] = useState<FormaFilter>("todas");
   const [exportOpen, setExportOpen] = useState(false);
-  const { data, loading, error } = useMockResource<CobrancasResponse>("/api/mock/invoices");
+  const { data, loading, error } = useMockResource<InvoicesResponse>("/api/mock/invoices");
 
   const upcomingDues = data?.upcomingDues ?? [];
   const filteredByForma =
@@ -148,7 +148,7 @@ export default function DashboardPage() {
             />
           </div>
 
-          <FinanceiroBody />
+          <FinancialsBody />
 
           <Card className="overflow-hidden p-5">
             {loading && (
@@ -184,8 +184,8 @@ export default function DashboardPage() {
         </>
       )}
 
-      {tab === "relatorios" && <RelatoriosTab />}
-      {tab === "extrato" && <ExtratoTab />}
+      {tab === "relatorios" && <ReportsTab />}
+      {tab === "extrato" && <StatementTab />}
     </SchoolShell>
   );
 }

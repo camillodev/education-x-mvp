@@ -27,18 +27,18 @@ export function anticipationFeeCents(receivable: Receivable): number {
   return Math.round(receivable.bruto * TAXA_MES * (receivable.dias / 30));
 }
 
-interface FinanceiroResponse {
+interface FinancialsResponse {
   saldo: SchoolBalance;
   recebiveis: Receivable[];
 }
 
-export function FinanceiroBody() {
+export function FinancialsBody() {
   const { toast } = useToast();
   const [saqueOpen, setSaqueOpen] = useState(false);
   const [antecipOpen, setAntecipOpen] = useState(false);
   const [selecionados, setSelecionados] = useState<string[] | null>(null);
 
-  const { data, loading, error } = useMockResource<FinanceiroResponse>("/api/mock/financials");
+  const { data, loading, error } = useMockResource<FinancialsResponse>("/api/mock/financials");
   const saldo = data?.saldo;
   const recebiveis = useMemo(() => data?.recebiveis ?? [], [data]);
 

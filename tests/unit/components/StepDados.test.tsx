@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useState } from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { StepDados } from '@/components/onboarding/StepDados'
+import { StepDetails } from '@/components/onboarding/StepDados'
 import type { DetailsState } from '@/hooks/use-onboarding'
 
 // O StepDados é controlado: o pai detém o estado. Mockamos o toast e o
@@ -17,7 +17,7 @@ vi.mock('@/lib/data/cnpj-lookup', () => ({
   CnpjLookupError: class extends Error {},
 }))
 
-const emptyDados: DetailsState = {
+const emptyDetails: DetailsState = {
   name: '',
   cnpj: '',
   legalName: '',
@@ -40,12 +40,12 @@ const emptyDados: DetailsState = {
 }
 
 // Harness que propaga onChange de volta ao estado, como o hook real faz.
-function Harness({ initial = emptyDados }: { initial?: Partial<DetailsState> }) {
-  const [dados, setDados] = useState<DetailsState>({ ...emptyDados, ...initial })
+function Harness({ initial = emptyDetails }: { initial?: Partial<DetailsState> }) {
+  const [details, setDetails] = useState<DetailsState>({ ...emptyDetails, ...initial })
   return (
-    <StepDados
-      dados={dados}
-      onChange={(patch) => setDados((prev) => ({ ...prev, ...patch }))}
+    <StepDetails
+      details={details}
+      onChange={(patch) => setDetails((prev) => ({ ...prev, ...patch }))}
     />
   )
 }
