@@ -23,7 +23,7 @@ const PT_DOMAIN_WORDS = [
   "aluno", "alunos", "escola", "escolas", "fatura", "faturas", "negativacao",
   "mensalidade", "mensalidades", "vencimento", "dados", "detalhe", "detalhes",
   "novo", "nova", "painel", "editar", "aprovar", "recusar", "pendente", "pendentes",
-  "configuracoes", "configuracao", "plano", "revisao", "relatorio", "relatorios",
+  "configuracoes", "configuracao", "plano", "planos", "revisao", "relatorio", "relatorios",
   "extrato", "pagamento", "pagamentos", "valor", "desconto", "orientador", "financeiro",
 ];
 

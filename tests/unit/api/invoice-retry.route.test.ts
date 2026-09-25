@@ -1,8 +1,8 @@
 import { it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { NextResponse } from 'next/server'
 
-const guardOrientador = vi.fn()
-vi.mock('@/lib/api/guard', () => ({ guardOrientador: (...a: unknown[]) => guardOrientador(...a) }))
+const guardAdvisor = vi.fn()
+vi.mock('@/lib/api/guard', () => ({ guardAdvisor: (...a: unknown[]) => guardAdvisor(...a) }))
 
 const emitInvoice = vi.fn()
 vi.mock('@/lib/services/billing.service', async () => {
@@ -42,7 +42,7 @@ function makeRequest() {
 const CTX = { role: 'orientador', unitId: 'unit-1', userId: 'u1' }
 
 beforeEach(() => {
-  guardOrientador.mockReset()
+  guardAdvisor.mockReset()
   emitInvoice.mockReset()
   findUnique.mockReset()
   invoiceFindUnique.mockReset()
@@ -56,7 +56,7 @@ afterEach(() => {
 })
 
 it('200 reemite Invoice existente via emitInvoice', async () => {
-  guardOrientador.mockResolvedValue(CTX)
+  guardAdvisor.mockResolvedValue(CTX)
   invoiceFindUnique.mockResolvedValue({ enrollmentId: 'enr-1', referenceMonth: '2026-09' })
   findUnique.mockResolvedValue({ asaasApiKeyEnc: 'enc:x' })
   decrypt.mockResolvedValue('chave-real')
@@ -74,7 +74,7 @@ it('200 reemite Invoice existente via emitInvoice', async () => {
 })
 
 it('404 quando Invoice não existe — emitInvoice nunca é chamado', async () => {
-  guardOrientador.mockResolvedValue(CTX)
+  guardAdvisor.mockResolvedValue(CTX)
   invoiceFindUnique.mockResolvedValue(null)
 
   const res = await POST(makeRequest(), makeParams('inv-1'))
@@ -84,7 +84,7 @@ it('404 quando Invoice não existe — emitInvoice nunca é chamado', async () =
 })
 
 it('409 quando Unit não tem asaasApiKeyEnc', async () => {
-  guardOrientador.mockResolvedValue(CTX)
+  guardAdvisor.mockResolvedValue(CTX)
   invoiceFindUnique.mockResolvedValue({ enrollmentId: 'enr-1', referenceMonth: '2026-09' })
   findUnique.mockResolvedValue({ asaasApiKeyEnc: null })
 
@@ -98,7 +98,7 @@ it('409 quando Unit não tem asaasApiKeyEnc', async () => {
 
 it('guard nega → devolve a resposta do guard direto, sem chamar forUnit', async () => {
   const denied = NextResponse.json({ error: 'Apenas a escola pode executar esta ação.', code: 'FORBIDDEN' }, { status: 403 })
-  guardOrientador.mockResolvedValue(denied)
+  guardAdvisor.mockResolvedValue(denied)
 
   const res = await POST(makeRequest(), makeParams('inv-1'))
 

@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { listInvoices } from '@/lib/services/billing.service'
 import { errorResponse } from '@/lib/errors/handle'
-import { guardOrientador } from '@/lib/api/guard'
+import { guardAdvisor } from '@/lib/api/guard'
 import { ListInvoicesQuerySchema } from '@/lib/validations/billing'
 
 // EDU-27 — US-F2-06: lista de cobranças da Unit, com paginação e filtros de status/mês.
 export async function GET(req: Request) {
-  const ctx = await guardOrientador('GET /api/invoices')
+  const ctx = await guardAdvisor('GET /api/invoices')
   if (ctx instanceof NextResponse) return ctx
 
   try {

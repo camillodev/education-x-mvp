@@ -6,7 +6,7 @@ import { useOnboarding, canProceedFromStep } from '@/hooks/use-onboarding'
 
 const baseState = {
   step: 1 as const,
-  dados: {
+  details: {
     name: 'Kumon Camargos',
     cnpj: '11222333000181',
     legalName: 'Kumon Camargos LTDA',
@@ -27,7 +27,7 @@ const baseState = {
     responsibleEmail: 'maria@escola.com',
     responsiblePhone: '31988887777',
   },
-  cobranca: {
+  billing: {
     dueDay: 10,
     closingDay: 25,
     lateFeePercent: 200,
@@ -36,7 +36,7 @@ const baseState = {
     negativacaoFeePayer: 'RESPONSAVEL' as const,
     municipalRegistration: '12345',
   },
-  plano: {
+  plan: {
     planId: 'basico' as const,
     isBeta: false,
     discountEnabled: false,
@@ -53,32 +53,32 @@ describe('canProceedFromStep', () => {
   })
 
   it('step 1 invalid when name too short', () => {
-    const state = { ...baseState, dados: { ...baseState.dados, name: 'A' } }
+    const state = { ...baseState, details: { ...baseState.details, name: 'A' } }
     expect(canProceedFromStep(state, 1)).toBe(false)
   })
 
   it('step 1 invalid when cnpj not 14 digits', () => {
-    const state = { ...baseState, dados: { ...baseState.dados, cnpj: '1234' } }
+    const state = { ...baseState, details: { ...baseState.details, cnpj: '1234' } }
     expect(canProceedFromStep(state, 1)).toBe(false)
   })
 
   it('step 1 invalid when cnpj has 14 digits but invalid check digit', () => {
-    const state = { ...baseState, dados: { ...baseState.dados, cnpj: '11222333000199' } }
+    const state = { ...baseState, details: { ...baseState.details, cnpj: '11222333000199' } }
     expect(canProceedFromStep(state, 1)).toBe(false)
   })
 
   it('step 1 invalid when phone DDD is invalid', () => {
-    const state = { ...baseState, dados: { ...baseState.dados, phone: '20999990000' } }
+    const state = { ...baseState, details: { ...baseState.details, phone: '20999990000' } }
     expect(canProceedFromStep(state, 1)).toBe(false)
   })
 
   it('step 1 invalid when number is missing', () => {
-    const state = { ...baseState, dados: { ...baseState.dados, number: '' } }
+    const state = { ...baseState, details: { ...baseState.details, number: '' } }
     expect(canProceedFromStep(state, 1)).toBe(false)
   })
 
   it('step 1 invalid when neighborhood is missing', () => {
-    const state = { ...baseState, dados: { ...baseState.dados, neighborhood: '' } }
+    const state = { ...baseState, details: { ...baseState.details, neighborhood: '' } }
     expect(canProceedFromStep(state, 1)).toBe(false)
   })
 
@@ -87,12 +87,12 @@ describe('canProceedFromStep', () => {
   })
 
   it('step 2 invalid when dueDay out of range', () => {
-    const state = { ...baseState, cobranca: { ...baseState.cobranca, dueDay: 30 } }
+    const state = { ...baseState, billing: { ...baseState.billing, dueDay: 30 } }
     expect(canProceedFromStep(state, 2)).toBe(false)
   })
 
   it('step 2 invalid when municipalRegistration empty', () => {
-    const state = { ...baseState, cobranca: { ...baseState.cobranca, municipalRegistration: '' } }
+    const state = { ...baseState, billing: { ...baseState.billing, municipalRegistration: '' } }
     expect(canProceedFromStep(state, 2)).toBe(false)
   })
 
@@ -103,7 +103,7 @@ describe('canProceedFromStep', () => {
   it('step 2 (financeiro) invalid quando desconto ligado sem valor', () => {
     const state = {
       ...baseState,
-      plano: { ...baseState.plano, discountEnabled: true, discountValue: '' },
+      plan: { ...baseState.plan, discountEnabled: true, discountValue: '' },
     }
     expect(canProceedFromStep(state, 2)).toBe(false)
   })
@@ -111,7 +111,7 @@ describe('canProceedFromStep', () => {
   it('step 2 (financeiro) valid com desconto percentual válido', () => {
     const state = {
       ...baseState,
-      plano: { ...baseState.plano, discountEnabled: true, discountType: 'PERCENT' as const, discountValue: '10' },
+      plan: { ...baseState.plan, discountEnabled: true, discountType: 'PERCENT' as const, discountValue: '10' },
     }
     expect(canProceedFromStep(state, 2)).toBe(true)
   })
@@ -119,7 +119,7 @@ describe('canProceedFromStep', () => {
   it('step 2 (financeiro) invalid quando desconto >= preço (100%)', () => {
     const state = {
       ...baseState,
-      plano: { ...baseState.plano, discountEnabled: true, discountType: 'PERCENT' as const, discountValue: '100' },
+      plan: { ...baseState.plan, discountEnabled: true, discountType: 'PERCENT' as const, discountValue: '100' },
     }
     expect(canProceedFromStep(state, 2)).toBe(false)
   })
@@ -134,7 +134,7 @@ describe('canProceedFromStep', () => {
   })
 
   it('step 1 invalid when responsible email is invalid', () => {
-    const state = { ...baseState, dados: { ...baseState.dados, responsibleEmail: 'x' } }
+    const state = { ...baseState, details: { ...baseState.details, responsibleEmail: 'x' } }
     expect(canProceedFromStep(state, 1)).toBe(false)
   })
 })
@@ -155,8 +155,8 @@ describe('useOnboarding submit', () => {
     const { result } = renderHook(() => useOnboarding())
 
     act(() => {
-      result.current.setDados(baseState.dados)
-      result.current.setCobranca(baseState.cobranca)
+      result.current.setDetails(baseState.details)
+      result.current.setBilling(baseState.billing)
     })
     act(() => {
       result.current.addSubject(baseState.subjects[0])
@@ -180,8 +180,8 @@ describe('useOnboarding submit', () => {
     const { result } = renderHook(() => useOnboarding())
 
     act(() => {
-      result.current.setDados(baseState.dados)
-      result.current.setCobranca(baseState.cobranca)
+      result.current.setDetails(baseState.details)
+      result.current.setBilling(baseState.billing)
     })
     act(() => {
       result.current.addSubject(baseState.subjects[0])
@@ -205,8 +205,8 @@ describe('useOnboarding submit', () => {
     const { result } = renderHook(() => useOnboarding())
 
     act(() => {
-      result.current.setDados(baseState.dados)
-      result.current.setCobranca(baseState.cobranca)
+      result.current.setDetails(baseState.details)
+      result.current.setBilling(baseState.billing)
     })
     act(() => {
       result.current.addSubject(baseState.subjects[0])

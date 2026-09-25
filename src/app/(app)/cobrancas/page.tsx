@@ -17,7 +17,7 @@ const STATUS_OPTIONS = [
   { value: 'ERROR', label: 'Erro' },
 ]
 
-export default function CobrancasPage() {
+export default function InvoicesPage() {
   const { items, page, totalPages, loading, error, filters, setFilters, reemitir } = useInvoices()
   const { toast } = useToast()
 

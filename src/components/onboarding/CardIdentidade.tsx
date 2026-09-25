@@ -1,7 +1,7 @@
 'use client'
 
 import { Building2, Mail, Phone } from 'lucide-react'
-import type { DadosState } from '@/hooks/use-onboarding'
+import type { DetailsState } from '@/hooks/use-onboarding'
 import { FRANCHISE_NETWORKS } from '@/lib/data/franchise-networks'
 import { Combobox } from '@/components/patterns/Combobox'
 import { Field } from '@/components/ui/field'
@@ -11,8 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { maskCnpj, maskPhone } from './dados-masks'
 
 interface Props {
-  dados: DadosState
-  onChange: (dados: Partial<DadosState>) => void
+  dados: DetailsState
+  onChange: (dados: Partial<DetailsState>) => void
   cnpjError: string
   emailError: string
   phoneError: string

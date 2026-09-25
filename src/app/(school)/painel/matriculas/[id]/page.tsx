@@ -36,14 +36,14 @@ interface Guardian {
   tel: string;
 }
 
-export default function MatriculaDetalhePage({ params }: { params: Promise<{ id: string }> }) {
+export default function EnrollmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const { toast } = useToast();
   const [rejectOpen, setRejectOpen] = useState(false);
 
-  const { data, loading, error } = useMockResource<Enrollment[]>("/api/mock/matriculas");
-  const { data: plansData } = useMockResource<EnrollmentPlan[]>("/api/mock/planos");
+  const { data, loading, error } = useMockResource<Enrollment[]>("/api/mock/enrollments");
+  const { data: plansData } = useMockResource<EnrollmentPlan[]>("/api/mock/plans");
   const enrollments = useMemo(() => data ?? [], [data]);
   const plans = useMemo(() => plansData ?? [], [plansData]);
   const enrollment = enrollments.find((m) => m.id === id);

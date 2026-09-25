@@ -4,13 +4,13 @@ import { decrypt } from '@/lib/crypto'
 import { emitInvoice, MissingAsaasKeyError } from '@/lib/services/billing.service'
 import { InvoiceNotFoundError } from '@/lib/services/invoice-detail.service'
 import { errorResponse } from '@/lib/errors/handle'
-import { guardOrientador } from '@/lib/api/guard'
+import { guardAdvisor } from '@/lib/api/guard'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
 // EDU-28 — botão "Reemitir" no detalhe: reusa emitInvoice, que já re-tenta Invoice ERROR (RN-13).
 export async function POST(_req: Request, { params }: RouteCtx) {
-  const ctx = await guardOrientador('POST /api/invoices/[id]/retry')
+  const ctx = await guardAdvisor('POST /api/invoices/[id]/retry')
   if (ctx instanceof NextResponse) return ctx
 
   const { id } = await params

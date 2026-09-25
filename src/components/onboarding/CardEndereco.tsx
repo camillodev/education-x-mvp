@@ -1,14 +1,14 @@
 'use client'
 
 import { MapPin } from 'lucide-react'
-import type { DadosState } from '@/hooks/use-onboarding'
+import type { DetailsState } from '@/hooks/use-onboarding'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { maskCep } from './dados-masks'
 
 interface Props {
-  dados: DadosState
-  onChange: (dados: Partial<DadosState>) => void
+  dados: DetailsState
+  onChange: (dados: Partial<DetailsState>) => void
   onCepBlur: (cep: string) => void
   loadingCep: boolean
 }
