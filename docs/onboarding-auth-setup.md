@@ -41,5 +41,7 @@ Setar role admin num usuário: editar `publicMetadata` no Clerk Dashboard →
 - ⚠️ `DATABASE_URL` aponta para o Supabase **de produção** — cadastros locais
   escrevem rows reais e disparam e-mail Resend real. Use CNPJ descartável.
 
-Usuários de teste com `role=admin`: `rafael@impactxlab.com`,
-`rafaelcamillospam@gmail.com` (= `CLERK_TEST_EMAIL`).
+Usuários de teste (env vars locais em `.env.local` e GitHub Secrets do CI, ver
+`tests/e2e/global.setup.ts` e `tests/e2e/role-routing.spec.ts`):
+- `role=admin`: `hello@rafaelcamillo.com` (= `ADMIN_EMAIL`/`ADMIN_PASSWORD`).
+- `role=orientador`: `rafaelcamillospam@gmail.com` (= `ORIENTADOR_EMAIL`/`ORIENTADOR_PASSWORD`).

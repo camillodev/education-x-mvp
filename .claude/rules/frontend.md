@@ -45,6 +45,28 @@ Component → Hook → Store (Zustand/TanStack Query) → Service → API Route
 - **API Route**: validação de input, autorização, delegação para backend Service.
 - **Component nunca chama Prisma/Asaas direto.**
 
+## Sem magic strings em conjuntos fechados de valores
+- Role, status ou qualquer valor de um conjunto fechado (`'admin' | 'orientador'`,
+  `'DRAFT' | 'INVOICED' | 'CANCELLED'`) é tipo nomeado ou constante, nunca string literal solta
+  comparada inline. Definir uma vez — union TS nomeada exportada de fonte única
+  (`export type Roles = 'admin' | 'orientador'`, mesmo padrão que o Clerk documenta pra
+  `CustomJwtSessionClaims`) ou `const X = {...} as const` quando também precisa do valor em
+  runtime — e importar em todo lugar que compara.
+- ✅ `if (role !== ROLE.ADMIN)` · ❌ `if (role !== 'admin')` espalhado pelo código.
+- Checagem rápida: `grep` pelo valor literal. Se aparece mais de uma vez fora da própria
+  definição de tipo/constante, devia ser tipado ou virar constante.
+
+## Um componente por arquivo — sem subcomponente inline em página
+- Arquivo de página/rota (`page.tsx` ou equivalente) renderiza composição, não definição. Um
+  bloco JSX com responsabilidade própria (linha de tabela, barra de filtro, badge de status)
+  ganha arquivo próprio assim que essa responsabilidade é identificada — não só quando a página
+  cruza o limite de 500 linhas.
+- Independente da regra de tamanho de arquivo: uma página de 200 linhas com três subcomponentes
+  inline, dividida cedo em quatro arquivos pequenos, é mais fácil de testar e reusar do que um
+  arquivo que cresce até o limite antes de dividir.
+- Checagem rápida: se um componente função está definido dentro do arquivo de outro componente e
+  não é um wrapper trivial de uma linha, ele pertence ao próprio arquivo.
+
 ## Responsividade (mobile-first)
 - Breakpoints: `375px` (mobile), `768px` (tablet), `1440px` (desktop).
 - DataTable no mobile: vira **cards** (um por linha), busca/filtro acima.
