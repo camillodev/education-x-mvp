@@ -34,7 +34,7 @@ import { useMockResource } from "@/hooks/use-mock-resource";
 import { formatBRL } from "@/lib/format";
 import type { Invoice } from "@/lib/mock/types";
 
-interface CobrancasResponse {
+interface InvoicesResponse {
   invoices: Invoice[];
 }
 
@@ -123,12 +123,12 @@ const TONE_BG: Record<NonNullable<HistoryTone> | "default", string> = {
   default: "var(--color-primary-soft)",
 };
 
-export default function CobrancaDetalhePage({ params }: { params: Promise<{ id: string }> }) {
+export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const { toast } = useToast();
   const [cancelOpen, setCancelOpen] = useState(false);
-  const { data, loading, error } = useMockResource<CobrancasResponse>("/api/mock/cobrancas");
+  const { data, loading, error } = useMockResource<InvoicesResponse>("/api/mock/invoices");
   const invoices = useMemo(() => data?.invoices ?? [], [data]);
   const invoice = invoices.find((c) => c.id === id);
 

@@ -11,7 +11,7 @@ import { EnrollmentNotStartedError, MissingAsaasKeyError } from '@/lib/services/
 import { InvoiceNotFoundError, InvoiceInvalidStateError } from '@/lib/services/invoice-detail.service'
 
 export interface ErrorContext {
-  /** Identificação da origem, ex: 'PATCH /api/escolas/[unitId]'. */
+  /** Identificação da origem, ex: 'PATCH /api/schools/[unitId]'. */
   route: string
   unitId?: string
   /** Sobrescreve a mensagem amigável padrão, se quiser algo específico. */

@@ -37,6 +37,25 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Guard against a raised language baseline
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          node - <<'EOF'
+          const { execSync } = require("child_process");
+          const base = JSON.parse(execSync(`git show origin/${process.env.BASE_REF}:.language-baseline.json`).toString());
+          const head = JSON.parse(require("fs").readFileSync(".language-baseline.json", "utf8"));
+          const baseTotal = Object.values(base).reduce((a, b) => a + b, 0);
+          const headTotal = Object.values(head).reduce((a, b) => a + b, 0);
+          if (headTotal > baseTotal) {
+            console.error(`.language-baseline.json total increased: ${baseTotal} -> ${headTotal}. Fix the code, don't raise the baseline.`);
+            process.exit(1);
+          }
+          console.log(`Baseline total: ${baseTotal} -> ${headTotal} (ok).`);
+          EOF
+        env:
+          BASE_REF: ${{ github.base_ref }}
+
       - name: Unit tests
         run: pnpm test:run
 

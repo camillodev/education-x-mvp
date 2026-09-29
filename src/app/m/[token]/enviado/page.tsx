@@ -11,7 +11,7 @@ interface Props {
   params: Promise<{ token: string }>
 }
 
-export default async function MatriculaEnviadaPage({ params }: Props) {
+export default async function EnrollmentSentPage({ params }: Props) {
   const { token } = await params
 
   try {

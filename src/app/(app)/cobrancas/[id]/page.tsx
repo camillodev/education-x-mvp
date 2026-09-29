@@ -9,7 +9,7 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-export default async function CobrancaDetalhePage({ params }: Props) {
+export default async function InvoiceDetailPage({ params }: Props) {
   const ctx = await getUnitContext()
   if (ctx.role !== 'orientador') {
     throw new ForbiddenError('Apenas a escola pode acessar o detalhe de uma cobrança')

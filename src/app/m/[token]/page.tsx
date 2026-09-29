@@ -11,7 +11,7 @@ interface Props {
   searchParams: Promise<{ prefilledStudentName?: string }>
 }
 
-export default async function MatriculaBoasVindasPage({ params, searchParams }: Props) {
+export default async function EnrollmentWelcomePage({ params, searchParams }: Props) {
   const { token } = await params
   const { prefilledStudentName } = await searchParams
 

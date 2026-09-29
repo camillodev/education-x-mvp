@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useOnboarding } from '@/hooks/use-onboarding'
 import { Stepper } from '@/components/patterns/Stepper'
-import { StepDados } from '@/components/onboarding/StepDados'
-import { StepFinanceiro } from '@/components/onboarding/StepFinanceiro'
+import { StepDetails } from '@/components/onboarding/StepDetails'
+import { StepFinancial } from '@/components/onboarding/StepFinancial'
 import { StepDocumentos } from '@/components/onboarding/StepDocumentos'
-import { StepRevisao } from '@/components/onboarding/StepRevisao'
+import { StepReview } from '@/components/onboarding/StepReview'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/Card'
@@ -28,9 +28,9 @@ export default function OnboardingPage() {
   const {
     state,
     goToStep,
-    setDados,
-    setCobranca,
-    setPlano,
+    setDetails,
+    setBilling,
+    setPlan,
     addSubject,
     removeSubject,
     updateSubject,
@@ -97,15 +97,15 @@ export default function OnboardingPage() {
 
               <div className="min-w-0">
                 {state.step === 1 && (
-                  <StepDados dados={state.dados} onChange={setDados} />
+                  <StepDetails details={state.details} onChange={setDetails} />
                 )}
 
                 {state.step === 2 && (
-                  <StepFinanceiro
-                    cobranca={state.cobranca}
-                    plano={state.plano}
-                    onCobrancaChange={setCobranca}
-                    onPlanoChange={setPlano}
+                  <StepFinancial
+                    cobranca={state.billing}
+                    plano={state.plan}
+                    onCobrancaChange={setBilling}
+                    onPlanoChange={setPlan}
                   />
                 )}
 
@@ -135,7 +135,7 @@ export default function OnboardingPage() {
                     </div>
                     <Card className="p-6">
                       <div className="label mb-4">REVISÃO</div>
-                      <StepRevisao
+                      <StepReview
                         state={state}
                         onEditStep={(s) => goToStep(s)}
                         onSubmit={submit}
@@ -176,7 +176,7 @@ export default function OnboardingPage() {
           ) : (
             <div className="flex justify-center">
               <Card className="w-full max-w-2xl p-6">
-                <StepRevisao
+                <StepReview
                   state={state}
                   onEditStep={(s) => goToStep(s)}
                   onSubmit={submit}

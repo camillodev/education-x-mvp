@@ -11,12 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/patterns/DataTable";
 import { Person } from "@/components/patterns/Person";
-import { NegativacaoBody } from "@/components/school/NegativacaoBody";
+import { DunningBody } from "@/components/school/DunningBody";
 import { useMockResource } from "@/hooks/use-mock-resource";
 import { formatBRL } from "@/lib/format";
 import type { DunningRecord, Invoice, InvoiceStatus } from "@/lib/mock/types";
 
-type CobrancasTab = "cobrancas" | "negativacao";
+type InvoicesTab = "cobrancas" | "negativacao";
 type StatusFilter = "todas" | "avencer" | "pagas" | "vencidas";
 
 const STATUS_TO_FILTER: Record<InvoiceStatus, StatusFilter | null> = {
@@ -94,21 +94,21 @@ function buildColumns(onView: (id: string) => void): ColumnDef<Invoice, unknown>
   ];
 }
 
-interface CobrancasResponse {
+interface InvoicesResponse {
   invoices: Invoice[];
 }
 
-export default function CobrancasPage() {
+export default function InvoicesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialTab: CobrancasTab = searchParams.get("tab") === "negativacao" ? "negativacao" : "cobrancas";
-  const [tab, setTab] = useState<CobrancasTab>(initialTab);
+  const initialTab: InvoicesTab = searchParams.get("tab") === "negativacao" ? "negativacao" : "cobrancas";
+  const [tab, setTab] = useState<InvoicesTab>(initialTab);
   const [filter, setFilter] = useState<StatusFilter>("todas");
-  const { data, loading, error } = useMockResource<CobrancasResponse>("/api/mock/cobrancas");
+  const { data, loading, error } = useMockResource<InvoicesResponse>("/api/mock/invoices");
   const invoices = useMemo(() => data?.invoices ?? [], [data]);
   const goToDetail = useCallback((id: string) => router.push(`/painel/cobrancas/${id}`), [router]);
   const columns = useMemo(() => buildColumns(goToDetail), [goToDetail]);
-  const { data: dunningRecords } = useMockResource<DunningRecord[]>("/api/mock/negativacao");
+  const { data: dunningRecords } = useMockResource<DunningRecord[]>("/api/mock/dunning");
   const eligibleCount = (dunningRecords ?? []).filter((r) => r.status === "elegivel").length;
 
   const counts = useMemo(
@@ -131,7 +131,7 @@ export default function CobrancasPage() {
   const filtered =
     filter === "todas" ? invoices : invoices.filter((c) => STATUS_TO_FILTER[c.status] === filter);
 
-  const tabOptions: SegmentedOption<CobrancasTab>[] = [
+  const tabOptions: SegmentedOption<InvoicesTab>[] = [
     { value: "cobrancas", label: "Cobranças" },
     { value: "negativacao", label: "Negativação", count: eligibleCount || undefined },
   ];
@@ -157,7 +157,7 @@ export default function CobrancasPage() {
       </div>
 
       {tab === "negativacao" ? (
-        <NegativacaoBody />
+        <DunningBody />
       ) : (
         <Card className="overflow-hidden p-5">
           {loading && (

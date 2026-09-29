@@ -1,5 +1,5 @@
 /**
- * Mapeia respostas de erro do POST /api/setup/escola para mensagens
+ * Mapeia respostas de erro do POST /api/setup/unit para mensagens
  * user-friendly em pt-BR. Pure function — sem side effects, testável.
  *
  * O backend responde `{ error, code?, issues? }`. Preferimos a mensagem do

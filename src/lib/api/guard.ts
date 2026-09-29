@@ -33,10 +33,10 @@ export async function guardAdmin(route: string): Promise<NextResponse | null> {
 }
 
 /**
- * Guard compartilhado para rotas orientador-only (painel da escola).
- * Retorna o UnitContext se o usuário é orientador; caso contrário a NextResponse de erro (401/403/500).
+ * Guard compartilhado para rotas advisor-only (painel da escola).
+ * Retorna o UnitContext se o usuário é advisor; caso contrário a NextResponse de erro (401/403/500).
  */
-export async function guardOrientador(route: string): Promise<UnitContext | NextResponse> {
+export async function guardAdvisor(route: string): Promise<UnitContext | NextResponse> {
   try {
     const ctx = await getUnitContext()
     if (ctx.role !== 'orientador') {

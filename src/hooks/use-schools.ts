@@ -43,7 +43,7 @@ export function useSchools() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/escolas')
+      const res = await fetch('/api/schools')
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as {
           error?: string
@@ -52,7 +52,7 @@ export function useSchools() {
         }
         // A causa técnica real (detail) vai pro console; a message amigável pra UI.
         console.error(
-          `[useSchools] GET /api/escolas falhou (${res.status} ${body.code ?? ''}):`,
+          `[useSchools] GET /api/schools falhou (${res.status} ${body.code ?? ''}):`,
           body.detail ?? '(sem detail)'
         )
         setError(body.error ?? 'Falha ao carregar escolas.')

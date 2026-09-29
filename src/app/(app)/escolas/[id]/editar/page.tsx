@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useEditEscola } from '@/hooks/use-edit-escola'
+import { useEditSchool } from '@/hooks/use-edit-school'
 import { Stepper } from '@/components/patterns/Stepper'
-import { StepDados } from '@/components/onboarding/StepDados'
-import { StepFinanceiro } from '@/components/onboarding/StepFinanceiro'
+import { StepDetails } from '@/components/onboarding/StepDetails'
+import { StepFinancial } from '@/components/onboarding/StepFinancial'
 import { StepDocumentos } from '@/components/onboarding/StepDocumentos'
-import { StepRevisao } from '@/components/onboarding/StepRevisao'
+import { StepReview } from '@/components/onboarding/StepReview'
 import { useToast } from '@/components/ui/toast'
 import type { SubjectInput, SubjectUpdateInput } from '@/lib/validations/unit'
 
@@ -24,7 +24,7 @@ const LOADING_STEPS = [
   'Pronto!',
 ]
 
-export default function EditarEscolaPage() {
+export default function EditSchoolPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const unitId = params.id
@@ -33,16 +33,16 @@ export default function EditarEscolaPage() {
     state,
     loading,
     goToStep,
-    setDados,
-    setCobranca,
-    setPlano,
+    setDetails,
+    setBilling,
+    setPlan,
     addSubject,
     removeSubject,
     updateSubject,
     submit,
     autoSave,
     canProceed,
-  } = useEditEscola(unitId)
+  } = useEditSchool(unitId)
 
   const [loadingStepIdx, setLoadingStepIdx] = useState(0)
   const { toast } = useToast()
@@ -60,7 +60,7 @@ export default function EditarEscolaPage() {
 
   useEffect(() => {
     if (state.status === 'error' && state.errorMsg) {
-      console.error('[edit-escola] submit error:', state.errorMsg)
+      console.error('[edit-school] submit error:', state.errorMsg)
       toast(state.errorMsg, 'error')
     }
   }, [state.status, state.errorMsg, toast])
@@ -118,7 +118,7 @@ export default function EditarEscolaPage() {
           Editar escola
         </p>
         <div className="flex items-baseline gap-4">
-          <h1 className="text-2xl font-bold text-(--color-text)">{state.dados.name || 'Escola'}</h1>
+          <h1 className="text-2xl font-bold text-(--color-text)">{state.details.name || 'Escola'}</h1>
           {state.lastSavedAt && (
             <span className="text-xs text-(--color-text-subtle)">
               Salvo às {state.lastSavedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -137,19 +137,19 @@ export default function EditarEscolaPage() {
 
               <div className="min-w-0">
                 {state.step === 1 && (
-                  <StepDados
-                    dados={state.dados}
-                    onChange={setDados}
+                  <StepDetails
+                    details={state.details}
+                    onChange={setDetails}
                     readOnly={{ cnpj: true }}
                   />
                 )}
 
                 {state.step === 2 && (
-                  <StepFinanceiro
-                    cobranca={state.cobranca}
-                    plano={state.plano}
-                    onCobrancaChange={setCobranca}
-                    onPlanoChange={setPlano}
+                  <StepFinancial
+                    cobranca={state.billing}
+                    plano={state.plan}
+                    onCobrancaChange={setBilling}
+                    onPlanoChange={setPlan}
                   />
                 )}
 
@@ -179,7 +179,7 @@ export default function EditarEscolaPage() {
                     </div>
                     <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-white p-6 shadow-[var(--shadow-card)]">
                       <div className="label mb-4">REVISÃO</div>
-                      <StepRevisao
+                      <StepReview
                         state={{ ...state, subjects: state.subjects as SubjectInput[] }}
                         onEditStep={(s) => goToStep(s)}
                         onSubmit={submit}
@@ -216,7 +216,7 @@ export default function EditarEscolaPage() {
           ) : (
             <div className="flex justify-center">
               <div className="w-full max-w-2xl bg-white rounded-[var(--radius-lg)] border border-[var(--color-border)] shadow-[var(--shadow-card)] p-6">
-                <StepRevisao
+                <StepReview
                   state={{ ...state, subjects: state.subjects as SubjectInput[] }}
                   onEditStep={(s) => goToStep(s)}
                   onSubmit={submit}

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { emitInvoice, resolveUnitAsaasKey } from '@/lib/services/billing.service'
 import { errorResponse } from '@/lib/errors/handle'
-import { guardOrientador } from '@/lib/api/guard'
+import { guardAdvisor } from '@/lib/api/guard'
 import { EmitInvoiceBodySchema } from '@/lib/validations/billing'
 import { currentReferenceMonth } from '@/lib/reference-month'
 
@@ -10,7 +10,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const ctx = await guardOrientador('POST /api/enrollments/[id]/invoices')
+  const ctx = await guardAdvisor('POST /api/enrollments/[id]/invoices')
   if (ctx instanceof NextResponse) return ctx
 
   const { id: enrollmentId } = await params

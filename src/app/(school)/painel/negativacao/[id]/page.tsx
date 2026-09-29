@@ -108,12 +108,12 @@ const TONE_BG: Record<NonNullable<StepTone> | "default", string> = {
   default: "var(--color-primary-soft)",
 };
 
-export default function NegativacaoDetalhePage({ params }: { params: Promise<{ id: string }> }) {
+export default function DunningDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const { toast } = useToast();
   const [modal, setModal] = useState<"negativar" | "optout" | null>(null);
-  const { data, loading, error } = useMockResource<DunningRecord[]>("/api/mock/negativacao");
+  const { data, loading, error } = useMockResource<DunningRecord[]>("/api/mock/dunning");
   const records = useMemo(() => data ?? [], [data]);
   const record = records.find((r) => r.id === id);
 
