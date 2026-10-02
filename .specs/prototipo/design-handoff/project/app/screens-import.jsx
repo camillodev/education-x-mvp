@@ -1,0 +1,162 @@
+/* Importação de matrículas (Admin IX / orientador) — upload CSV, validação editável */
+
+const SEED_ROWS = [
+  { aluno: "Ana Beatriz Costa", pagante: "Sérgio Costa", cpf: "111.222.333-44", plano: "Mensal", ok: true },
+  { aluno: "Lucas Ferreira", pagante: "Marta Ferreira", cpf: "222.333.444-55", plano: "Trimestral", ok: true },
+  { aluno: "Gabriela Pinto", pagante: "", cpf: "", plano: "Mensal", ok: false, erro: "Pagante e CPF ausentes" },
+  { aluno: "Rafael Souza", pagante: "Hélio Souza", cpf: "333.444.555-66", plano: "Mensal", ok: true },
+  { aluno: "Mariana Lima", pagante: "Paulo Lima", cpf: "444.555.666", plano: "Mensal", ok: false, erro: "CPF inválido" },
+  { aluno: "Enzo Martins", pagante: "Cláudia Martins", cpf: "555.666.777-88", plano: "Anual", ok: true },
+  { aluno: "Sofia Ramos", pagante: "Diego Ramos", cpf: "666.777.888-99", plano: "Bimestral", ok: false, erro: 'Plano "Bimestral" não existe' },
+];
+const PLANOS_VALIDOS = ["Mensal", "Trimestral", "Semestral", "Anual"];
+
+const ImportCSV = ({ go, toast, backTo = "c1" }) => {
+  const [step, setStep] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState(SEED_ROWS);
+  const [editIdx, setEditIdx] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [tried, setTried] = useState(false);
+  const sortedRows = [...rows].sort((a, b) => (a.ok === b.ok ? 0 : a.ok ? 1 : -1));
+
+  const extraValid = 21; // restante da base não exibida
+  const validCount = rows.filter((r) => r.ok).length + extraValid;
+  const errorCount = rows.filter((r) => !r.ok).length;
+  const total = validCount + errorCount;
+
+  const openEdit = (idx) => { setEditIdx(idx); setDraft({ ...rows[idx] }); };
+  const saveEdit = () => {
+    // revalida o rascunho
+    const d = draft;
+    let erro = null;
+    if (!d.pagante.trim()) erro = "Pagante ausente";
+    else if (!/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(d.cpf.trim())) erro = "CPF inválido";
+    else if (!PLANOS_VALIDOS.includes(d.plano.trim())) erro = `Plano "${d.plano}" não existe`;
+    const fixed = { ...d, ok: !erro, erro: erro || undefined };
+    setRows((rs) => rs.map((r, i) => i === editIdx ? fixed : r));
+    setEditIdx(null);
+    if (fixed.ok) toast(`${fixed.aluno} corrigido — pronto para importar`, "success");
+  };
+
+  return (
+    <Shell screen="c1" go={go} back={() => (step === 0 ? go(backTo) : setStep(step - 1))}
+      title="Importação de matrículas" subtitle="Suba a base da escola em CSV — validamos e você corrige antes de importar" maxWidth={880}>
+      <div style={{ marginBottom: 26, maxWidth: 520 }}>
+        <Stepper steps={["Arquivo", "Validação", "Concluído"]} current={step} />
+      </div>
+
+      {step === 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <Card style={{ padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: 40, textAlign: "center", border: "2px dashed var(--color-border-input)", margin: 20, borderRadius: "var(--radius-md)", background: "var(--color-surface)" }}>
+              <div style={{ width: 60, height: 60, margin: "0 auto 16px", borderRadius: 14, background: "var(--color-primary-soft)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Icon name="file-up" size={28} color="var(--color-primary)" />
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700 }}>Arraste o arquivo CSV aqui</div>
+              <div style={{ fontSize: 13.5, color: "var(--color-text-subtle)", marginTop: 6, marginBottom: 18 }}>ou selecione do computador · até 5.000 linhas</div>
+              <Button iconLeft="folder-open" onClick={() => { setLoading(true); setTimeout(() => { setLoading(false); setStep(1); }, 900); }}>
+                {loading ? "Lendo arquivo…" : "Selecionar arquivo"}</Button>
+            </div>
+          </Card>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderRadius: "var(--radius-md)", background: "var(--color-toast-info-bg)", border: "1px solid var(--color-primary-soft)" }}>
+            <span style={{ fontSize: 13.5, color: "var(--color-text-muted)", display: "inline-flex", alignItems: "center", gap: 9 }}>
+              <Icon name="info" size={17} color="var(--color-primary)" />Colunas esperadas: <strong style={{ color: "var(--color-text)" }}>aluno, nascimento, pagante, cpf, email, telefone, plano, materias</strong></span>
+            <Button variant="tertiary" size="sm" iconLeft="download" onClick={() => toast("Baixando modelo CSV…", "info")}>Baixar modelo</Button>
+          </div>
+        </div>
+      )}
+
+      {step === 1 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+            <Badge variant="neutral"><Icon name="file-spreadsheet" size={14} />matriculas-kumon-camargos.csv</Badge>
+            <span style={{ fontSize: 13.5, color: "var(--color-text-subtle)" }}>{total} linhas lidas</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <Card style={{ padding: 18, display: "flex", alignItems: "center", gap: 14, background: "var(--badge-success-bg)", border: "1px solid #A6E3C8" }}>
+              <Icon name="check-circle-2" size={26} color="var(--badge-success-fg)" />
+              <div><div style={{ fontSize: 24, fontWeight: 800, color: "var(--badge-success-fg)", lineHeight: 1 }}>{validCount}</div>
+                <div style={{ fontSize: 13, color: "var(--badge-success-fg)", marginTop: 3 }}>prontas para importar</div></div>
+            </Card>
+            <Card style={{ padding: 18, display: "flex", alignItems: "center", gap: 14, background: errorCount ? "var(--badge-warning-bg)" : "var(--badge-success-bg)", border: `1px solid ${errorCount ? "#ECD9A0" : "#A6E3C8"}` }}>
+              <Icon name={errorCount ? "alert-triangle" : "check-circle-2"} size={26} color={errorCount ? "var(--badge-warning-fg)" : "var(--badge-success-fg)"} />
+              <div><div style={{ fontSize: 24, fontWeight: 800, color: errorCount ? "var(--badge-warning-fg)" : "var(--badge-success-fg)", lineHeight: 1 }}>{errorCount}</div>
+                <div style={{ fontSize: 13, color: errorCount ? "var(--badge-warning-fg)" : "var(--badge-success-fg)", marginTop: 3 }}>{errorCount ? "com erro — corrija para incluir" : "tudo corrigido!"}</div></div>
+            </Card>
+          </div>
+          <DataTable cols={[{ label: "Aluno" }, { label: "Pagante" }, { label: "CPF" }, { label: "Plano" }, { label: "Validação" }, { label: "", align: "right", w: 110 }]}>
+            {sortedRows.map((r) => {
+              const realIdx = rows.indexOf(r);
+              return (
+              <TrHover key={realIdx}>
+                <Td><span style={{ fontWeight: 600 }}>{r.aluno}</span></Td>
+                <Td><span style={{ color: !r.pagante ? "var(--badge-danger-fg)" : "var(--color-text-muted)" }}>{r.pagante || "—"}</span></Td>
+                <Td><span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: !r.ok && (!r.cpf || r.cpf.length < 14) ? "var(--badge-danger-fg)" : "var(--color-text-muted)" }}>{r.cpf ? maskCpf(r.cpf) : "—"}</span></Td>
+                <Td><span style={{ color: !r.ok && !PLANOS_VALIDOS.includes(r.plano) ? "var(--badge-danger-fg)" : "var(--color-text-muted)" }}>{r.plano}</span></Td>
+                <Td>{r.ok
+                  ? <Badge variant="success" dot>OK</Badge>
+                  : tried
+                    ? <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><Badge variant="danger" dot>Erro</Badge>
+                        <span style={{ fontSize: 12.5, color: "var(--badge-danger-fg)" }}>{r.erro}</span></span>
+                    : <Badge variant="warning" dot>Pendente</Badge>}
+                </Td>
+                <Td align="right">{!r.ok
+                  ? <Button size="sm" iconLeft="pencil" onClick={() => { setEditIdx(realIdx); setDraft({ ...rows[realIdx] }); }}>Corrigir</Button>
+                  : <span style={{ fontSize: 12.5, color: "var(--color-text-subtle)" }}>—</span>}</Td>
+              </TrHover>
+            );})}
+            <tr><td colSpan={6} style={{ textAlign: "center", padding: "12px 18px", color: "var(--color-text-subtle)", fontSize: 13, borderTop: "1px solid var(--color-border-muted)" }}>+ {extraValid} linhas válidas não exibidas</td></tr>
+          </DataTable>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+            <Button variant="tertiary" iconLeft="arrow-left" onClick={() => setStep(0)}>Trocar arquivo</Button>
+            <Button size="lg" iconRight="arrow-right" onClick={() => {
+                if (errorCount > 0) { setTried(true); return; }
+                setLoading(true); setTimeout(() => { setLoading(false); setStep(2); }, 1000);
+              }}>
+              {loading ? "Importando…" : errorCount > 0 ? `Ver ${errorCount} erro${errorCount > 1 ? "s" : ""} antes de importar` : `Importar ${validCount} matrículas`}</Button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "40px 24px", animation: "ex-scale-in 320ms ease" }}>
+          <div style={{ width: 76, height: 76, borderRadius: "50%", background: "var(--badge-success-bg)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 22 }}>
+            <Icon name="check" size={40} color="var(--badge-success-fg)" strokeWidth={3} /></div>
+          <h2 style={{ margin: 0, fontSize: 25, fontWeight: 700, letterSpacing: "-0.02em" }}>{validCount} matrículas importadas</h2>
+          <p style={{ margin: "12px 0 0", fontSize: 15, color: "var(--color-text-muted)", lineHeight: 1.55, maxWidth: 440 }}>
+            Já aparecem em Matrículas como ativas. {errorCount > 0 ? `${errorCount} linha(s) ainda com erro ficaram de fora — corrija e reenvie quando quiser.` : "Nenhuma linha ficou de fora — base 100% importada."}</p>
+          <div style={{ display: "flex", gap: 12, marginTop: 28 }}>
+            {errorCount > 0 && <Button variant="secondary" size="lg" iconLeft="download" onClick={() => toast("Baixando relatório de erros (CSV)…", "info")}>Relatório de erros</Button>}
+            <Button size="lg" iconRight="arrow-right" onClick={() => go("c1")}>Ver matrículas</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de correção da linha */}
+      <Modal open={editIdx !== null} onClose={() => setEditIdx(null)} width={460}>
+        {draft && (
+          <div style={{ padding: 26 }}>
+            <h3 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>Corrigir cadastro</h3>
+            <p style={{ margin: "6px 0 20px", fontSize: 13.5, color: "var(--color-text-muted)" }}>Linha {editIdx + 1} · {draft.aluno}</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <Field label="Aluno" required><Input value={draft.aluno} onChange={(e) => setDraft({ ...draft, aluno: e.target.value })} /></Field>
+              <Field label="Pagante (responsável financeiro)" required><Input value={draft.pagante} onChange={(e) => setDraft({ ...draft, pagante: e.target.value })} placeholder="Nome do responsável" leadingIcon="user" /></Field>
+              <Field label="CPF" required hint="Formato 000.000.000-00"><Input value={draft.cpf} onChange={(e) => setDraft({ ...draft, cpf: e.target.value })} inputMode="numeric" placeholder="000.000.000-00" /></Field>
+              <Field label="Plano" required hint="Mensal · Trimestral · Semestral · Anual">
+                <Segmented key={draft.plano} value={PLANOS_VALIDOS.includes(draft.plano) ? draft.plano : ""} onChange={(v) => setDraft({ ...draft, plano: v })}
+                  options={PLANOS_VALIDOS} size="sm" />
+              </Field>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 }}>
+              <Button variant="tertiary" onClick={() => setEditIdx(null)}>Cancelar</Button>
+              <Button iconLeft="check" onClick={saveEdit}>Salvar e revalidar</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </Shell>
+  );
+};
+
+window.ImportCSV = ImportCSV;

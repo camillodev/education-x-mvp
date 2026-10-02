@@ -1,0 +1,70 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { handleError, errorResponse } from '@/lib/errors/handle'
+import { DuplicateCnpjError, UnitNotFoundError } from '@/lib/services/onboarding.service'
+import { GuardianNotFoundError } from '@/lib/services/approval.service'
+
+describe('handleError', () => {
+  beforeEach(() => vi.spyOn(console, 'error').mockImplementation(() => {}))
+  afterEach(() => vi.restoreAllMocks())
+
+  it('loga a causa técnica real com contexto e devolve mensagem amigável', () => {
+    const real = new Error('connection refused at 5432')
+    const out = handleError(real, { route: 'PATCH /api/schools/[unitId]', unitId: 'u1' })
+    expect(out.message).toMatch(/inesperado|erro/i)
+    expect(out.code).toBe('INTERNAL')
+    expect(console.error).toHaveBeenCalledOnce()
+    const logged = (console.error as unknown as { mock: { calls: unknown[][] } }).mock.calls[0].join(' ')
+    expect(logged).toContain('connection refused at 5432') // causa real preservada
+    expect(logged).toContain('u1')
+    expect(logged).toContain('/api/schools/[unitId]')
+  })
+
+  it('inclui a causa técnica real no campo detail (volta na resposta da API)', () => {
+    const real = new Error('connection refused at 5432')
+    const out = handleError(real, { route: 'GET /api/schools' })
+    expect(out.detail).toBe('connection refused at 5432')
+  })
+
+  it('detail funciona com erro não-Error (string/objeto)', () => {
+    const out = handleError('falha crua', { route: 'GET /x' })
+    expect(out.detail).toContain('falha crua')
+  })
+
+  it('mapeia DuplicateCnpjError para 409/DUPLICATE_CNPJ', () => {
+    const out = handleError(new DuplicateCnpjError(), { route: 'POST /x' })
+    expect(out.code).toBe('DUPLICATE_CNPJ')
+  })
+
+  it('mapeia UnitNotFoundError para NOT_FOUND', () => {
+    const out = handleError(new UnitNotFoundError(), { route: 'PATCH /x' })
+    expect(out.code).toBe('NOT_FOUND')
+  })
+
+  it('mapeia GuardianNotFoundError para NOT_FOUND', () => {
+    const out = handleError(new GuardianNotFoundError(), { route: 'POST /x' })
+    expect(out.code).toBe('NOT_FOUND')
+  })
+})
+
+describe('errorResponse', () => {
+  beforeEach(() => vi.spyOn(console, 'error').mockImplementation(() => {}))
+  afterEach(() => vi.restoreAllMocks())
+
+  // Achado de code review: errorResponse era chamado por rota tenant-facing
+  // (GET /api/invoices) que vazava a causa técnica real (Prisma, decrypt, etc.) no JSON
+  // — inspecionável via DevTools de rede mesmo sem aparecer na UI. `detail` agora só
+  // entra na resposta quando a rota é explicitamente admin (`exposeDetail: true`).
+  it('sem exposeDetail (rota tenant-facing): resposta não inclui detail', async () => {
+    const res = errorResponse(new Error('connection refused at 5432'), { route: 'GET /api/invoices', unitId: 'u1' })
+    const body = await res.json()
+    expect(body.detail).toBeUndefined()
+    expect(body.error).toBeDefined()
+    expect(body.code).toBe('INTERNAL')
+  })
+
+  it('com exposeDetail:true (rota admin): resposta inclui detail', async () => {
+    const res = errorResponse(new Error('connection refused at 5432'), { route: 'GET /api/schools', exposeDetail: true })
+    const body = await res.json()
+    expect(body.detail).toBe('connection refused at 5432')
+  })
+})

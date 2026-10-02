@@ -1,0 +1,54 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# env / secrets — NUNCA commitar
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# next / build
+.next/
+
+# Clerk keyless dev mode (chaves temporárias locais)
+.clerk/
+out/
+build/
+dist/
+
+# claude local
+CLAUDE.local.md
+.claude/settings.local.json
+
+# testing
+coverage/
+playwright-report/
+test-results/
+.playwright-mcp/
+pw-*.png
+onboarding-*.png
+
+# prisma
+prisma/*.db
+prisma/migrations/dev.db*
+
+# misc
+.DS_Store
+*.log
+npm-debug.log*
+.vercel/*
+!.vercel/project.json
+.turbo
+*.tsbuildinfo
+.claude.archived-*
+
+# Clerk E2E auth state (token de sessão — nunca commitar)
+playwright/.clerk/
+
+# markers de hook (per-session/per-ticket, nunca versionar)
+.claude/.code-implementer-active
+.claude/.gate3-confirmed
