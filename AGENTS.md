@@ -27,3 +27,26 @@ UI strings are Brazilian Portuguese.
 
 ## Context
 Read `docs/decisions/` (ADRs) before changing data model, tenancy, payments or auth.
+
+## Which agent or skill to use
+
+Agents live in `.claude/agents/`, skills in `.claude/skills/`, rules in `.claude/rules/`. Pick by situation:
+
+| Situation | Agent | Skills |
+|---|---|---|
+| Ticket without a spec, or a decision to record | `product-manager` | `prd-rfc`, `spec-driven-development`, `decision-questions-framework` |
+| Understand existing code before changing it | `code-explorer` | `official-docs-first` |
+| Design a feature | `feature-architect` | `system-design-patterns`, `api-design-patterns`, `frontend-system-design-patterns` |
+| Irreversible or cross-cutting design (schema, tenancy, payments) | `system-architect` | `edx-decisao`, `decision-questions-framework` |
+| Implement | `code-implementer` | `ix-code-guidelines`, `test-driven-development`, `writing-plans`, `executing-plans` |
+| Tests | `test-writer` | `test-driven-development` |
+| Bug | `debugger` | `systematic-debugging` |
+| UI | `ux-designer` | `frontend-design`, `design-principles` |
+| Before saying done | none | `verification-before-completion` |
+| Review a diff | `code-review-orchestrator` (runs `code-reviewer`, `security-auditor`, `silent-failure-hunter`) | `ix-code-review`, `requesting-code-review` |
+| Apply review findings | `review-fixer` (max 3 cycles) | `receiving-code-review`, `pr-review-loop` |
+| Several independent tasks | none | `dispatching-parallel-agents`, `subagent-driven-development` |
+| Isolated branch work, finishing a branch | none | `using-git-worktrees`, `finishing-a-development-branch` |
+
+Rules in `.claude/rules/` apply when you touch their area: layering (backend, frontend), security checklist, data privacy, never commit to main, never commit secrets, ticket standards.
+Consult official documentation before using a framework or API (`official-docs-first`).
