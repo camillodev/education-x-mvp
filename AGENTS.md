@@ -22,5 +22,8 @@ Next.js 15 App Router, React 19, TypeScript, Prisma 6, Clerk (auth), Asaas (paym
 - `prisma/` — schema and seed; `tests/{unit,integration,e2e}/`
 - `docs/decisions/` — ADRs; `docs/architecture/`, `docs/product/`, `.specs/` — domain and product docs
 
+## Language
+UI strings are Brazilian Portuguese.
+
 ## Context
 Read `docs/decisions/` (ADRs) before changing data model, tenancy, payments or auth.
