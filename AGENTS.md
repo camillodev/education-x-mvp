@@ -28,6 +28,18 @@ UI strings are Brazilian Portuguese.
 ## Context
 Read `docs/decisions/` (ADRs) before changing data model, tenancy, payments or auth.
 
+## Ticket workflow
+
+- If the task names a Linear ticket (EDU-nnn), read it first with Linear `get_issue` and `list_comments`. The ticket is the spec: description, acceptance criteria and definition of done. `[review]`
+- Ask clarifying questions only before starting work. After that, finish the ticket end to end without waiting for input. `[review]`
+- When the work is committed, push the branch and open a pull request with `gh pr create`, following the project's instructions for pull requests. Never merge. `[review]`
+- Then post one comment on the ticket with Linear `save_comment`: summary of the change, commit hash, typecheck, lint and test:run results, and the PR link. Set the ticket status to In Review. `[review]`
+- Never put secrets or personal data in the comment. `[review]`
+
+## Agents and skills scope
+
+- Use only the agents and skills defined in this repo's `.claude/`. Ignore agents or skills from user or plugin scope, even when their description fits better. `[review]`
+
 ## Commits and pull requests
 
 Rules below are adapted from the PostHog development guide. `[lint: <id>]` is machine-enforced, `[review]` is not.
