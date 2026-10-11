@@ -88,13 +88,6 @@ it('status ERROR mostra banner de falha e Reemitir dispara POST /api/invoices/{i
   })
 })
 
-it('status BLOCKED mostra banner de aguardando cadastro e não mostra seção de boleto/PIX', () => {
-  renderInvoice(makeInvoice({ status: 'BLOCKED' }))
-
-  expect(screen.getByText(/aguardando cadastro do responsável na asaas/i)).toBeInTheDocument()
-  expect(screen.queryByText(/boleto e pix/i)).not.toBeInTheDocument()
-})
-
 it('status PAID mostra Pago em e não mostra Cancelar cobrança nem Reemitir', () => {
   renderInvoice(
     makeInvoice({ status: 'PAID', paidAt: new Date('2026-09-05T00:00:00Z'), paidAmountCents: 45000 })

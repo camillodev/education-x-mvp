@@ -44,7 +44,6 @@ export function InvoiceDetailView({ invoice }: Props) {
   const [retrying, setRetrying] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
-  const isBlocked = invoice.status === 'BLOCKED'
   const isError = invoice.status === 'ERROR'
   const isOverdue = invoice.status === 'OVERDUE'
   const isPending = invoice.status === 'PENDING'
@@ -103,12 +102,6 @@ export function InvoiceDetailView({ invoice }: Props) {
           </Badge>
         </div>
       </div>
-
-      {isBlocked && (
-        <div className="rounded-[var(--radius-lg)] border border-(--color-warning-soft) bg-(--badge-warning-bg) p-4 text-sm text-(--badge-warning-fg)">
-          Aguardando cadastro do responsável na Asaas — a cobrança será emitida assim que o cadastro for concluído.
-        </div>
-      )}
 
       {isError && (
         <div className="rounded-[var(--radius-lg)] border border-(--color-danger-soft) bg-(--badge-danger-bg) p-4">

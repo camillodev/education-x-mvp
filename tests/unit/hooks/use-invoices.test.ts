@@ -39,7 +39,7 @@ describe('useInvoices', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/invoices')
   })
 
-  it('muda status → refaz fetch com ?status=BLOCKED', async () => {
+  it('muda status → refaz fetch com ?status=ERROR', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => responseBody })
@@ -50,11 +50,11 @@ describe('useInvoices', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
 
     act(() => {
-      result.current.setFilters({ status: 'BLOCKED' })
+      result.current.setFilters({ status: 'ERROR' })
     })
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
-    expect(fetchMock).toHaveBeenLastCalledWith('/api/invoices?status=BLOCKED')
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/invoices?status=ERROR')
   })
 
   it('fetch falha (res.ok=false) → seta error, não lança', async () => {

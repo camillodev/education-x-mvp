@@ -12,7 +12,6 @@ const STATUS_OPTIONS = [
   { value: 'PENDING', label: 'Pendente' },
   { value: 'PAID', label: 'Pago' },
   { value: 'OVERDUE', label: 'Vencida' },
-  { value: 'BLOCKED', label: 'Aguardando cadastro' },
   { value: 'CANCELLED', label: 'Cancelada' },
   { value: 'ERROR', label: 'Erro' },
 ]

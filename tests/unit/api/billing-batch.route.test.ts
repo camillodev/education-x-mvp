@@ -38,13 +38,13 @@ it('200 emite em lote por subjectId e retorna o resumo agregado (RN-18)', async 
   getUnitContext.mockResolvedValue({ role: 'orientador', unitId: 'unit-1', userId: 'u1' })
   findUnique.mockResolvedValue({ asaasApiKeyEnc: 'enc:chave' })
   decrypt.mockResolvedValue('chave-real')
-  emitBatchInvoices.mockResolvedValue({ emitted: 3, skipped: 1, blocked: 2, errors: 0 })
+  emitBatchInvoices.mockResolvedValue({ emitted: 3, skipped: 1, errors: 0 })
 
   const res = await POST(makeRequest({ subjectId: 'subj-1' }))
   const json = await res.json()
 
   expect(res.status).toBe(200)
-  expect(json).toEqual({ emitted: 3, skipped: 1, blocked: 2, errors: 0 })
+  expect(json).toEqual({ emitted: 3, skipped: 1, errors: 0 })
   expect(emitBatchInvoices).toHaveBeenCalledWith(
     'unit-1',
     'subj-1',

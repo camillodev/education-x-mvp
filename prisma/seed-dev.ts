@@ -107,7 +107,7 @@ async function main() {
 
   const invoiceSeeds = [
     { key: '2026-09', status: 'PENDING' as const, dueDate: new Date('2026-09-05') },
-    { key: '2026-08', status: 'BLOCKED' as const, dueDate: new Date('2026-08-05') },
+    { key: '2026-08', status: 'OVERDUE' as const, dueDate: new Date('2026-08-05') },
     { key: '2026-07', status: 'ERROR' as const, dueDate: new Date('2026-07-05') },
   ]
 
