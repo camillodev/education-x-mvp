@@ -30,7 +30,7 @@ export async function handlePaymentCreated(
     return { handled: false }
   }
 
-  const alreadyCreated = await prisma.invoice.findFirst({
+  const alreadyCreated = await prisma.invoice.findUnique({
     where: { asaasPaymentId: payment.id },
     select: { id: true },
   })

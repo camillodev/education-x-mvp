@@ -7,14 +7,13 @@ import type { AsaasWebhookPayload } from '@/lib/integration/asaas/types'
 vi.mock('@/lib/db', () => ({
   prisma: {
     enrollment: { findUnique: vi.fn() },
-    invoice: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
+    invoice: { findUnique: vi.fn(), create: vi.fn() },
   },
 }))
 
 type MockDb = {
   enrollment: { findUnique: ReturnType<typeof vi.fn> }
   invoice: {
-    findFirst: ReturnType<typeof vi.fn>
     findUnique: ReturnType<typeof vi.fn>
     create: ReturnType<typeof vi.fn>
   }
@@ -55,7 +54,7 @@ describe('processPaymentEvent — PAYMENT_CREATED', () => {
     vi.clearAllMocks()
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     db.enrollment.findUnique.mockResolvedValue({ id: 'enr-1', unitId: 'unit-1' })
-    db.invoice.findFirst.mockResolvedValue(null)
+    db.invoice.findUnique.mockResolvedValue(null)
     db.invoice.create.mockResolvedValue({ id: 'inv-new' })
   })
 
@@ -131,12 +130,12 @@ describe('processPaymentEvent — PAYMENT_CREATED', () => {
   })
 
   it('is idempotent on redelivery: an Invoice already linked to payment.id means no second create', async () => {
-    db.invoice.findFirst.mockResolvedValue({ id: 'inv-existing' })
+    db.invoice.findUnique.mockResolvedValue({ id: 'inv-existing' })
 
     const result = await processPaymentEvent(cyclePayload())
 
     expect(result).toEqual({ handled: true })
-    expect(db.invoice.findFirst).toHaveBeenCalledWith({
+    expect(db.invoice.findUnique).toHaveBeenCalledWith({
       where: { asaasPaymentId: 'pay_cycle_1' },
       select: { id: true },
     })
@@ -145,14 +144,14 @@ describe('processPaymentEvent — PAYMENT_CREATED', () => {
 
   it('treats a concurrent redelivery (P2002, key owned by the same payment) as handled', async () => {
     db.invoice.create.mockRejectedValue(p2002())
-    db.invoice.findUnique.mockResolvedValue({ asaasPaymentId: 'pay_cycle_1' })
+    db.invoice.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({ asaasPaymentId: 'pay_cycle_1' })
 
     await expect(processPaymentEvent(cyclePayload())).resolves.toEqual({ handled: true })
   })
 
   it('returns handled:false and logs ids when the competence key is owned by a different charge', async () => {
     db.invoice.create.mockRejectedValue(p2002())
-    db.invoice.findUnique.mockResolvedValue({ asaasPaymentId: 'pay_standalone' })
+    db.invoice.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({ asaasPaymentId: 'pay_standalone' })
 
     await expect(processPaymentEvent(cyclePayload())).resolves.toEqual({ handled: false })
     const logged = errorSpy.mock.calls.flat().join(' ')
