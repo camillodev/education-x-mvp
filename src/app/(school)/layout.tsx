@@ -5,18 +5,12 @@ import { getUnitContext, UnauthorizedError, ForbiddenError, type UnitContext } f
 import { landingPathForRole, SIGN_IN_ROUTE, SIGN_IN_INVALID_SESSION_ROUTE } from '@/lib/auth/auth'
 
 // Authenticated routes depend on the Clerk session — never prerender statically.
-// Sem isso, `next build` (com publishable key dummy em CI) falha tentando
-// exportar estaticamente páginas envolvidas em ClerkProvider.
+// Without this, `next build` (dummy publishable key in CI) fails statically exporting pages
+// wrapped in ClerkProvider.
 export const dynamic = 'force-dynamic'
 
-// O grupo (school) é a área autenticada do Orientador da escola: dashboard,
-// matrículas, cobranças, configurações — chrome via SchoolShell (sidebar
-// própria). Distinto de (app), que hoje hospeda o Admin IX (AdminShell).
-//
-// Role guard (EDU-81, ADR-0009): anyone who isn't orientador must never reach
-// the orientador-only screens below. A valid role in the wrong group redirects
-// to its own area (never signs out — the session is still legitimate). An
-// invalid role/unitId signs out with an alert, via /sign-in?error=invalid_session.
+// Orientador-only area: a valid role in the wrong group redirects to its own area (never signs
+// out); an invalid role/unitId signs out via /sign-in?error=invalid_session. See ADR-0009.
 export default async function SchoolLayout({ children }: { children: React.ReactNode }) {
   let ctx: UnitContext
   try {

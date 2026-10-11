@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { getTermsByKind } from '@/lib/terms/content'
-import { IxEscolaTerms } from '@/components/terms/IxEscolaTerms'
-import { EscolaResponsavelTerms } from '@/components/terms/EscolaResponsavelTerms'
+import { IxSchoolTerms } from '@/components/terms/IxSchoolTerms'
+import { GuardianSchoolTerms } from '@/components/terms/GuardianSchoolTerms'
 import { PrivacyTerms } from '@/components/terms/PrivacyTerms'
 import type { TermsKind } from '@prisma/client'
 
@@ -12,8 +12,8 @@ interface Props {
 const VALID_KINDS: TermsKind[] = ['IX_ESCOLA', 'ESCOLA_RESPONSAVEL', 'PRIVACY']
 
 const TERMS_BODY: Record<TermsKind, React.ComponentType> = {
-  IX_ESCOLA: IxEscolaTerms,
-  ESCOLA_RESPONSAVEL: EscolaResponsavelTerms,
+  IX_ESCOLA: IxSchoolTerms,
+  ESCOLA_RESPONSAVEL: GuardianSchoolTerms,
   PRIVACY: PrivacyTerms,
 }
 

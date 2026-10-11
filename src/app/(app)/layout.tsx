@@ -10,14 +10,8 @@ import { landingPathForRole, SIGN_IN_ROUTE, SIGN_IN_INVALID_SESSION_ROUTE } from
 // statically export pages wrapped in ClerkProvider.
 export const dynamic = 'force-dynamic'
 
-// O grupo (app) é a área autenticada do admin IX — toda tela vive dentro do
-// AdminShell (sidebar à esquerda): lista de escolas E cadastro. O ClerkProvider
-// envolve tudo para os hooks de sessão (useUser/useClerk) funcionarem no client.
-//
-// Role guard (EDU-81, ADR-0009): anyone who isn't admin must never reach the
-// admin-only screens below. A valid role in the wrong group redirects to its own
-// area (never signs out — the session is still legitimate). An invalid role/unitId
-// signs out with an alert, via /sign-in?error=invalid_session.
+// Admin-only area: a valid role in the wrong group redirects to its own area (never signs out);
+// an invalid role/unitId signs out via /sign-in?error=invalid_session. See ADR-0009.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   let ctx: UnitContext
   try {

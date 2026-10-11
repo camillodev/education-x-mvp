@@ -1,4 +1,4 @@
-export function IxEscolaTerms() {
+export function IxSchoolTerms() {
   return (
     <>
       <p>
