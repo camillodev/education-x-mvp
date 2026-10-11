@@ -135,6 +135,26 @@ export interface AsaasCreatePaymentPayload {
   discount?: AsaasDiscountConfig;
 }
 
+export interface AsaasCreateSubscriptionPayload {
+  customer: string;
+  billingType: AsaasBillingType;
+  value: number; // REAIS
+  nextDueDate: string; // YYYY-MM-DD, due date of the first generated charge
+  cycle: "MONTHLY";
+  externalReference?: string;
+  fine?: AsaasFineConfig;
+  interest?: AsaasInterestConfig;
+}
+
+export interface AsaasSubscription {
+  id: string;
+  status: "ACTIVE" | "EXPIRED" | "INACTIVE";
+  value: number; // REAIS
+  nextDueDate: string;
+  cycle: string;
+  externalReference?: string;
+}
+
 export interface AsaasPayment {
   id: string;
   status: AsaasPaymentStatus;

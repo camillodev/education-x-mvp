@@ -118,6 +118,37 @@ describe("AsaasLiveClient", () => {
     expect(url).toContain("pay_1");
   });
 
+  // --- subscriptions ---
+
+  test("createSubscription POSTs reais and the monthly cycle to /subscriptions", async () => {
+    fetchSpy.mockResolvedValue({
+      status: 200,
+      ok: true,
+      json: async () => ({ id: "sub_1", status: "ACTIVE", value: 350, nextDueDate: "2026-11-10", cycle: "MONTHLY" }),
+    });
+    const sub = await client.createSubscription({
+      customer: "cus_1",
+      billingType: "BOLETO",
+      value: 350,
+      nextDueDate: "2026-11-10",
+      cycle: "MONTHLY",
+      externalReference: "sub:enr-1",
+    });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(sub.id).toBe("sub_1");
+    expect(init.method).toBe("POST");
+    expect(url).toContain("/subscriptions");
+    expect(JSON.parse(init.body as string)).toMatchObject({ value: 350, cycle: "MONTHLY", nextDueDate: "2026-11-10" });
+  });
+
+  test("deleteSubscription sends DELETE to /subscriptions/{id}", async () => {
+    fetchSpy.mockResolvedValue({ status: 200, ok: true, json: async () => ({ deleted: true, id: "sub_1" }) });
+    await client.deleteSubscription("sub_1");
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(init.method).toBe("DELETE");
+    expect(url).toContain("/subscriptions/sub_1");
+  });
+
   // --- Error mapping ---
 
   test("401 → AsaasAuthError", async () => {

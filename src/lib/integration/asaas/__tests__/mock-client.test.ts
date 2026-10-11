@@ -104,6 +104,20 @@ describe("AsaasMockClient", () => {
     expect(p.id).toBe("unknown_id");
   });
 
+  test("createSubscription records an ACTIVE subscription and deleteSubscription records the id", async () => {
+    const sub = await client.createSubscription({
+      customer: "c1",
+      billingType: "BOLETO",
+      value: 350,
+      nextDueDate: "2026-11-10",
+      cycle: "MONTHLY",
+    });
+    await client.deleteSubscription(sub.id);
+    expect(sub.status).toBe("ACTIVE");
+    expect(client.createdSubscriptions).toHaveLength(1);
+    expect(client.deletedSubscriptionIds).toEqual([sub.id]);
+  });
+
   test("cancelPayment records the cancelled id", async () => {
     await client.cancelPayment("pay_xyz");
     expect(client.cancelledPaymentIds).toContain("pay_xyz");
