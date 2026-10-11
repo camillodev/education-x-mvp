@@ -66,14 +66,14 @@ it('autenticado: delega para emitDueInvoicesForActiveUnits com o referenceMonth 
 
 it('resposta 200 propaga os results retornados pelo service', async () => {
   emitDueInvoicesForActiveUnits.mockResolvedValue([
-    { unitId: 'unit-1', ok: true, emitted: 2, skipped: 1, errors: 0 },
+    { unitId: 'unit-1', ok: true, emitted: 2, skipped: 1, errors: 0, subscribed: 0 },
   ])
 
   const res = await GET(makeRequest('Bearer test-cron-secret'))
   const json = await res.json()
 
   expect(json.results).toEqual([
-    { unitId: 'unit-1', ok: true, emitted: 2, skipped: 1, errors: 0 },
+    { unitId: 'unit-1', ok: true, emitted: 2, skipped: 1, errors: 0, subscribed: 0 },
   ])
 })
 

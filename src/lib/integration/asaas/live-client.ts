@@ -6,6 +6,7 @@ import type {
   AsaasCreateInvoicePayload,
   AsaasCreatePaymentPayload,
   AsaasCreateSubAccountPayload,
+  AsaasCreateSubscriptionPayload,
   AsaasCustomer,
   AsaasDunning,
   AsaasEnv,
@@ -16,6 +17,7 @@ import type {
   AsaasPaymentFilters,
   AsaasPixQrCode,
   AsaasSubAccountResponse,
+  AsaasSubscription,
 } from "./types";
 
 const BASE_URLS: Record<AsaasEnv, string> = {
@@ -111,6 +113,16 @@ export class AsaasLiveClient implements AsaasClient {
 
   async getPixQrCode(id: string): Promise<AsaasPixQrCode> {
     return this.request<AsaasPixQrCode>("GET", `/payments/${id}/pixQrCode`);
+  }
+
+  async createSubscription(
+    payload: AsaasCreateSubscriptionPayload,
+  ): Promise<AsaasSubscription> {
+    return this.request<AsaasSubscription>("POST", "/subscriptions", payload);
+  }
+
+  async deleteSubscription(id: string): Promise<void> {
+    await this.request<void>("DELETE", `/subscriptions/${id}`);
   }
 
   async createInvoice(

@@ -1,7 +1,9 @@
 import { Prisma } from '@prisma/client'
 import { forUnit, prisma } from '../db'
 import { getAsaasClient } from '../integration/asaas/client'
+import { lateChargeTerms } from '../integration/asaas/late-terms'
 import { decrypt } from '../crypto'
+import { migrateEnrollmentsToSubscription } from './subscription.service'
 import type { Invoice, InvoiceStatus } from '@prisma/client'
 
 export class EnrollmentNotStartedError extends Error {
@@ -173,8 +175,7 @@ export async function emitInvoice(
       value: amountCents / 100,
       dueDate: dueDate.toISOString().slice(0, 10),
       externalReference: idempotencyKey,
-      fine: { value: billingConfig.lateFeePercent / 100 },
-      interest: { value: billingConfig.monthlyInterestBp / 100 },
+      ...lateChargeTerms(billingConfig),
     })
 
     return await db.invoice.update({
@@ -242,7 +243,7 @@ export async function emitBatchInvoices(
 ): Promise<BatchEmitResult> {
   const db = forUnit(unitId)
   const enrollments = await db.enrollment.findMany({
-    where: { subjectId, status: 'ACTIVE', guardian: { asaasCustomerId: { not: null } } },
+    where: { subjectId, status: 'ACTIVE', guardian: { asaasCustomerId: { not: null } }, asaasSubscriptionId: null },
     select: { id: true },
   })
   return emitForEnrollments(unitId, enrollments.map((e) => e.id), referenceMonth, asaasApiKey)
@@ -256,14 +257,14 @@ export async function emitUnitInvoices(
 ): Promise<BatchEmitResult> {
   const db = forUnit(unitId)
   const enrollments = await db.enrollment.findMany({
-    where: { status: 'ACTIVE', guardian: { asaasCustomerId: { not: null } } },
+    where: { status: 'ACTIVE', guardian: { asaasCustomerId: { not: null } }, asaasSubscriptionId: null },
     select: { id: true },
   })
   return emitForEnrollments(unitId, enrollments.map((e) => e.id), referenceMonth, asaasApiKey)
 }
 
 export type UnitEmitResult =
-  | { unitId: string; ok: true; emitted: number; skipped: number; errors: number }
+  | { unitId: string; ok: true; emitted: number; skipped: number; errors: number; subscribed: number }
   | { unitId: string; ok: false; error: string }
 
 // RN-13 — orquestração do cron diário: seleciona Units com autoBilling ativo, só processa
@@ -292,7 +293,15 @@ export async function emitDueInvoicesForActiveUnits(referenceMonth: string): Pro
     try {
       const asaasApiKey = await decrypt(unit.asaasApiKeyEnc)
       const r = await emitUnitInvoices(unit.id, referenceMonth, asaasApiKey)
-      results.push({ unitId: unit.id, ok: true, emitted: r.emitted, skipped: r.skipped, errors: r.errors })
+      const migration = await migrateEnrollmentsToSubscription(unit.id, asaasApiKey)
+      results.push({
+        unitId: unit.id,
+        ok: true,
+        emitted: r.emitted,
+        skipped: r.skipped,
+        errors: r.errors,
+        subscribed: migration.subscribed,
+      })
     } catch (err) {
       console.error(`[emitDueInvoicesForActiveUnits] unit=${unit.id}`, err)
       results.push({ unitId: unit.id, ok: false, error: err instanceof Error ? err.message : 'erro desconhecido' })

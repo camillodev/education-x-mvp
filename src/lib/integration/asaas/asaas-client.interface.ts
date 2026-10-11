@@ -4,6 +4,7 @@ import type {
   AsaasCreateInvoicePayload,
   AsaasCreatePaymentPayload,
   AsaasCreateSubAccountPayload,
+  AsaasCreateSubscriptionPayload,
   AsaasCustomer,
   AsaasDunning,
   AsaasInvoice,
@@ -13,6 +14,7 @@ import type {
   AsaasPaymentFilters,
   AsaasPixQrCode,
   AsaasSubAccountResponse,
+  AsaasSubscription,
 } from "./types";
 
 export interface AsaasClient {
@@ -31,6 +33,12 @@ export interface AsaasClient {
   cancelPayment(id: string): Promise<void>;
   listPayments(filters: AsaasPaymentFilters): Promise<AsaasPayment[]>;
   getPixQrCode(id: string): Promise<AsaasPixQrCode>;
+
+  // Subscriptions
+  createSubscription(
+    payload: AsaasCreateSubscriptionPayload,
+  ): Promise<AsaasSubscription>;
+  deleteSubscription(id: string): Promise<void>;
 
   // NFS-e
   createInvoice(payload: AsaasCreateInvoicePayload): Promise<AsaasInvoice>;

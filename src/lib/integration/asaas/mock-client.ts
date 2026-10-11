@@ -5,6 +5,7 @@ import type {
   AsaasCreateInvoicePayload,
   AsaasCreatePaymentPayload,
   AsaasCreateSubAccountPayload,
+  AsaasCreateSubscriptionPayload,
   AsaasCustomer,
   AsaasDunning,
   AsaasInvoice,
@@ -14,6 +15,7 @@ import type {
   AsaasPaymentFilters,
   AsaasPixQrCode,
   AsaasSubAccountResponse,
+  AsaasSubscription,
 } from "./types";
 
 let _counter = 0;
@@ -26,6 +28,8 @@ export class AsaasMockClient implements AsaasClient {
   readonly createdPayments: AsaasPayment[] = [];
   readonly createdCustomers: AsaasCustomer[] = [];
   readonly createdDunnings: AsaasDunning[] = [];
+  readonly createdSubscriptions: AsaasSubscription[] = [];
+  readonly deletedSubscriptionIds: string[] = [];
   readonly cancelledPaymentIds: string[] = [];
   readonly removedDunningIds: string[] = [];
   readonly notificationUpdates: Array<{
@@ -95,6 +99,25 @@ export class AsaasMockClient implements AsaasClient {
       billingType: "BOLETO",
       dueDate: "2099-01-01",
     };
+  }
+
+  async createSubscription(
+    payload: AsaasCreateSubscriptionPayload,
+  ): Promise<AsaasSubscription> {
+    const subscription: AsaasSubscription = {
+      id: uid("sub"),
+      status: "ACTIVE",
+      value: payload.value,
+      nextDueDate: payload.nextDueDate,
+      cycle: payload.cycle,
+      externalReference: payload.externalReference,
+    };
+    this.createdSubscriptions.push(subscription);
+    return subscription;
+  }
+
+  async deleteSubscription(id: string): Promise<void> {
+    this.deletedSubscriptionIds.push(id);
   }
 
   async cancelPayment(id: string): Promise<void> {

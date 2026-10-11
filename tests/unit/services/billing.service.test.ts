@@ -11,6 +11,11 @@ import {
 } from '@/lib/services/billing.service'
 
 const mockCreatePayment = vi.fn()
+const mockMigrate = vi.fn()
+
+vi.mock('@/lib/services/subscription.service', () => ({
+  migrateEnrollmentsToSubscription: (...args: unknown[]) => mockMigrate(...args),
+}))
 
 vi.mock('@/lib/integration/asaas/client', () => ({
   getAsaasClient: vi.fn(() => ({
@@ -402,7 +407,7 @@ describe('emitBatchInvoices', () => {
     const result = await emitBatchInvoices('unit-1', 'subj-1', '2026-09', 'asaas_key')
 
     expect(db.enrollment.findMany).toHaveBeenCalledWith({
-      where: { subjectId: 'subj-1', status: 'ACTIVE', guardian: { asaasCustomerId: { not: null } } },
+      where: { subjectId: 'subj-1', status: 'ACTIVE', guardian: { asaasCustomerId: { not: null } }, asaasSubscriptionId: null },
       select: { id: true },
     })
     expect(result).toEqual({ emitted: 1, skipped: 0, errors: 0 })
@@ -445,7 +450,7 @@ describe('emitUnitInvoices', () => {
     const result = await emitUnitInvoices('unit-1', '2026-09', 'asaas_key')
 
     expect(db.enrollment.findMany).toHaveBeenCalledWith({
-      where: { status: 'ACTIVE', guardian: { asaasCustomerId: { not: null } } },
+      where: { status: 'ACTIVE', guardian: { asaasCustomerId: { not: null } }, asaasSubscriptionId: null },
       select: { id: true },
     })
     expect(result).toEqual({ emitted: 2, skipped: 0, errors: 0 })
@@ -458,7 +463,7 @@ describe('emitUnitInvoices', () => {
     const result = await emitUnitInvoices('unit-1', '2026-09', 'asaas_key')
 
     expect(db.enrollment.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { status: 'ACTIVE', guardian: { asaasCustomerId: { not: null } } } })
+      expect.objectContaining({ where: { status: 'ACTIVE', guardian: { asaasCustomerId: { not: null } }, asaasSubscriptionId: null } })
     )
     expect(result).toEqual({ emitted: 0, skipped: 0, errors: 0 })
   })
@@ -487,6 +492,7 @@ describe('emitDueInvoicesForActiveUnits', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockMigrate.mockResolvedValue({ subscribed: 0, skipped: 0, errors: 0 })
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-03-10T12:00:00Z'))
   })
@@ -548,6 +554,20 @@ describe('emitDueInvoicesForActiveUnits', () => {
     expect(results).toEqual([
       expect.objectContaining({ unitId: 'unit-1', ok: true, emitted: 1, skipped: 0, errors: 0 }),
     ])
+  })
+
+  it('after emitting, migrates the Unit enrollments to subscriptions and reports the count', async () => {
+    unitFindMany.mockResolvedValue([
+      { id: 'unit-1', asaasApiKeyEnc: 'enc:chave1', billingConfig: { closingDay: 5 } },
+    ])
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.enrollment.findMany.mockResolvedValue([])
+    mockMigrate.mockResolvedValue({ subscribed: 2, skipped: 1, errors: 0 })
+
+    const results = await emitDueInvoicesForActiveUnits('2026-03')
+
+    expect(mockMigrate).toHaveBeenCalledWith('unit-1', 'chave1')
+    expect(results).toEqual([expect.objectContaining({ unitId: 'unit-1', ok: true, subscribed: 2 })])
   })
 
   it('Unit cuja emissão rejeita não derruba as demais — entra em results com ok:false, outras continuam', async () => {
