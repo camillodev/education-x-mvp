@@ -4,6 +4,9 @@ import { AsaasNotFoundError } from '@/lib/integration/asaas/errors'
 import {
   migrateEnrollmentsToSubscription,
   cancelEnrollmentSubscription,
+  cancelActiveEnrollment,
+  EnrollmentNotFoundError,
+  EnrollmentNotCancellableError,
   nextCycleDueDate,
 } from '@/lib/services/subscription.service'
 
@@ -19,15 +22,17 @@ vi.mock('@/lib/integration/asaas/client', () => ({
 
 vi.mock('@/lib/db', () => {
   const findMany = vi.fn()
+  const findFirst = vi.fn()
   const findUniqueOrThrow = vi.fn()
   const update = vi.fn()
   const updateMany = vi.fn()
-  return { forUnit: vi.fn(() => ({ enrollment: { findMany, findUniqueOrThrow, update, updateMany } })) }
+  return { forUnit: vi.fn(() => ({ enrollment: { findMany, findFirst, findUniqueOrThrow, update, updateMany } })) }
 })
 
 type MockDb = {
   enrollment: {
     findMany: ReturnType<typeof vi.fn>
+    findFirst: ReturnType<typeof vi.fn>
     findUniqueOrThrow: ReturnType<typeof vi.fn>
     update: ReturnType<typeof vi.fn>
     updateMany: ReturnType<typeof vi.fn>
@@ -70,6 +75,7 @@ describe('migrateEnrollmentsToSubscription', () => {
     db().enrollment.update.mockResolvedValue({})
     db().enrollment.updateMany.mockResolvedValue({ count: 1 })
     mockCreateSubscription.mockResolvedValue({ id: 'sub_1' })
+    mockDeleteSubscription.mockReset().mockResolvedValue(undefined)
   })
 
   afterEach(() => errorSpy.mockRestore())
@@ -103,8 +109,8 @@ describe('migrateEnrollmentsToSubscription', () => {
       fine: { value: 2 },
       interest: { value: 1 },
     })
-    expect(db().enrollment.update).toHaveBeenCalledWith({
-      where: { id: 'enr-1' },
+    expect(db().enrollment.updateMany).toHaveBeenLastCalledWith({
+      where: { id: 'enr-1', asaasSubscriptionId: 'claim:enr-1' },
       data: { asaasSubscriptionId: 'sub_1' },
     })
   })
@@ -144,7 +150,7 @@ describe('migrateEnrollmentsToSubscription', () => {
     await migrateEnrollmentsToSubscription('unit-1', 'key', NOW)
 
     expect(db().enrollment.updateMany).toHaveBeenNthCalledWith(1, {
-      where: { id: 'enr-1', asaasSubscriptionId: null },
+      where: { id: 'enr-1', status: 'ACTIVE', asaasSubscriptionId: null },
       data: { asaasSubscriptionId: 'claim:enr-1' },
     })
     const claimOrder = db().enrollment.updateMany.mock.invocationCallOrder[0]
@@ -178,11 +184,12 @@ describe('migrateEnrollmentsToSubscription', () => {
   })
 
   it('keeps the claim when the subscription exists in Asaas but could not be saved (blocks a duplicate)', async () => {
-    db().enrollment.update.mockRejectedValue(new Error('db blip'))
+    db().enrollment.updateMany.mockResolvedValueOnce({ count: 1 }).mockRejectedValueOnce(new Error('db blip'))
 
     await migrateEnrollmentsToSubscription('unit-1', 'key', NOW)
 
-    expect(db().enrollment.updateMany).toHaveBeenCalledTimes(1)
+    expect(db().enrollment.updateMany).toHaveBeenCalledTimes(2)
+    expect(mockDeleteSubscription).not.toHaveBeenCalled()
   })
 
   it('counts an Asaas failure as an error, keeps going, and stores nothing for it', async () => {
@@ -192,15 +199,35 @@ describe('migrateEnrollmentsToSubscription', () => {
     const result = await migrateEnrollmentsToSubscription('unit-1', 'key', NOW)
 
     expect(result).toEqual({ subscribed: 1, skipped: 0, errors: 1 })
-    expect(db().enrollment.update).toHaveBeenCalledTimes(1)
-    expect(db().enrollment.update).toHaveBeenCalledWith({
-      where: { id: 'enr-2' },
+    expect(db().enrollment.updateMany).toHaveBeenLastCalledWith({
+      where: { id: 'enr-2', asaasSubscriptionId: 'claim:enr-2' },
       data: { asaasSubscriptionId: 'sub_2' },
     })
   })
 
   it('logs the orphan subscription id when saving it locally fails', async () => {
-    db().enrollment.update.mockRejectedValue(new Error('db blip'))
+    db().enrollment.updateMany.mockResolvedValueOnce({ count: 1 }).mockRejectedValueOnce(new Error('db blip'))
+
+    const result = await migrateEnrollmentsToSubscription('unit-1', 'key', NOW)
+
+    expect(result.errors).toBe(1)
+    const logged = errorSpy.mock.calls.flat().join(' ')
+    expect(logged).toContain('sub_1')
+    expect(logged).toContain('enr-1')
+  })
+
+  it('deletes the just-created subscription when the Enrollment was cancelled during the Asaas call', async () => {
+    db().enrollment.updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 })
+
+    const result = await migrateEnrollmentsToSubscription('unit-1', 'key', NOW)
+
+    expect(mockDeleteSubscription).toHaveBeenCalledWith('sub_1')
+    expect(result).toEqual({ subscribed: 0, skipped: 1, errors: 0 })
+  })
+
+  it('logs both ids and counts an error when compensating for a cancelled Enrollment also fails', async () => {
+    db().enrollment.updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 })
+    mockDeleteSubscription.mockRejectedValue(new Error('asaas down'))
 
     const result = await migrateEnrollmentsToSubscription('unit-1', 'key', NOW)
 
@@ -214,7 +241,8 @@ describe('migrateEnrollmentsToSubscription', () => {
 describe('cancelEnrollmentSubscription', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    db().enrollment.update.mockResolvedValue({})
+    mockDeleteSubscription.mockReset().mockResolvedValue(undefined)
+    db().enrollment.updateMany.mockResolvedValue({ count: 1 })
   })
 
   it('deletes the Asaas subscription and clears the local id', async () => {
@@ -223,8 +251,8 @@ describe('cancelEnrollmentSubscription', () => {
     await cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')
 
     expect(mockDeleteSubscription).toHaveBeenCalledWith('sub_1')
-    expect(db().enrollment.update).toHaveBeenCalledWith({
-      where: { id: 'enr-1' },
+    expect(db().enrollment.updateMany).toHaveBeenCalledWith({
+      where: { id: 'enr-1', asaasSubscriptionId: 'sub_1' },
       data: { asaasSubscriptionId: null },
     })
   })
@@ -235,7 +263,7 @@ describe('cancelEnrollmentSubscription', () => {
     await cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')
 
     expect(mockDeleteSubscription).not.toHaveBeenCalled()
-    expect(db().enrollment.update).not.toHaveBeenCalled()
+    expect(db().enrollment.updateMany).not.toHaveBeenCalled()
   })
 
   it('treats a subscription already gone in Asaas as deleted and still clears the local id', async () => {
@@ -244,8 +272,8 @@ describe('cancelEnrollmentSubscription', () => {
 
     await cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')
 
-    expect(db().enrollment.update).toHaveBeenCalledWith({
-      where: { id: 'enr-1' },
+    expect(db().enrollment.updateMany).toHaveBeenCalledWith({
+      where: { id: 'enr-1', asaasSubscriptionId: 'sub_1' },
       data: { asaasSubscriptionId: null },
     })
   })
@@ -256,8 +284,8 @@ describe('cancelEnrollmentSubscription', () => {
     await cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')
 
     expect(mockDeleteSubscription).not.toHaveBeenCalled()
-    expect(db().enrollment.update).toHaveBeenCalledWith({
-      where: { id: 'enr-1' },
+    expect(db().enrollment.updateMany).toHaveBeenCalledWith({
+      where: { id: 'enr-1', asaasSubscriptionId: 'claim:enr-1' },
       data: { asaasSubscriptionId: null },
     })
   })
@@ -267,6 +295,103 @@ describe('cancelEnrollmentSubscription', () => {
     mockDeleteSubscription.mockRejectedValue(new Error('asaas down'))
 
     await expect(cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')).rejects.toThrow('asaas down')
-    expect(db().enrollment.update).not.toHaveBeenCalled()
+    expect(db().enrollment.updateMany).not.toHaveBeenCalled()
+  })
+  it('deletes the real subscription when the cron replaced the claim while cancel was running', async () => {
+    db().enrollment.findUniqueOrThrow
+      .mockResolvedValueOnce({ asaasSubscriptionId: 'claim:enr-1' })
+      .mockResolvedValueOnce({ asaasSubscriptionId: 'sub_1' })
+    db().enrollment.updateMany.mockResolvedValueOnce({ count: 0 }).mockResolvedValueOnce({ count: 1 })
+
+    await cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')
+
+    expect(mockDeleteSubscription).toHaveBeenCalledWith('sub_1')
+    expect(db().enrollment.updateMany).toHaveBeenLastCalledWith({
+      where: { id: 'enr-1', asaasSubscriptionId: 'sub_1' },
+      data: { asaasSubscriptionId: null },
+    })
+  })
+  it('stops without calling Asaas when the claim was cleared by someone else meanwhile', async () => {
+    db().enrollment.findUniqueOrThrow
+      .mockResolvedValueOnce({ asaasSubscriptionId: 'claim:enr-1' })
+      .mockResolvedValueOnce({ asaasSubscriptionId: null })
+    db().enrollment.updateMany.mockResolvedValueOnce({ count: 0 })
+
+    await cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')
+
+    expect(mockDeleteSubscription).not.toHaveBeenCalled()
+  })
+
+  it('throws after repeated lost races so the caller can retry', async () => {
+    db().enrollment.findUniqueOrThrow.mockResolvedValue({ asaasSubscriptionId: 'sub_1' })
+    db().enrollment.updateMany.mockResolvedValue({ count: 0 })
+
+    await expect(cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')).rejects.toThrow(
+      'kept changing'
+    )
+    expect(db().enrollment.updateMany).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('cancelActiveEnrollment', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockDeleteSubscription.mockReset().mockResolvedValue(undefined)
+    db().enrollment.findFirst.mockResolvedValue({ status: 'ACTIVE' })
+    db().enrollment.updateMany.mockResolvedValue({ count: 1 })
+    db().enrollment.update.mockResolvedValue({})
+    db().enrollment.findUniqueOrThrow.mockResolvedValue({ asaasSubscriptionId: 'sub_1' })
+  })
+
+  it('marks the Enrollment CANCELLED before deleting the Asaas subscription', async () => {
+    await cancelActiveEnrollment('unit-1', 'enr-1', 'key')
+
+    expect(db().enrollment.updateMany).toHaveBeenCalledWith({
+      where: { id: 'enr-1', status: { in: ['ACTIVE', 'SUSPENDED'] } },
+      data: { status: 'CANCELLED', cancelledAt: expect.any(Date) },
+    })
+    expect(db().enrollment.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+      mockDeleteSubscription.mock.invocationCallOrder[0]
+    )
+    expect(mockDeleteSubscription).toHaveBeenCalledWith('sub_1')
+  })
+
+  it('throws EnrollmentNotFoundError for an Enrollment outside the Unit', async () => {
+    db().enrollment.findFirst.mockResolvedValue(null)
+
+    await expect(cancelActiveEnrollment('unit-1', 'enr-x', 'key')).rejects.toBeInstanceOf(
+      EnrollmentNotFoundError
+    )
+    expect(mockDeleteSubscription).not.toHaveBeenCalled()
+  })
+
+  it.each(['PENDING_CONFIRMATION', 'PENDING_SCHOOL_APPROVAL'])(
+    'refuses a %s Enrollment (the reject flow owns it)',
+    async (status) => {
+      db().enrollment.findFirst.mockResolvedValue({ status })
+
+      await expect(cancelActiveEnrollment('unit-1', 'enr-1', 'key')).rejects.toBeInstanceOf(
+        EnrollmentNotCancellableError
+      )
+      expect(db().enrollment.updateMany).not.toHaveBeenCalled()
+    }
+  )
+
+  it('retries the Asaas delete for an already CANCELLED Enrollment without rewriting its status', async () => {
+    db().enrollment.findFirst.mockResolvedValue({ status: 'CANCELLED' })
+
+    await cancelActiveEnrollment('unit-1', 'enr-1', 'key')
+
+    expect(db().enrollment.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'CANCELLED' }) })
+    )
+    expect(mockDeleteSubscription).toHaveBeenCalledWith('sub_1')
+  })
+
+  it('keeps the Enrollment CANCELLED and rethrows when the Asaas delete fails', async () => {
+    mockDeleteSubscription.mockRejectedValue(new Error('asaas down'))
+
+    await expect(cancelActiveEnrollment('unit-1', 'enr-1', 'key')).rejects.toThrow('asaas down')
+    expect(db().enrollment.updateMany).toHaveBeenCalledTimes(1)
   })
 })
