@@ -311,6 +311,26 @@ describe('cancelEnrollmentSubscription', () => {
       data: { asaasSubscriptionId: null },
     })
   })
+  it('stops without calling Asaas when the claim was cleared by someone else meanwhile', async () => {
+    db().enrollment.findUniqueOrThrow
+      .mockResolvedValueOnce({ asaasSubscriptionId: 'claim:enr-1' })
+      .mockResolvedValueOnce({ asaasSubscriptionId: null })
+    db().enrollment.updateMany.mockResolvedValueOnce({ count: 0 })
+
+    await cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')
+
+    expect(mockDeleteSubscription).not.toHaveBeenCalled()
+  })
+
+  it('throws after repeated lost races so the caller can retry', async () => {
+    db().enrollment.findUniqueOrThrow.mockResolvedValue({ asaasSubscriptionId: 'sub_1' })
+    db().enrollment.updateMany.mockResolvedValue({ count: 0 })
+
+    await expect(cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')).rejects.toThrow(
+      'kept changing'
+    )
+    expect(db().enrollment.updateMany).toHaveBeenCalledTimes(3)
+  })
 })
 
 describe('cancelActiveEnrollment', () => {
