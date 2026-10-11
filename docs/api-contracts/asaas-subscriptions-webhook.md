@@ -18,11 +18,24 @@
 | Campo | Uso |
 |---|---|
 | `id` | Idempotência do evento. |
-| `account.id` | Checagem extra de tenant (decisão no EDU-64). |
+| `account.id` | Não usado no alpha (ver decisão abaixo). |
 | `payment.id` | `Invoice.asaasPaymentId` do ciclo. |
 | `payment.subscription` | Resolve `Enrollment.asaasSubscriptionId`. Ausente → evento ignorado. |
 | `payment.dueDate` | Deriva `referenceMonth` e `dueDate` da Invoice. |
 | `payment.value` | Em reais; convertido para centavos na borda. |
+
+## Decisão: campo `account`
+
+Não é checado no alpha. O tenant vem da `Enrollment` resolvida por `asaasSubscriptionId` (único
+global); `Unit.asaasAccountId` existe, mas a equivalência com `account.id` do payload não está
+provada (precisa do payload real do sandbox, pendente abaixo) e um mismatch falso descartaria
+eventos reais sem alarme. Reavaliar no EDU-126, quando o id da subconta passar a ser gravado no
+onboarding.
+
+## Idempotência
+
+`Invoice.asaasPaymentId` é `@unique`. A chave de competência `enrollmentId:YYYY-MM` é a mesma
+da emissão avulsa: se o mês já tem outra cobrança, o evento vira `handled:false` com log de IDs.
 
 ## Pendente (evidência real)
 
