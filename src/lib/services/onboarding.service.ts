@@ -176,6 +176,7 @@ export async function createSchool(
   let unit: { id: string; confirmationToken: string }
   if (resumable) {
     // Two concurrent resumes would each create a sub-account and one apiKey would be lost for good.
+    // A crash or failed save leaves the claim on purpose: manual recovery, never a duplicate account.
     const claim = await prisma.unit.updateMany({
       where: { id: resumable.id, asaasAccountId: null },
       data: { asaasAccountId: claimToken(resumable.id) },
@@ -216,6 +217,9 @@ export async function createSchool(
   } catch (err) {
     // Only while no sub-account exists: releasing after it was created would allow a duplicate.
     if (resumable && !asaasAccountId) await releaseClaim(unit.id)
+    if (asaasAccountId) {
+      console.error(`[onboarding] sub-account created but its apiKey was not stored — unitId=${unit.id} asaasAccountId=${asaasAccountId}`)
+    }
     throw new AsaasProvisionError(err)
   }
 

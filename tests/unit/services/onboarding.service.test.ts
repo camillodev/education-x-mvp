@@ -343,6 +343,24 @@ describe('createSchool', () => {
       })
     })
 
+    it('does not claim the Unit when the webhook token is invalid', async () => {
+      const mp = prisma as unknown as MockPrisma
+      process.env.ASAAS_WEBHOOK_TOKEN = 'short'
+
+      await expect(createSchool(baseInput, BASE_URL)).rejects.toThrow('32-255')
+      expect(mp.unit.updateMany).not.toHaveBeenCalled()
+    })
+
+    it('keeps the claim and logs the account id when the apiKey cannot be encrypted after Asaas created the account', async () => {
+      const mp = prisma as unknown as MockPrisma
+      process.env.ENCRYPTION_KEY = 'bad'
+
+      await expect(createSchool(baseInput, BASE_URL)).rejects.toBeInstanceOf(AsaasProvisionError)
+
+      expect(mp.unit.updateMany).toHaveBeenCalledTimes(1)
+      expect(errorSpy.mock.calls.flat().join(' ')).toMatch(/unit-stuck.*acc_mock_\d+/)
+    })
+
     it.each([
       ['already has a sub-account', { ...stuck, asaasAccountId: 'acc_1' }],
       ['is held by another resume', { ...stuck, asaasAccountId: 'claim:unit-stuck' }],
