@@ -11,6 +11,22 @@ export const SUBSCRIPTION_MIGRATION_BATCH_SIZE = 50
 const CLAIM_PREFIX = 'claim:'
 const claimToken = (enrollmentId: string) => `${CLAIM_PREFIX}${enrollmentId}`
 
+export class EnrollmentNotFoundError extends Error {
+  readonly status = 404
+  constructor() {
+    super('Enrollment not found in this unit')
+    this.name = 'EnrollmentNotFoundError'
+  }
+}
+
+export class EnrollmentNotCancellableError extends Error {
+  readonly status = 409
+  constructor() {
+    super('Pending Enrollments are rejected, not cancelled')
+    this.name = 'EnrollmentNotCancellableError'
+  }
+}
+
 export interface SubscriptionMigrationResult {
   subscribed: number
   skipped: number
@@ -75,7 +91,7 @@ export async function migrateEnrollmentsToSubscription(
     }
 
     const claim = await db.enrollment.updateMany({
-      where: { id: enrollment.id, asaasSubscriptionId: null },
+      where: { id: enrollment.id, status: 'ACTIVE', asaasSubscriptionId: null },
       data: { asaasSubscriptionId: claimToken(enrollment.id) },
     })
     if (claim.count === 0) {
@@ -103,8 +119,18 @@ export async function migrateEnrollmentsToSubscription(
     }
 
     try {
-      await db.enrollment.update({ where: { id: enrollment.id }, data: { asaasSubscriptionId: subscriptionId } })
-      result.subscribed++
+      // Only while our claim is still there: a cancel that ran during the Asaas call cleared it.
+      const saved = await db.enrollment.updateMany({
+        where: { id: enrollment.id, asaasSubscriptionId: claimToken(enrollment.id) },
+        data: { asaasSubscriptionId: subscriptionId },
+      })
+      if (saved.count === 1) {
+        result.subscribed++
+      } else if (await deleteOrphanSubscription(client, enrollment.id, subscriptionId)) {
+        result.skipped++
+      } else {
+        result.errors++
+      }
     } catch (error) {
       // The claim stays on purpose (it blocks a duplicate); a human must link the id.
       console.error(
@@ -116,6 +142,23 @@ export async function migrateEnrollmentsToSubscription(
   }
 
   return result
+}
+
+async function deleteOrphanSubscription(
+  client: ReturnType<typeof getAsaasClient>,
+  enrollmentId: string,
+  subscriptionId: string
+): Promise<boolean> {
+  try {
+    await client.deleteSubscription(subscriptionId)
+    return true
+  } catch (error) {
+    console.error(
+      `[subscription.service] Enrollment cancelled during creation and the subscription could not be deleted — enrollmentId=${enrollmentId} subscriptionId=${subscriptionId}`,
+      error
+    )
+    return false
+  }
 }
 
 async function releaseClaim(db: ReturnType<typeof forUnit>, enrollmentId: string): Promise<void> {
@@ -142,8 +185,8 @@ export async function cancelEnrollmentSubscription(
   })
   if (!asaasSubscriptionId) return
 
-  // A claim has no Asaas counterpart to delete. Already gone in Asaas counts as deleted, so a
-  // retry after a failed local update can finish.
+  // A claim has no Asaas subscription to delete yet; clearing it makes a migration run in flight
+  // delete its own subscription. Already gone in Asaas counts as deleted, so a retry can finish.
   if (!asaasSubscriptionId.startsWith(CLAIM_PREFIX)) {
     try {
       await getAsaasClient(asaasApiKey).deleteSubscription(asaasSubscriptionId)
@@ -152,4 +195,30 @@ export async function cancelEnrollmentSubscription(
     }
   }
   await db.enrollment.update({ where: { id: enrollmentId }, data: { asaasSubscriptionId: null } })
+}
+
+// Inactivate first: the migration cron selects ACTIVE Enrollments and would recreate the
+// subscription. A CANCELLED Enrollment skips the status write so a failed Asaas delete can be retried.
+export async function cancelActiveEnrollment(
+  unitId: string,
+  enrollmentId: string,
+  asaasApiKey: string
+): Promise<void> {
+  const db = forUnit(unitId)
+  const enrollment = await db.enrollment.findFirst({
+    where: { id: enrollmentId },
+    select: { status: true },
+  })
+  if (!enrollment) throw new EnrollmentNotFoundError()
+  if (enrollment.status === 'PENDING_CONFIRMATION' || enrollment.status === 'PENDING_SCHOOL_APPROVAL') {
+    throw new EnrollmentNotCancellableError()
+  }
+
+  if (enrollment.status !== 'CANCELLED') {
+    await db.enrollment.updateMany({
+      where: { id: enrollmentId, status: { in: ['ACTIVE', 'SUSPENDED'] } },
+      data: { status: 'CANCELLED', cancelledAt: new Date() },
+    })
+  }
+  await cancelEnrollmentSubscription(unitId, enrollmentId, asaasApiKey)
 }
