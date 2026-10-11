@@ -8,6 +8,7 @@ import {
   emitDueInvoicesForActiveUnits,
   EnrollmentNotStartedError,
   GuardianNotRegisteredError,
+  SubscriptionManagedError,
 } from '@/lib/services/billing.service'
 
 const mockCreatePayment = vi.fn()
@@ -249,6 +250,19 @@ describe('emitInvoice', () => {
 
     await expect(emitInvoice('unit-1', 'enr-1', '2026-09', 'asaas_key')).rejects.toBeInstanceOf(
       GuardianNotRegisteredError
+    )
+
+    expect(db.invoice.create).not.toHaveBeenCalled()
+    expect(mockCreatePayment).not.toHaveBeenCalled()
+  })
+
+  it('throws SubscriptionManagedError instead of issuing a second charge for a subscribed Enrollment', async () => {
+    const db = forUnit('unit-1') as unknown as MockForUnitDb
+    db.invoice.findUnique.mockResolvedValue(null)
+    db.enrollment.findUniqueOrThrow.mockResolvedValue({ ...ENROLLMENT_BASE, asaasSubscriptionId: 'sub_1' })
+
+    await expect(emitInvoice('unit-1', 'enr-1', '2026-10', 'asaas_key')).rejects.toBeInstanceOf(
+      SubscriptionManagedError
     )
 
     expect(db.invoice.create).not.toHaveBeenCalled()

@@ -1,6 +1,15 @@
 import { forUnit } from '../db'
 import { getAsaasClient } from '../integration/asaas/client'
+import { AsaasNotFoundError } from '../integration/asaas/errors'
 import { lateChargeTerms } from '../integration/asaas/late-terms'
+
+// Per run and per Unit, so a large Unit cannot outlive the cron request and leave work half done.
+export const SUBSCRIPTION_MIGRATION_BATCH_SIZE = 50
+
+// Reserves the Enrollment before the Asaas call: Asaas does not dedupe by externalReference, so a
+// retry after a half-finished run would create a second live subscription.
+const CLAIM_PREFIX = 'claim:'
+const claimToken = (enrollmentId: string) => `${CLAIM_PREFIX}${enrollmentId}`
 
 export interface SubscriptionMigrationResult {
   subscribed: number
@@ -37,6 +46,7 @@ export async function migrateEnrollmentsToSubscription(
       isFirstChargeDone: true,
       guardian: { asaasCustomerId: { not: null } },
     },
+    take: SUBSCRIPTION_MIGRATION_BATCH_SIZE,
     select: {
       id: true,
       finalPriceCents: true,
@@ -64,6 +74,16 @@ export async function migrateEnrollmentsToSubscription(
       continue
     }
 
+    const claim = await db.enrollment.updateMany({
+      where: { id: enrollment.id, asaasSubscriptionId: null },
+      data: { asaasSubscriptionId: claimToken(enrollment.id) },
+    })
+    if (claim.count === 0) {
+      result.skipped++
+      continue
+    }
+
+    let subscriptionId: string
     try {
       const subscription = await client.createSubscription({
         customer,
@@ -74,24 +94,39 @@ export async function migrateEnrollmentsToSubscription(
         externalReference: `sub:${enrollment.id}`,
         ...lateChargeTerms(billingConfig),
       })
-      try {
-        await db.enrollment.update({ where: { id: enrollment.id }, data: { asaasSubscriptionId: subscription.id } })
-      } catch (error) {
-        // Not rolled back: the next run would create a duplicate, so this needs a human.
-        console.error(
-          `[subscription.service] Subscription created but not saved — enrollmentId=${enrollment.id} subscriptionId=${subscription.id}`,
-          error
-        )
-        throw error
-      }
+      subscriptionId = subscription.id
+    } catch (error) {
+      console.error(`[subscription.service] Asaas rejected the subscription — enrollmentId=${enrollment.id}`, error)
+      await releaseClaim(db, enrollment.id)
+      result.errors++
+      continue
+    }
+
+    try {
+      await db.enrollment.update({ where: { id: enrollment.id }, data: { asaasSubscriptionId: subscriptionId } })
       result.subscribed++
     } catch (error) {
-      console.error(`[subscription.service] Migration failed — enrollmentId=${enrollment.id}`, error)
+      // The claim stays on purpose (it blocks a duplicate); a human must link the id.
+      console.error(
+        `[subscription.service] Subscription created but not saved — enrollmentId=${enrollment.id} subscriptionId=${subscriptionId}`,
+        error
+      )
       result.errors++
     }
   }
 
   return result
+}
+
+async function releaseClaim(db: ReturnType<typeof forUnit>, enrollmentId: string): Promise<void> {
+  try {
+    await db.enrollment.updateMany({
+      where: { id: enrollmentId, asaasSubscriptionId: claimToken(enrollmentId) },
+      data: { asaasSubscriptionId: null },
+    })
+  } catch (error) {
+    console.error(`[subscription.service] Could not release claim — enrollmentId=${enrollmentId}`, error)
+  }
 }
 
 // Deleting the subscription also removes Asaas' pending charges; paid Invoices stay local.
@@ -107,6 +142,14 @@ export async function cancelEnrollmentSubscription(
   })
   if (!asaasSubscriptionId) return
 
-  await getAsaasClient(asaasApiKey).deleteSubscription(asaasSubscriptionId)
+  // A claim has no Asaas counterpart to delete. Already gone in Asaas counts as deleted, so a
+  // retry after a failed local update can finish.
+  if (!asaasSubscriptionId.startsWith(CLAIM_PREFIX)) {
+    try {
+      await getAsaasClient(asaasApiKey).deleteSubscription(asaasSubscriptionId)
+    } catch (error) {
+      if (!(error instanceof AsaasNotFoundError)) throw error
+    }
+  }
   await db.enrollment.update({ where: { id: enrollmentId }, data: { asaasSubscriptionId: null } })
 }

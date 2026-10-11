@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { forUnit } from '@/lib/db'
+import { AsaasNotFoundError } from '@/lib/integration/asaas/errors'
 import {
   migrateEnrollmentsToSubscription,
   cancelEnrollmentSubscription,
@@ -20,7 +21,8 @@ vi.mock('@/lib/db', () => {
   const findMany = vi.fn()
   const findUniqueOrThrow = vi.fn()
   const update = vi.fn()
-  return { forUnit: vi.fn(() => ({ enrollment: { findMany, findUniqueOrThrow, update } })) }
+  const updateMany = vi.fn()
+  return { forUnit: vi.fn(() => ({ enrollment: { findMany, findUniqueOrThrow, update, updateMany } })) }
 })
 
 type MockDb = {
@@ -28,6 +30,7 @@ type MockDb = {
     findMany: ReturnType<typeof vi.fn>
     findUniqueOrThrow: ReturnType<typeof vi.fn>
     update: ReturnType<typeof vi.fn>
+    updateMany: ReturnType<typeof vi.fn>
   }
 }
 const db = () => forUnit('unit-1') as unknown as MockDb
@@ -65,6 +68,7 @@ describe('migrateEnrollmentsToSubscription', () => {
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     db().enrollment.findMany.mockResolvedValue([candidate()])
     db().enrollment.update.mockResolvedValue({})
+    db().enrollment.updateMany.mockResolvedValue({ count: 1 })
     mockCreateSubscription.mockResolvedValue({ id: 'sub_1' })
   })
 
@@ -136,6 +140,51 @@ describe('migrateEnrollmentsToSubscription', () => {
     expect(mockCreateSubscription).not.toHaveBeenCalled()
   })
 
+  it('claims the Enrollment atomically before calling Asaas', async () => {
+    await migrateEnrollmentsToSubscription('unit-1', 'key', NOW)
+
+    expect(db().enrollment.updateMany).toHaveBeenNthCalledWith(1, {
+      where: { id: 'enr-1', asaasSubscriptionId: null },
+      data: { asaasSubscriptionId: 'claim:enr-1' },
+    })
+    const claimOrder = db().enrollment.updateMany.mock.invocationCallOrder[0]
+    expect(claimOrder).toBeLessThan(mockCreateSubscription.mock.invocationCallOrder[0])
+  })
+
+  it('does not call Asaas when another run already claimed the Enrollment', async () => {
+    db().enrollment.updateMany.mockResolvedValue({ count: 0 })
+
+    const result = await migrateEnrollmentsToSubscription('unit-1', 'key', NOW)
+
+    expect(result.skipped).toBe(1)
+    expect(mockCreateSubscription).not.toHaveBeenCalled()
+  })
+
+  it('limits how many Enrollments a single run handles', async () => {
+    await migrateEnrollmentsToSubscription('unit-1', 'key', NOW)
+
+    expect(db().enrollment.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 50 }))
+  })
+
+  it('releases the claim when Asaas rejects, so the next run can retry', async () => {
+    mockCreateSubscription.mockRejectedValue(new Error('asaas down'))
+
+    await migrateEnrollmentsToSubscription('unit-1', 'key', NOW)
+
+    expect(db().enrollment.updateMany).toHaveBeenLastCalledWith({
+      where: { id: 'enr-1', asaasSubscriptionId: 'claim:enr-1' },
+      data: { asaasSubscriptionId: null },
+    })
+  })
+
+  it('keeps the claim when the subscription exists in Asaas but could not be saved (blocks a duplicate)', async () => {
+    db().enrollment.update.mockRejectedValue(new Error('db blip'))
+
+    await migrateEnrollmentsToSubscription('unit-1', 'key', NOW)
+
+    expect(db().enrollment.updateMany).toHaveBeenCalledTimes(1)
+  })
+
   it('counts an Asaas failure as an error, keeps going, and stores nothing for it', async () => {
     db().enrollment.findMany.mockResolvedValue([candidate(), candidate({ id: 'enr-2' })])
     mockCreateSubscription.mockRejectedValueOnce(new Error('asaas down')).mockResolvedValueOnce({ id: 'sub_2' })
@@ -187,6 +236,30 @@ describe('cancelEnrollmentSubscription', () => {
 
     expect(mockDeleteSubscription).not.toHaveBeenCalled()
     expect(db().enrollment.update).not.toHaveBeenCalled()
+  })
+
+  it('treats a subscription already gone in Asaas as deleted and still clears the local id', async () => {
+    db().enrollment.findUniqueOrThrow.mockResolvedValue({ asaasSubscriptionId: 'sub_1' })
+    mockDeleteSubscription.mockRejectedValue(new AsaasNotFoundError('not found', 'not_found', 404, null))
+
+    await cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')
+
+    expect(db().enrollment.update).toHaveBeenCalledWith({
+      where: { id: 'enr-1' },
+      data: { asaasSubscriptionId: null },
+    })
+  })
+
+  it('does not call Asaas for a claim that never became a subscription', async () => {
+    db().enrollment.findUniqueOrThrow.mockResolvedValue({ asaasSubscriptionId: 'claim:enr-1' })
+
+    await cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')
+
+    expect(mockDeleteSubscription).not.toHaveBeenCalled()
+    expect(db().enrollment.update).toHaveBeenCalledWith({
+      where: { id: 'enr-1' },
+      data: { asaasSubscriptionId: null },
+    })
   })
 
   it('keeps the local id when the Asaas delete fails, so it can be retried', async () => {
