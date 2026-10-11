@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { AsaasMockClient } from '../../../src/lib/integration/asaas/mock-client'
 import { decrypt } from '../../../src/lib/crypto'
 
@@ -237,6 +237,70 @@ describe('createSchool', () => {
     const mp = prisma as unknown as MockPrisma
     mp.unit.findUnique.mockResolvedValue({ id: 'existing' })
     await expect(createSchool(baseInput, BASE_URL)).rejects.toThrow(DuplicateCnpjError)
+  })
+
+  describe('resuming a PENDING school that never got its sub-account', () => {
+    const stuck = {
+      id: 'unit-stuck',
+      status: 'PENDING',
+      asaasAccountId: null,
+      confirmationToken: 'tok-stuck',
+    }
+    let errorSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+      errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    })
+    afterEach(() => errorSpy.mockRestore())
+
+    it('reuses the stored Unit instead of recreating it and finishes the Asaas provisioning', async () => {
+      const mp = prisma as unknown as MockPrisma
+      mp.unit.findUnique.mockResolvedValue(stuck)
+
+      await createSchool(baseInput, BASE_URL)
+
+      expect(mp.unit.create).not.toHaveBeenCalled()
+      expect(mp.billingConfig.create).not.toHaveBeenCalled()
+      expect(mp.subject.createMany).not.toHaveBeenCalled()
+      expect(mockAsaasClient.createdSubAccounts).toHaveLength(1)
+      expect(mp.unit.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'unit-stuck' },
+          data: expect.objectContaining({
+            asaasAccountId: expect.any(String),
+            confirmationTokenExpiresAt: expect.any(Date),
+          }),
+        })
+      )
+      expect(sendConfirmationEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ confirmUrl: `${BASE_URL}/confirmar/tok-stuck` })
+      )
+    })
+
+    it.each([
+      ['already has a sub-account', { ...stuck, asaasAccountId: 'acc_1' }],
+      ['is no longer PENDING', { ...stuck, status: 'ACTIVE' }],
+    ])('still rejects the CNPJ when the Unit %s', async (_label, existing) => {
+      const mp = prisma as unknown as MockPrisma
+      mp.unit.findUnique.mockResolvedValue(existing)
+
+      await expect(createSchool(baseInput, BASE_URL)).rejects.toThrow(DuplicateCnpjError)
+      expect(mockAsaasClient.createdSubAccounts).toHaveLength(0)
+    })
+  })
+
+  it('logs unit and sub-account ids, then rethrows, when saving the sub-account fails', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const mp = prisma as unknown as MockPrisma
+    mp.unit.update.mockRejectedValue(new Error('db blip'))
+
+    await expect(createSchool(baseInput, BASE_URL)).rejects.toThrow('db blip')
+
+    const logged = errorSpy.mock.calls.flat().join(' ')
+    expect(logged).toContain('unit-id-1')
+    expect(logged).toMatch(/acc_mock_\d+/)
+    expect(logged).not.toContain('$api_mock')
+    errorSpy.mockRestore()
   })
 })
 
