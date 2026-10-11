@@ -53,6 +53,7 @@ import {
   createSchool,
   confirmSchool,
   DuplicateCnpjError,
+  AsaasProvisionError,
   InvalidConfirmationTokenError,
   AlreadyConfirmedError,
   NoTermsVersionError,
@@ -105,6 +106,7 @@ beforeEach(() => {
   mockAsaasClient = new AsaasMockClient()
   process.env.ENCRYPTION_KEY = 'a'.repeat(64)
   process.env.ASAAS_MODE = 'mock'
+  process.env.ASAAS_WEBHOOK_TOKEN = 'w'.repeat(40)
 
   const mp = prisma as unknown as MockPrisma
   mp.unit.findUnique.mockResolvedValue(null)
@@ -135,6 +137,45 @@ describe('createSchool', () => {
     )
     expect(mp.billingConfig.create).toHaveBeenCalled()
     expect(mp.subject.createMany).toHaveBeenCalled()
+  })
+
+  it('registers the billing webhook on the sub-account at creation time', async () => {
+    await createSchool(baseInput, BASE_URL)
+
+    const [payload] = mockAsaasClient.createdSubAccounts
+    expect(payload.webhooks).toEqual([
+      expect.objectContaining({
+        url: `${BASE_URL}/api/webhook`,
+        authToken: 'w'.repeat(40),
+        events: ['PAYMENT_CREATED', 'PAYMENT_RECEIVED', 'PAYMENT_OVERDUE'],
+        sendType: 'SEQUENTIALLY',
+      }),
+    ])
+  })
+
+  it('writes nothing and creates no sub-account when ASAAS_WEBHOOK_TOKEN is missing', async () => {
+    delete process.env.ASAAS_WEBHOOK_TOKEN
+    const mp = prisma as unknown as MockPrisma
+
+    await expect(createSchool(baseInput, BASE_URL)).rejects.toThrow('ASAAS_WEBHOOK_TOKEN')
+    expect(mp.unit.create).not.toHaveBeenCalled()
+    expect(mockAsaasClient.createdSubAccounts).toHaveLength(0)
+  })
+
+  it('writes nothing when ASAAS_WEBHOOK_TOKEN has an invalid length', async () => {
+    process.env.ASAAS_WEBHOOK_TOKEN = 'short'
+    const mp = prisma as unknown as MockPrisma
+
+    await expect(createSchool(baseInput, BASE_URL)).rejects.toThrow('32-255')
+    expect(mp.unit.create).not.toHaveBeenCalled()
+  })
+
+  it('throws AsaasProvisionError and never saves Asaas data when the sub-account call is rejected', async () => {
+    const mp = prisma as unknown as MockPrisma
+    vi.spyOn(mockAsaasClient, 'createSubAccount').mockRejectedValue(new Error('invalid webhook'))
+
+    await expect(createSchool(baseInput, BASE_URL)).rejects.toBeInstanceOf(AsaasProvisionError)
+    expect(mp.unit.update).not.toHaveBeenCalled()
   })
 
   it('persiste o plano no BillingConfig com preço snapshot', async () => {

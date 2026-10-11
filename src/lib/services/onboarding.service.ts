@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { getMasterAsaasClient } from '../integration/asaas/client'
+import { buildSubAccountWebhook } from '../integration/asaas/webhook-config'
 import { encrypt } from '../crypto'
 import { prisma } from '../db'
 import { CreateSchoolSchema, UpdateSchoolSchema, type CreateSchoolInput, type UpdateSchoolInput } from '../validations/unit'
@@ -59,6 +60,8 @@ export async function createSchool(
 ): Promise<Unit> {
   // 1. Validar input
   const data = CreateSchoolSchema.parse(input)
+  // Before any write: the webhook is created together with the sub-account and its token is unreadable later
+  const webhook = buildSubAccountWebhook(baseUrl, data.email)
 
   // 2. Verificar CNPJ duplicado
   const existing = await prisma.unit.findUnique({ where: { cnpj: data.cnpj } })
@@ -157,6 +160,7 @@ export async function createSchool(
       addressNumber: data.number,
       province: data.neighborhood,
       postalCode: data.cep,
+      webhooks: [webhook],
     })
 
     asaasAccountId = subAccount.id
