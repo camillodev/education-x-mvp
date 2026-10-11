@@ -229,6 +229,11 @@ export interface AsaasWebhookPayload {
     paymentDate?: string;
     clientPaymentDate?: string;
     externalReference?: string;
+    // Only present when the charge belongs to a subscription.
+    subscription?: string;
+    dueDate?: string;
+    invoiceUrl?: string | null;
+    bankSlipUrl?: string | null;
     // string solto (não AsaasBillingType) de propósito: nosso webhook handler não consome esse
     // campo, e a Asaas pode adicionar valores novos sem aviso — travar num enum estrito aqui
     // rejeitaria um pagamento real só por um billingType desconhecido que nunca é lido.

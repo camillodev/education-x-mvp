@@ -7,6 +7,8 @@ import { Prisma } from '@prisma/client'
 // (fora deste arquivo, na route handler). Não trocar para `forUnit` aqui.
 import { prisma } from '@/lib/db'
 import type { AsaasWebhookPayload } from '@/lib/integration/asaas/types'
+import { parseAsaasDateTime } from '@/lib/integration/asaas/date'
+import { handlePaymentCreated } from '@/lib/services/webhook-payment-created.service'
 
 // Cálculos de data em UTC sempre (mesma convenção de billing.service.ts) — paymentDate é
 // date-only ("2026-09-05"), e `new Date('2026-09-05')` já é UTC midnight pela spec ES, então
@@ -16,13 +18,15 @@ import type { AsaasWebhookPayload } from '@/lib/integration/asaas/types'
 // do fuso do processo (achado de code review, EDU-26).
 function parsePaidAt(paymentDate: string | undefined, dateCreated: string | undefined): Date {
   if (paymentDate) return new Date(paymentDate) // "YYYY-MM-DD" → UTC midnight, já correto
-  if (dateCreated) return new Date(dateCreated.replace(' ', 'T') + 'Z')
+  if (dateCreated) return parseAsaasDateTime(dateCreated)
   return new Date()
 }
 
 export async function processPaymentEvent(
   payload: AsaasWebhookPayload
 ): Promise<{ handled: boolean }> {
+  if (payload.event === 'PAYMENT_CREATED') return handlePaymentCreated(payload)
+
   if (payload.event !== 'PAYMENT_RECEIVED' && payload.event !== 'PAYMENT_OVERDUE') {
     return { handled: false }
   }

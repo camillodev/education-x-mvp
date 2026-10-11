@@ -25,6 +25,10 @@ const asaasWebhookPayloadSchema = z.object({
     paymentDate: z.string().optional(),
     clientPaymentDate: z.string().optional(),
     externalReference: z.string().optional(),
+    subscription: z.string().optional(),
+    dueDate: z.string().optional(),
+    invoiceUrl: z.string().nullish(),
+    bankSlipUrl: z.string().nullish(),
     billingType: z.string(),
   }),
 })

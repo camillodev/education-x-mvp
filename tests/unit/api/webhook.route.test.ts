@@ -205,3 +205,32 @@ describe('POST /api/webhook — config da rota', () => {
     expect(route.dynamic).toBe('force-dynamic')
   })
 })
+
+describe('POST /api/webhook — PAYMENT_CREATED de subscription', () => {
+  it('forwards subscription, dueDate and nullable urls to the service', async () => {
+    processPaymentEvent.mockResolvedValue({ handled: true })
+    const created = {
+      id: 'evt_created',
+      event: 'PAYMENT_CREATED',
+      payment: {
+        id: 'pay_cycle',
+        status: 'PENDING',
+        value: 350,
+        billingType: 'BOLETO',
+        subscription: 'sub_1',
+        dueDate: '2026-10-10',
+        invoiceUrl: 'https://www.asaas.com/i/1',
+        bankSlipUrl: null,
+      },
+    }
+
+    const res = await route.POST(postRequest(created, { 'asaas-access-token': FAKE_WEBHOOK_SECRET }))
+
+    expect(await res.json()).toEqual({ received: true, handled: true })
+    expect(processPaymentEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payment: expect.objectContaining({ subscription: 'sub_1', dueDate: '2026-10-10', bankSlipUrl: null }),
+      })
+    )
+  })
+})

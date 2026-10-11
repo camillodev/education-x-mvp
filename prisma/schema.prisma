@@ -351,7 +351,7 @@ model Invoice {
   status InvoiceStatus @default(PENDING)
 
   // Vínculo Asaas (preenchido após POST /payments)
-  asaasPaymentId   String?
+  asaasPaymentId   String? @unique
   asaasPaymentUrl  String?
   asaasBankSlipUrl String?
   asaasBarCode     String?
@@ -374,7 +374,6 @@ model Invoice {
 
   @@index([unitId])
   @@index([enrollmentId])
-  @@index([asaasPaymentId])
   @@index([referenceMonth])
   // EDU-27 — listInvoices filtra por unitId (via forUnit) + status e por unitId +
   // referenceMonth; composto na ordem do filtro (regra database.md), sem isso a query cai
