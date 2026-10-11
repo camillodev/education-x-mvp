@@ -7,6 +7,7 @@ import {
   InvalidPlanError,
   AsaasProvisionError,
 } from '@/lib/services/onboarding.service'
+import { EnrollmentNotFoundError, EnrollmentNotCancellableError } from '@/lib/services/subscription.service'
 import { GuardianNotFoundError } from '@/lib/services/approval.service'
 import { EnrollmentNotStartedError, GuardianNotRegisteredError, MissingAsaasKeyError, SubscriptionManagedError } from '@/lib/services/billing.service'
 import { InvoiceNotFoundError, InvoiceInvalidStateError } from '@/lib/services/invoice-detail.service'
@@ -96,6 +97,12 @@ function mapKnown(error: unknown): Omit<HandledError, 'detail'> {
   }
   if (error instanceof GuardianNotFoundError) {
     return { message: 'Matrícula não encontrada.', code: 'NOT_FOUND', status: 404 }
+  }
+  if (error instanceof EnrollmentNotFoundError) {
+    return { message: 'Matrícula não encontrada.', code: 'NOT_FOUND', status: 404 }
+  }
+  if (error instanceof EnrollmentNotCancellableError) {
+    return { message: 'Matrícula pendente deve ser recusada, não cancelada.', code: 'ENROLLMENT_NOT_CANCELLABLE', status: 409 }
   }
   if (error instanceof InvalidPlanError) {
     return { message: 'Plano inválido ou desconto maior que o preço.', code: 'INVALID_PLAN', status: 400 }

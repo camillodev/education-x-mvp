@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { handleError, errorResponse } from '@/lib/errors/handle'
 import { DuplicateCnpjError, DueDayImmutableError, UnitNotFoundError } from '@/lib/services/onboarding.service'
 import { GuardianNotFoundError } from '@/lib/services/approval.service'
+import { EnrollmentNotFoundError, EnrollmentNotCancellableError } from '@/lib/services/subscription.service'
 
 describe('handleError', () => {
   beforeEach(() => vi.spyOn(console, 'error').mockImplementation(() => {}))
@@ -50,16 +51,22 @@ describe('handleError', () => {
     const out = handleError(new GuardianNotFoundError(), { route: 'POST /x' })
     expect(out.code).toBe('NOT_FOUND')
   })
+
+  it('maps EnrollmentNotFoundError to 404/NOT_FOUND', () => {
+    const out = handleError(new EnrollmentNotFoundError(), { route: 'POST /x' })
+    expect(out).toMatchObject({ status: 404, code: 'NOT_FOUND' })
+  })
+
+  it('maps EnrollmentNotCancellableError to 409/ENROLLMENT_NOT_CANCELLABLE', () => {
+    const out = handleError(new EnrollmentNotCancellableError(), { route: 'POST /x' })
+    expect(out).toMatchObject({ status: 409, code: 'ENROLLMENT_NOT_CANCELLABLE' })
+  })
 })
 
 describe('errorResponse', () => {
   beforeEach(() => vi.spyOn(console, 'error').mockImplementation(() => {}))
   afterEach(() => vi.restoreAllMocks())
 
-  // Achado de code review: errorResponse era chamado por rota tenant-facing
-  // (GET /api/invoices) que vazava a causa técnica real (Prisma, decrypt, etc.) no JSON
-  // — inspecionável via DevTools de rede mesmo sem aparecer na UI. `detail` agora só
-  // entra na resposta quando a rota é explicitamente admin (`exposeDetail: true`).
   it('sem exposeDetail (rota tenant-facing): resposta não inclui detail', async () => {
     const res = errorResponse(new Error('connection refused at 5432'), { route: 'GET /api/invoices', unitId: 'u1' })
     const body = await res.json()
