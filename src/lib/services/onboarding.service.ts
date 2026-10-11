@@ -54,28 +54,11 @@ const CONFIRMATION_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
 // ─── Service ──────────────────────────────────────────────────────────────────
 
-export async function createSchool(
-  input: CreateSchoolInput,
-  baseUrl: string
-): Promise<Unit> {
-  // 1. Validar input
-  const data = CreateSchoolSchema.parse(input)
-  // Before any write: the webhook is created together with the sub-account and its token is unreadable later
-  const webhook = buildSubAccountWebhook(baseUrl, data.email)
-
-  // 2. Verificar CNPJ duplicado
-  const existing = await prisma.unit.findUnique({ where: { cnpj: data.cnpj } })
-  if (existing) throw new DuplicateCnpjError()
-
-  // 2b. Resolver preço do plano (snapshot) e validar desconto vs preço
-  const plan = getPlan(data.plan.planId)
-  if (!plan) throw new InvalidPlanError()
-  const planPriceCents = plan.priceCents
-  if (data.plan.discountValueCents !== undefined && data.plan.discountValueCents >= planPriceCents) {
-    throw new InvalidPlanError()
-  }
-
-  // 3. Gerar token de confirmação + token estável do link público de matrícula (/m/[token])
+// Unit + BillingConfig + Subjects in one transaction (status PENDING); the sub-account comes after.
+async function createPendingUnit(
+  data: CreateSchoolInput,
+  planPriceCents: number
+): Promise<{ id: string; confirmationToken: string }> {
   const confirmationToken = randomUUID()
   const confirmationTokenExpiresAt = new Date(Date.now() + CONFIRMATION_TTL_MS)
   const enrollmentLinkToken = randomUUID()
@@ -144,6 +127,71 @@ export async function createSchool(
 
     return newUnit
   })
+  return { id: unit.id, confirmationToken }
+}
+
+// A failed provisioning leaves a PENDING Unit with no sub-account; the same CNPJ may retry it.
+function isResumable<T extends { status: string; asaasAccountId: string | null; confirmationToken: string | null }>(
+  unit: T
+): unit is T & { confirmationToken: string } {
+  return unit.status === 'PENDING' && unit.asaasAccountId === null && unit.confirmationToken !== null
+}
+
+export async function createSchool(
+  input: CreateSchoolInput,
+  baseUrl: string
+): Promise<Unit> {
+  // 1. Validar input
+  const data = CreateSchoolSchema.parse(input)
+
+  // 2. Verificar CNPJ duplicado
+  const existing = await prisma.unit.findUnique({
+    where: { cnpj: data.cnpj },
+    select: {
+      id: true,
+      status: true,
+      asaasAccountId: true,
+      confirmationToken: true,
+      name: true,
+      cnpj: true,
+      email: true,
+      phone: true,
+      cep: true,
+      address: true,
+      number: true,
+      neighborhood: true,
+      responsibleName: true,
+      responsibleEmail: true,
+    },
+  })
+  if (existing && !isResumable(existing)) throw new DuplicateCnpjError()
+  const resumable = existing && isResumable(existing) ? existing : null
+
+  // A resume only retries the provisioning: what is stored wins over the resubmitted payload.
+  const identity = resumable ?? data
+
+  // Before any write: the webhook is created together with the sub-account and its token is unreadable later
+  const webhook = buildSubAccountWebhook(baseUrl, identity.email)
+
+  let unit: { id: string; confirmationToken: string }
+  if (resumable) {
+    // Two concurrent resumes would each create a sub-account and one apiKey would be lost for good.
+    // A crash or failed save leaves the claim on purpose: manual recovery, never a duplicate account.
+    const claim = await prisma.unit.updateMany({
+      where: { id: resumable.id, asaasAccountId: null },
+      data: { asaasAccountId: claimToken(resumable.id) },
+    })
+    if (claim.count === 0) throw new DuplicateCnpjError()
+    unit = { id: resumable.id, confirmationToken: resumable.confirmationToken }
+  } else {
+    // 2b. Resolver preço do plano (snapshot) e validar desconto vs preço
+    const plan = getPlan(data.plan.planId)
+    if (!plan) throw new InvalidPlanError()
+    if (data.plan.discountValueCents !== undefined && data.plan.discountValueCents >= plan.priceCents) {
+      throw new InvalidPlanError()
+    }
+    unit = await createPendingUnit(data, plan.priceCents)
+  }
 
   // 5. Criar subconta Asaas (fora da transaction — se falhar, Unit fica em PENDING)
   let asaasAccountId: string | undefined
@@ -152,14 +200,14 @@ export async function createSchool(
 
   try {
     const subAccount = await getMasterAsaasClient().createSubAccount({
-      name: data.name,
-      email: data.email,
-      cpfCnpj: data.cnpj,
-      mobilePhone: data.phone,
-      address: data.address,
-      addressNumber: data.number,
-      province: data.neighborhood,
-      postalCode: data.cep,
+      name: identity.name,
+      email: identity.email,
+      cpfCnpj: identity.cnpj,
+      mobilePhone: identity.phone,
+      address: identity.address,
+      addressNumber: identity.number,
+      province: identity.neighborhood,
+      postalCode: identity.cep,
       webhooks: [webhook],
     })
 
@@ -167,25 +215,55 @@ export async function createSchool(
     asaasWalletId = subAccount.walletId ?? undefined
     asaasApiKeyEnc = await encrypt(subAccount.apiKey)
   } catch (err) {
+    // Only while no sub-account exists: releasing after it was created would allow a duplicate.
+    if (resumable && !asaasAccountId) await releaseClaim(unit.id)
+    if (asaasAccountId) {
+      console.error(`[onboarding] sub-account created but its apiKey was not stored — unitId=${unit.id} asaasAccountId=${asaasAccountId}`)
+    }
     throw new AsaasProvisionError(err)
   }
 
   // 6. Salvar dados da subconta. Status segue PENDING até o aceite via link.
-  const updatedUnit = await prisma.unit.update({
-    where: { id: unit.id },
-    data: { asaasAccountId, asaasApiKeyEnc, asaasWalletId },
-  })
+  let updatedUnit: Unit
+  try {
+    updatedUnit = await prisma.unit.update({
+      where: resumable ? { id: unit.id, asaasAccountId: claimToken(unit.id) } : { id: unit.id },
+      data: {
+        asaasAccountId,
+        asaasApiKeyEnc,
+        asaasWalletId,
+        ...(resumable && { confirmationTokenExpiresAt: new Date(Date.now() + CONFIRMATION_TTL_MS) }),
+      },
+    })
+  } catch (err) {
+    // The apiKey is only returned at creation: the ids are all that is left to recover the account.
+    console.error(`[onboarding] sub-account created but not saved — unitId=${unit.id} asaasAccountId=${asaasAccountId}`, err)
+    throw err
+  }
 
   // 7. Enviar e-mail de confirmação ao responsável (não bloqueia se falhar)
-  const confirmUrl = `${baseUrl.replace(/\/$/, '')}/confirmar/${confirmationToken}`
+  const confirmUrl = `${baseUrl.replace(/\/$/, '')}/confirmar/${unit.confirmationToken}`
   await sendConfirmationEmail({
-    to: data.responsibleEmail,
-    responsibleName: data.responsibleName,
-    schoolName: data.name,
+    to: identity.responsibleEmail,
+    responsibleName: identity.responsibleName,
+    schoolName: identity.name,
     confirmUrl,
   })
 
   return updatedUnit
+}
+
+const claimToken = (unitId: string) => `claim:${unitId}`
+
+async function releaseClaim(unitId: string): Promise<void> {
+  try {
+    await prisma.unit.updateMany({
+      where: { id: unitId, asaasAccountId: claimToken(unitId) },
+      data: { asaasAccountId: null },
+    })
+  } catch (err) {
+    console.error(`[onboarding] could not release the provisioning claim — unitId=${unitId}`, err)
+  }
 }
 
 /**

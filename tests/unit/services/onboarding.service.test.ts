@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { AsaasMockClient } from '../../../src/lib/integration/asaas/mock-client'
 import { decrypt } from '../../../src/lib/crypto'
 
@@ -8,6 +8,7 @@ vi.mock('../../../src/lib/db', () => {
     create: vi.fn(),
     findUnique: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
   }
   const mockBillingConfig = { create: vi.fn() }
   const mockSubject = { createMany: vi.fn() }
@@ -94,7 +95,7 @@ const baseInput = {
 const BASE_URL = 'https://app.educationx.com'
 
 type MockPrisma = {
-  unit: { create: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> }
+  unit: { create: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn>; updateMany: ReturnType<typeof vi.fn> }
   billingConfig: { create: ReturnType<typeof vi.fn> }
   subject: { createMany: ReturnType<typeof vi.fn> }
   termsVersion: { findUnique: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> }
@@ -112,6 +113,7 @@ beforeEach(() => {
   mp.unit.findUnique.mockResolvedValue(null)
   mp.unit.create.mockResolvedValue({ id: 'unit-id-1', name: baseInput.name })
   mp.unit.update.mockResolvedValue({ id: 'unit-id-1' })
+  mp.unit.updateMany.mockResolvedValue({ count: 1 })
   mp.billingConfig.create.mockResolvedValue({ id: 'billing-id-1' })
   mp.subject.createMany.mockResolvedValue({ count: 1 })
   mp.termsVersion.findMany.mockResolvedValue([
@@ -237,6 +239,153 @@ describe('createSchool', () => {
     const mp = prisma as unknown as MockPrisma
     mp.unit.findUnique.mockResolvedValue({ id: 'existing' })
     await expect(createSchool(baseInput, BASE_URL)).rejects.toThrow(DuplicateCnpjError)
+  })
+
+  describe('resuming a PENDING school that never got its sub-account', () => {
+    const stuck = {
+      id: 'unit-stuck',
+      status: 'PENDING',
+      asaasAccountId: null,
+      confirmationToken: 'tok-stuck',
+      name: 'Stored School',
+      cnpj: baseInput.cnpj,
+      email: 'stored@school.com',
+      phone: '31911112222',
+      cep: '30000000',
+      address: 'Stored Street',
+      number: '9',
+      neighborhood: 'Stored District',
+      responsibleName: 'Stored Responsible',
+      responsibleEmail: 'stored-responsible@school.com',
+    }
+    let errorSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+      errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const mp = prisma as unknown as MockPrisma
+      mp.unit.findUnique.mockResolvedValue(stuck)
+    })
+    afterEach(() => errorSpy.mockRestore())
+
+    it('reuses the stored Unit instead of recreating it and finishes the Asaas provisioning', async () => {
+      const mp = prisma as unknown as MockPrisma
+
+      await createSchool(baseInput, BASE_URL)
+
+      expect(mp.unit.create).not.toHaveBeenCalled()
+      expect(mp.billingConfig.create).not.toHaveBeenCalled()
+      expect(mp.subject.createMany).not.toHaveBeenCalled()
+      expect(mockAsaasClient.createdSubAccounts).toHaveLength(1)
+      expect(mp.unit.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'unit-stuck', asaasAccountId: 'claim:unit-stuck' },
+          data: expect.objectContaining({
+            asaasAccountId: expect.any(String),
+            confirmationTokenExpiresAt: expect.any(Date),
+          }),
+        })
+      )
+    })
+
+    it('uses the stored Unit data, not the resubmitted payload, for the sub-account and the email', async () => {
+      await createSchool(baseInput, BASE_URL)
+
+      const [payload] = mockAsaasClient.createdSubAccounts
+      expect(payload).toEqual(
+        expect.objectContaining({
+          name: 'Stored School',
+          email: 'stored@school.com',
+          address: 'Stored Street',
+          postalCode: '30000000',
+        })
+      )
+      expect(payload.webhooks?.[0].email).toBe('stored@school.com')
+      expect(sendConfirmationEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'stored-responsible@school.com',
+          schoolName: 'Stored School',
+          confirmUrl: `${BASE_URL}/confirmar/tok-stuck`,
+        })
+      )
+    })
+
+    it('claims the Unit before calling Asaas so two concurrent resumes cannot both provision', async () => {
+      const mp = prisma as unknown as MockPrisma
+      const createSpy = vi.spyOn(mockAsaasClient, 'createSubAccount')
+
+      await createSchool(baseInput, BASE_URL)
+
+      expect(mp.unit.updateMany).toHaveBeenCalledWith({
+        where: { id: 'unit-stuck', asaasAccountId: null },
+        data: { asaasAccountId: 'claim:unit-stuck' },
+      })
+      expect(mp.unit.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+        createSpy.mock.invocationCallOrder[0]
+      )
+    })
+
+    it('does not call Asaas when another resume already holds the claim', async () => {
+      const mp = prisma as unknown as MockPrisma
+      mp.unit.updateMany.mockResolvedValue({ count: 0 })
+
+      await expect(createSchool(baseInput, BASE_URL)).rejects.toThrow(DuplicateCnpjError)
+      expect(mockAsaasClient.createdSubAccounts).toHaveLength(0)
+    })
+
+    it('releases the claim when Asaas rejects, so the next attempt can resume again', async () => {
+      const mp = prisma as unknown as MockPrisma
+      vi.spyOn(mockAsaasClient, 'createSubAccount').mockRejectedValue(new Error('asaas down'))
+
+      await expect(createSchool(baseInput, BASE_URL)).rejects.toBeInstanceOf(AsaasProvisionError)
+      expect(mp.unit.updateMany).toHaveBeenLastCalledWith({
+        where: { id: 'unit-stuck', asaasAccountId: 'claim:unit-stuck' },
+        data: { asaasAccountId: null },
+      })
+    })
+
+    it('does not claim the Unit when the webhook token is invalid', async () => {
+      const mp = prisma as unknown as MockPrisma
+      process.env.ASAAS_WEBHOOK_TOKEN = 'short'
+
+      await expect(createSchool(baseInput, BASE_URL)).rejects.toThrow('32-255')
+      expect(mp.unit.updateMany).not.toHaveBeenCalled()
+    })
+
+    it('keeps the claim and logs the account id when the apiKey cannot be encrypted after Asaas created the account', async () => {
+      const mp = prisma as unknown as MockPrisma
+      process.env.ENCRYPTION_KEY = 'bad'
+
+      await expect(createSchool(baseInput, BASE_URL)).rejects.toBeInstanceOf(AsaasProvisionError)
+
+      expect(mp.unit.updateMany).toHaveBeenCalledTimes(1)
+      expect(errorSpy.mock.calls.flat().join(' ')).toMatch(/unit-stuck.*acc_mock_\d+/)
+    })
+
+    it.each([
+      ['already has a sub-account', { ...stuck, asaasAccountId: 'acc_1' }],
+      ['is held by another resume', { ...stuck, asaasAccountId: 'claim:unit-stuck' }],
+      ['is no longer PENDING', { ...stuck, status: 'ACTIVE' }],
+    ])('still rejects the CNPJ when the Unit %s', async (_label, existing) => {
+      const mp = prisma as unknown as MockPrisma
+      mp.unit.findUnique.mockResolvedValue(existing)
+
+      await expect(createSchool(baseInput, BASE_URL)).rejects.toThrow(DuplicateCnpjError)
+      expect(mockAsaasClient.createdSubAccounts).toHaveLength(0)
+    })
+  })
+
+  it('logs unit and sub-account ids, then rethrows, when saving the sub-account fails', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const mp = prisma as unknown as MockPrisma
+    mp.unit.update.mockRejectedValue(new Error('db blip'))
+
+    await expect(createSchool(baseInput, BASE_URL)).rejects.toThrow('db blip')
+
+    const logged = errorSpy.mock.calls.flat().join(' ')
+    expect(logged).toContain('unit-id-1')
+    expect(logged).toMatch(/acc_mock_\d+/)
+    expect(logged).not.toContain('$api_mock')
+    errorSpy.mockRestore()
   })
 })
 
