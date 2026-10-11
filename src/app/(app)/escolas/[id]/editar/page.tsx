@@ -150,6 +150,7 @@ export default function EditSchoolPage() {
                     plano={state.plan}
                     onCobrancaChange={setBilling}
                     onPlanoChange={setPlan}
+                    dueDayLocked
                   />
                 )}
 

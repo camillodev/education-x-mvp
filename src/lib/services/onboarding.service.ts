@@ -32,6 +32,14 @@ export class InvalidPlanError extends Error {
   }
 }
 
+export class DueDayImmutableError extends Error {
+  readonly status = 400
+  constructor() {
+    super('BillingConfig.dueDay cannot change after the school is created')
+    this.name = 'DueDayImmutableError'
+  }
+}
+
 export class UnitNotFoundError extends Error {
   readonly status = 404
   constructor() {
@@ -185,8 +193,15 @@ export async function createSchool(
 export async function updateSchool(unitId: string, input: UpdateSchoolInput): Promise<Unit> {
   const data = UpdateSchoolSchema.parse(input)
 
-  const existing = await prisma.unit.findUnique({ where: { id: unitId } })
+  const existing = await prisma.unit.findUnique({
+    where: { id: unitId },
+    include: { billingConfig: { select: { dueDay: true } } },
+  })
   if (!existing) throw new UnitNotFoundError()
+  // Subscriptions are aligned to dueDay, so it never changes. See ADR-0007.
+  if (existing.billingConfig && data.billing.dueDay !== existing.billingConfig.dueDay) {
+    throw new DueDayImmutableError()
+  }
 
   const plan = getPlan(data.plan.planId)
   if (!plan) throw new InvalidPlanError()
@@ -223,7 +238,6 @@ export async function updateSchool(unitId: string, input: UpdateSchoolInput): Pr
     await tx.billingConfig.update({
       where: { unitId },
       data: {
-        dueDay: data.billing.dueDay,
         closingDay: data.billing.closingDay,
         lateFeePercent: data.billing.lateFeePercent,
         monthlyInterestBp: data.billing.monthlyInterestBp,

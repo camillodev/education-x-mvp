@@ -11,6 +11,7 @@ interface Props {
   plano: PlanState
   onCobrancaChange: (c: Partial<BillingState>) => void
   onPlanoChange: (p: Partial<PlanState>) => void
+  dueDayLocked?: boolean
 }
 
 function bpToPercent(bp: number): string {
@@ -26,6 +27,7 @@ export function StepFinancial({
   plano,
   onCobrancaChange,
   onPlanoChange,
+  dueDayLocked = false,
 }: Props) {
   const inputCls =
     'mt-1 block w-full rounded-md border border-[var(--color-border-input)] px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary-ring)]'
@@ -69,15 +71,20 @@ export function StepFinancial({
             <label className="block text-sm font-medium text-[var(--color-text)]" htmlFor="dueDay">
               Dia de vencimento do boleto *
             </label>
-            <p className="text-xs text-[var(--color-text-subtle)]">Quando o responsável deve pagar (1 a 28)</p>
+            <p className="text-xs text-[var(--color-text-subtle)]">
+              {dueDayLocked
+                ? 'Este dia não pode ser alterado depois que a escola é criada.'
+                : 'Quando o responsável deve pagar (1 a 28)'}
+            </p>
             <input
               id="dueDay"
               type="number"
               min={1}
               max={28}
               value={cobranca.dueDay}
+              readOnly={dueDayLocked}
               onChange={(e) => onCobrancaChange({ dueDay: parseInt(e.target.value) || 1 })}
-              className={inputCls}
+              className={`${inputCls} ${dueDayLocked ? 'cursor-not-allowed bg-gray-50 text-[var(--color-text-subtle)]' : ''}`}
             />
           </div>
 
