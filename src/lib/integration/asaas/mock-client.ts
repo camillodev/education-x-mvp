@@ -25,6 +25,7 @@ function uid(prefix: string): string {
 
 export class AsaasMockClient implements AsaasClient {
   // Exposed for test assertions
+  readonly createdSubAccounts: AsaasCreateSubAccountPayload[] = [];
   readonly createdPayments: AsaasPayment[] = [];
   readonly createdCustomers: AsaasCustomer[] = [];
   readonly createdDunnings: AsaasDunning[] = [];
@@ -40,6 +41,7 @@ export class AsaasMockClient implements AsaasClient {
   async createSubAccount(
     payload: AsaasCreateSubAccountPayload,
   ): Promise<AsaasSubAccountResponse> {
+    this.createdSubAccounts.push(payload);
     return {
       id: uid("acc"),
       apiKey: `$api_mock_${payload.cpfCnpj}`,

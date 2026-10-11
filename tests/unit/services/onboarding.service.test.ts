@@ -105,6 +105,7 @@ beforeEach(() => {
   mockAsaasClient = new AsaasMockClient()
   process.env.ENCRYPTION_KEY = 'a'.repeat(64)
   process.env.ASAAS_MODE = 'mock'
+  process.env.ASAAS_WEBHOOK_TOKEN = 'w'.repeat(40)
 
   const mp = prisma as unknown as MockPrisma
   mp.unit.findUnique.mockResolvedValue(null)
@@ -135,6 +136,30 @@ describe('createSchool', () => {
     )
     expect(mp.billingConfig.create).toHaveBeenCalled()
     expect(mp.subject.createMany).toHaveBeenCalled()
+  })
+
+  it('registers the billing webhook on the sub-account at creation time', async () => {
+    process.env.ASAAS_WEBHOOK_TOKEN = 'w'.repeat(40)
+    await createSchool(baseInput, BASE_URL)
+
+    const [payload] = mockAsaasClient.createdSubAccounts
+    expect(payload.webhooks).toEqual([
+      expect.objectContaining({
+        url: `${BASE_URL}/api/webhook`,
+        authToken: 'w'.repeat(40),
+        events: ['PAYMENT_CREATED', 'PAYMENT_RECEIVED', 'PAYMENT_OVERDUE'],
+        sendType: 'SEQUENTIALLY',
+      }),
+    ])
+  })
+
+  it('writes nothing and creates no sub-account when ASAAS_WEBHOOK_TOKEN is missing', async () => {
+    delete process.env.ASAAS_WEBHOOK_TOKEN
+    const mp = prisma as unknown as MockPrisma
+
+    await expect(createSchool(baseInput, BASE_URL)).rejects.toThrow('ASAAS_WEBHOOK_TOKEN')
+    expect(mp.unit.create).not.toHaveBeenCalled()
+    expect(mockAsaasClient.createdSubAccounts).toHaveLength(0)
   })
 
   it('persiste o plano no BillingConfig com preço snapshot', async () => {
