@@ -4,9 +4,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { getUnitContext, UnauthorizedError, ForbiddenError, type UnitContext } from "@/lib/auth/unit-context";
 import { landingPathForRole, SIGN_IN_INVALID_SESSION_ROUTE } from "@/lib/auth/auth";
 
-// Post-login dispatcher (EDU-81, ADR-0009): a user with a valid session is
-// redirected straight to their role's area. An anonymous visitor sees the
-// landing below normally. A session with invalid role/unitId signs out with an alert.
+// A signed-in user is sent to their role's area; anonymous visitors see the landing below.
+// See ADR-0009.
 export const dynamic = "force-dynamic";
 
 export default async function Home() {

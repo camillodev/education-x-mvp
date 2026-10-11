@@ -1,4 +1,4 @@
-export function EscolaResponsavelTerms() {
+export function GuardianSchoolTerms() {
   return (
     <>
       <p>
