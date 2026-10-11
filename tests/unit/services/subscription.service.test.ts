@@ -242,7 +242,7 @@ describe('cancelEnrollmentSubscription', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockDeleteSubscription.mockReset().mockResolvedValue(undefined)
-    db().enrollment.update.mockResolvedValue({})
+    db().enrollment.updateMany.mockResolvedValue({ count: 1 })
   })
 
   it('deletes the Asaas subscription and clears the local id', async () => {
@@ -251,8 +251,8 @@ describe('cancelEnrollmentSubscription', () => {
     await cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')
 
     expect(mockDeleteSubscription).toHaveBeenCalledWith('sub_1')
-    expect(db().enrollment.update).toHaveBeenCalledWith({
-      where: { id: 'enr-1' },
+    expect(db().enrollment.updateMany).toHaveBeenCalledWith({
+      where: { id: 'enr-1', asaasSubscriptionId: 'sub_1' },
       data: { asaasSubscriptionId: null },
     })
   })
@@ -263,7 +263,7 @@ describe('cancelEnrollmentSubscription', () => {
     await cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')
 
     expect(mockDeleteSubscription).not.toHaveBeenCalled()
-    expect(db().enrollment.update).not.toHaveBeenCalled()
+    expect(db().enrollment.updateMany).not.toHaveBeenCalled()
   })
 
   it('treats a subscription already gone in Asaas as deleted and still clears the local id', async () => {
@@ -272,8 +272,8 @@ describe('cancelEnrollmentSubscription', () => {
 
     await cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')
 
-    expect(db().enrollment.update).toHaveBeenCalledWith({
-      where: { id: 'enr-1' },
+    expect(db().enrollment.updateMany).toHaveBeenCalledWith({
+      where: { id: 'enr-1', asaasSubscriptionId: 'sub_1' },
       data: { asaasSubscriptionId: null },
     })
   })
@@ -284,8 +284,8 @@ describe('cancelEnrollmentSubscription', () => {
     await cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')
 
     expect(mockDeleteSubscription).not.toHaveBeenCalled()
-    expect(db().enrollment.update).toHaveBeenCalledWith({
-      where: { id: 'enr-1' },
+    expect(db().enrollment.updateMany).toHaveBeenCalledWith({
+      where: { id: 'enr-1', asaasSubscriptionId: 'claim:enr-1' },
       data: { asaasSubscriptionId: null },
     })
   })
@@ -295,7 +295,21 @@ describe('cancelEnrollmentSubscription', () => {
     mockDeleteSubscription.mockRejectedValue(new Error('asaas down'))
 
     await expect(cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')).rejects.toThrow('asaas down')
-    expect(db().enrollment.update).not.toHaveBeenCalled()
+    expect(db().enrollment.updateMany).not.toHaveBeenCalled()
+  })
+  it('deletes the real subscription when the cron replaced the claim while cancel was running', async () => {
+    db().enrollment.findUniqueOrThrow
+      .mockResolvedValueOnce({ asaasSubscriptionId: 'claim:enr-1' })
+      .mockResolvedValueOnce({ asaasSubscriptionId: 'sub_1' })
+    db().enrollment.updateMany.mockResolvedValueOnce({ count: 0 }).mockResolvedValueOnce({ count: 1 })
+
+    await cancelEnrollmentSubscription('unit-1', 'enr-1', 'key')
+
+    expect(mockDeleteSubscription).toHaveBeenCalledWith('sub_1')
+    expect(db().enrollment.updateMany).toHaveBeenLastCalledWith({
+      where: { id: 'enr-1', asaasSubscriptionId: 'sub_1' },
+      data: { asaasSubscriptionId: null },
+    })
   })
 })
 
@@ -348,7 +362,9 @@ describe('cancelActiveEnrollment', () => {
 
     await cancelActiveEnrollment('unit-1', 'enr-1', 'key')
 
-    expect(db().enrollment.updateMany).not.toHaveBeenCalled()
+    expect(db().enrollment.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'CANCELLED' }) })
+    )
     expect(mockDeleteSubscription).toHaveBeenCalledWith('sub_1')
   })
 

@@ -9,6 +9,8 @@ export const SUBSCRIPTION_MIGRATION_BATCH_SIZE = 50
 // Reserves the Enrollment before the Asaas call: Asaas does not dedupe by externalReference, so a
 // retry after a half-finished run would create a second live subscription.
 const CLAIM_PREFIX = 'claim:'
+// claim -> real id -> null: three reads always settle it.
+const CANCEL_MAX_ATTEMPTS = 3
 const claimToken = (enrollmentId: string) => `${CLAIM_PREFIX}${enrollmentId}`
 
 export class EnrollmentNotFoundError extends Error {
@@ -179,22 +181,30 @@ export async function cancelEnrollmentSubscription(
   asaasApiKey: string
 ): Promise<void> {
   const db = forUnit(unitId)
-  const { asaasSubscriptionId } = await db.enrollment.findUniqueOrThrow({
-    where: { id: enrollmentId },
-    select: { asaasSubscriptionId: true },
-  })
-  if (!asaasSubscriptionId) return
 
-  // A claim has no Asaas subscription to delete yet; clearing it makes a migration run in flight
-  // delete its own subscription. Already gone in Asaas counts as deleted, so a retry can finish.
-  if (!asaasSubscriptionId.startsWith(CLAIM_PREFIX)) {
-    try {
-      await getAsaasClient(asaasApiKey).deleteSubscription(asaasSubscriptionId)
-    } catch (error) {
-      if (!(error instanceof AsaasNotFoundError)) throw error
+  // The id can move from claim to real while we work, so the clear is conditional on the value
+  // we acted on and a lost race re-reads it. A claim has no Asaas subscription to delete yet.
+  for (let attempt = 0; attempt < CANCEL_MAX_ATTEMPTS; attempt++) {
+    const { asaasSubscriptionId } = await db.enrollment.findUniqueOrThrow({
+      where: { id: enrollmentId },
+      select: { asaasSubscriptionId: true },
+    })
+    if (!asaasSubscriptionId) return
+
+    if (!asaasSubscriptionId.startsWith(CLAIM_PREFIX)) {
+      try {
+        await getAsaasClient(asaasApiKey).deleteSubscription(asaasSubscriptionId)
+      } catch (error) {
+        if (!(error instanceof AsaasNotFoundError)) throw error
+      }
     }
+    const cleared = await db.enrollment.updateMany({
+      where: { id: enrollmentId, asaasSubscriptionId },
+      data: { asaasSubscriptionId: null },
+    })
+    if (cleared.count === 1) return
   }
-  await db.enrollment.update({ where: { id: enrollmentId }, data: { asaasSubscriptionId: null } })
+  throw new Error(`Subscription id kept changing while cancelling — enrollmentId=${enrollmentId}`)
 }
 
 // Inactivate first: the migration cron selects ACTIVE Enrollments and would recreate the
