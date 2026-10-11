@@ -1,6 +1,6 @@
 # ADR-0007: Emissão híbrida — `POST /payments` na 1ª competência, `subscriptions` a partir da 2ª
 
-**Status:** Accepted (Gate 2 — Rafa, 2026-09-08) · **Emendado em 2026-09-09** (ver "Emenda 1")
+**Status:** Accepted (Gate 2 — Rafa, 2026-09-08) · **Emendado em 2026-10-10** (ver Emendas 1–3)
 **Data:** 2026-09-08
 
 ## Contexto
@@ -154,6 +154,22 @@ ou nunca chegar (a Asaas pausa a fila de webhooks após 15 falhas consecutivas �
 gerou após X dias), não uma revisão de arquitetura da régua. EDU-29/30 seguem com o desenho já
 existente, ganhando apenas uma dependência declarada de um mecanismo de reconciliação a ser criado
 à parte.
+
+## Emenda 3 (2026-10-10) — antecedência de geração é configuração de conta
+
+**Achado (doc oficial, [FAQ — Assinaturas](https://docs.asaas.com/docs/faq-assinaturas)):** a
+antecedência de geração das cobranças de uma `subscription` é da **conta**, não da
+`subscription`. O padrão é 40 dias e a conta pode configurar 14 ou 7. O schema OpenAPI
+`SubscriptionSaveRequestDTO` não tem campo de antecedência, e a documentação não diz onde a
+conta é configurada (lacuna conhecida).
+
+**Decisão:** a decisão #5 ("14 dias") deixa de ser parâmetro de chamada e vira configuração de
+cada subconta (cada `Unit` é uma subconta). Consequências:
+- Até a configuração ser localizada e automatizada (EDU-126), vale o padrão de 40 dias no alpha.
+  A `Invoice` nasce ainda mais cedo, então a folga descrita na Emenda 2 só aumenta.
+- Registrar o webhook e a antecedência na subconta faz parte do onboarding (EDU-126).
+- O campo `account` na raiz do payload identifica a conta emissora e é candidato a checagem extra
+  de tenant (decisão no EDU-64).
 
 ## O que fica fora de escopo deste ADR
 
