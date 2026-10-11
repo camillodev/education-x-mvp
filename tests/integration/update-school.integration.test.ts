@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, afterAll } from 'vitest'
 import { prisma } from '@/lib/db'
-import { updateSchool, UnitNotFoundError } from '@/lib/services/onboarding.service'
+import { updateSchool, UnitNotFoundError, DueDayImmutableError } from '@/lib/services/onboarding.service'
 import { cleanupUnits, TEST_PREFIX } from './_setup'
 import type { UpdateSchoolInput } from '@/lib/validations/unit'
 
@@ -35,7 +35,7 @@ function validInput(): UpdateSchoolInput {
     cep: '30350540', address: 'Rua Nova Grande', number: '99', neighborhood: 'Savassi',
     city: 'BH', state: 'MG', isFranchise: false,
     responsibleName: 'Maria Nova', responsibleEmail: 'maria@r.com', responsiblePhone: '31977776666',
-    billing: { dueDay: 10, closingDay: 5, lateFeePercent: 200, monthlyInterestBp: 150,
+    billing: { dueDay: 5, closingDay: 5, lateFeePercent: 200, monthlyInterestBp: 150,
       cardFeePayer: 'ESCOLA', negativacaoFeePayer: 'ESCOLA', municipalRegistration: '9999' },
     plan: { planId: 'crescimento', isBeta: false },
     subjects: [{ name: 'Matemática', nfseServiceCode: '0801', priceCents: 30000, annualPriceCents: 300000, isActive: true }],
@@ -53,10 +53,22 @@ describe('updateSchool (integração — banco real)', () => {
     })
     expect(reloaded.name).toBe(`${TEST_PREFIX} Escola Nova`)
     expect(reloaded.city).toBe('BH')
-    expect(reloaded.billingConfig?.dueDay).toBe(10)
+    expect(reloaded.billingConfig?.closingDay).toBe(5)
     expect(reloaded.billingConfig?.planId).toBe('crescimento')
     expect(reloaded.subjects).toHaveLength(1)
     expect(reloaded.subjects[0].name).toBe('Matemática')
+  })
+
+  it('rejects a changed dueDay and leaves the school untouched', async () => {
+    const unit = await seedUnit()
+    const input = validInput()
+    input.billing.dueDay = 10
+
+    await expect(updateSchool(unit.id, input)).rejects.toBeInstanceOf(DueDayImmutableError)
+
+    const after = await prisma.unit.findUniqueOrThrow({ where: { id: unit.id }, include: { billingConfig: true } })
+    expect(after.name).toBe(`${TEST_PREFIX} Escola a`)
+    expect(after.billingConfig?.dueDay).toBe(5)
   })
 
   it('não altera cnpj', async () => {
@@ -87,9 +99,9 @@ describe('updateSchool (integração — banco real)', () => {
     // Estratégia (Option B — constraint violation no banco):
     // priceCents: 2_147_483_648 passa no Zod (z.number().int().positive())
     // mas viola o range do tipo INT do Postgres (max 2_147_483_647).
-    // A tx executa: unit.update → billingConfig.update (dueDay 5→10) → subject.deleteMany
+    // A tx executa: unit.update → billingConfig.update (closingDay 1→5) → subject.deleteMany
     // → subject.createMany ← FALHA AQUI no banco.
-    // O Postgres reverte tudo. A assertiva confirma que dueDay permanece 5 (não 10).
+    // O Postgres reverte tudo. A assertiva confirma que closingDay permanece 1 (não 5).
     const unit = await seedUnit()
     const bad = validInput()
     // 2^31 = 2_147_483_648 > INT max (2_147_483_647) — passa Zod, falha no Postgres
@@ -101,7 +113,7 @@ describe('updateSchool (integração — banco real)', () => {
     await expect(updateSchool(unit.id, broken)).rejects.toBeTruthy()
 
     const after = await prisma.billingConfig.findFirst({ where: { unitId: unit.id } })
-    // dueDay deve ser 5 (seed), NÃO 10 (input) — prova que o rollback reverteu o billingConfig.update
-    expect(after?.dueDay).toBe(5)
+    // closingDay deve ser 1 (seed), NÃO 5 (input) — prova que o rollback reverteu o billingConfig.update
+    expect(after?.closingDay).toBe(1)
   })
 })

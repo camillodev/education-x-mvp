@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import {
   DuplicateCnpjError,
+  DueDayImmutableError,
   UnitNotFoundError,
   InvalidPlanError,
   AsaasProvisionError,
@@ -86,6 +87,9 @@ export function errorResponse(error: unknown, ctx: ErrorContext): NextResponse {
 function mapKnown(error: unknown): Omit<HandledError, 'detail'> {
   if (error instanceof DuplicateCnpjError) {
     return { message: 'CNPJ já cadastrado.', code: 'DUPLICATE_CNPJ', status: 409 }
+  }
+  if (error instanceof DueDayImmutableError) {
+    return { message: 'O dia de vencimento não pode ser alterado depois que a escola é criada.', code: 'DUE_DAY_IMMUTABLE', status: 400 }
   }
   if (error instanceof UnitNotFoundError) {
     return { message: 'Escola não encontrada.', code: 'NOT_FOUND', status: 404 }

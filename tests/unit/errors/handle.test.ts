@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { handleError, errorResponse } from '@/lib/errors/handle'
-import { DuplicateCnpjError, UnitNotFoundError } from '@/lib/services/onboarding.service'
+import { DuplicateCnpjError, DueDayImmutableError, UnitNotFoundError } from '@/lib/services/onboarding.service'
 import { GuardianNotFoundError } from '@/lib/services/approval.service'
 
 describe('handleError', () => {
@@ -38,6 +38,12 @@ describe('handleError', () => {
   it('mapeia UnitNotFoundError para NOT_FOUND', () => {
     const out = handleError(new UnitNotFoundError(), { route: 'PATCH /x' })
     expect(out.code).toBe('NOT_FOUND')
+  })
+
+  it('maps DueDayImmutableError to 400/DUE_DAY_IMMUTABLE', () => {
+    const r = handleError(new DueDayImmutableError(), { route: 'PATCH /api/schools/[unitId]' })
+    expect(r).toMatchObject({ status: 400, code: 'DUE_DAY_IMMUTABLE' })
+    expect(r.message).toMatch(/vencimento/i)
   })
 
   it('mapeia GuardianNotFoundError para NOT_FOUND', () => {
