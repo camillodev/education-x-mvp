@@ -275,6 +275,7 @@ model Enrollment {
   finalPriceCents    Int
   status             EnrollmentStatus @default(PENDING_CONFIRMATION)
   confirmationToken  String?          @unique
+  asaasSubscriptionId String?         @unique
 
   // Campos antecipados para F2/F3 (cobrança/dunning) — mesma tabela, spec SCHEMA-CONSOLIDADO.md
   isFirstChargeDone Boolean   @default(false)
