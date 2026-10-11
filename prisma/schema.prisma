@@ -62,7 +62,6 @@ enum InvoiceStatus {
   PAID // PAYMENT_RECEIVED recebido e processado
   OVERDUE // vencida (PAYMENT_OVERDUE do webhook)
   CANCELLED // cancelada manualmente ou pela escola
-  BLOCKED // não pode ser gerada (Guardian sem asaasCustomerId)
   ERROR // falha na criação no Asaas
   NEGATIVATED // ADR-0008 — negativada no SPC/Serasa
   REGULARIZED // ADR-0008 — negativação cancelada (pagamento recebido)

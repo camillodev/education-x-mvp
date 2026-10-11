@@ -7,6 +7,7 @@ import {
   emitUnitInvoices,
   emitDueInvoicesForActiveUnits,
   EnrollmentNotStartedError,
+  GuardianNotRegisteredError,
 } from '@/lib/services/billing.service'
 
 const mockCreatePayment = vi.fn()
@@ -223,7 +224,7 @@ describe('emitInvoice', () => {
     expect(result!.status).toBe('ERROR')
   })
 
-  it('idempotência genuína: Invoice existente PENDING/PAID/BLOCKED/CANCELLED retorna direto, sem chamar Asaas de novo', async () => {
+  it('idempotência genuína: Invoice existente PENDING/PAID/CANCELLED retorna direto, sem chamar Asaas de novo', async () => {
     const db = forUnit('unit-1') as unknown as MockForUnitDb
     db.invoice.findUnique.mockResolvedValue(EXISTING_INVOICE) // status: PENDING
 
@@ -233,24 +234,20 @@ describe('emitInvoice', () => {
     expect(mockCreatePayment).not.toHaveBeenCalled()
   })
 
-  it('BLOCKED: Guardian sem asaasCustomerId cria Invoice BLOCKED sem chamar Asaas (RN-02/RN-19)', async () => {
+  it('throws GuardianNotRegisteredError and creates no Invoice when Guardian has no asaasCustomerId', async () => {
     const db = forUnit('unit-1') as unknown as MockForUnitDb
     db.invoice.findUnique.mockResolvedValue(null)
     db.enrollment.findUniqueOrThrow.mockResolvedValue({
       ...ENROLLMENT_BASE,
       guardian: { id: 'guardian-1', asaasCustomerId: null },
     })
-    db.invoice.create.mockResolvedValue({ ...RESERVED_INVOICE, status: 'BLOCKED' })
 
-    const result = await emitInvoice('unit-1', 'enr-1', '2026-09', 'asaas_key')
-
-    expect(mockCreatePayment).not.toHaveBeenCalled()
-    expect(db.invoice.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ status: 'BLOCKED', idempotencyKey: 'enr-1:2026-09' }),
-      })
+    await expect(emitInvoice('unit-1', 'enr-1', '2026-09', 'asaas_key')).rejects.toBeInstanceOf(
+      GuardianNotRegisteredError
     )
-    expect(result!.status).toBe('BLOCKED')
+
+    expect(db.invoice.create).not.toHaveBeenCalled()
+    expect(mockCreatePayment).not.toHaveBeenCalled()
   })
 
   it('1ª competência sem startedAt: lança EnrollmentNotStartedError em vez de TypeError cru', async () => {
@@ -394,26 +391,21 @@ describe('emitBatchInvoices', () => {
     vi.clearAllMocks()
   })
 
-  it('agrega resultado por Enrollment ACTIVE do subjectId: emitted/blocked (RN-18)', async () => {
+  it('only selects ACTIVE Enrollments whose Guardian has an asaasCustomerId', async () => {
     const db = forUnit('unit-1') as unknown as MockForUnitDb
-    db.enrollment.findMany.mockResolvedValue([{ id: 'enr-1' }, { id: 'enr-2' }])
-    // emitInvoice decide idempotência/status internamente — mock 1 findUnique por enrollment
+    db.enrollment.findMany.mockResolvedValue([{ id: 'enr-2' }])
     db.invoice.findUnique.mockResolvedValue(null)
-    db.enrollment.findUniqueOrThrow
-      .mockResolvedValueOnce({ ...ENROLLMENT_BASE, id: 'enr-1', guardian: { asaasCustomerId: null } }) // BLOCKED
-      .mockResolvedValueOnce({ ...ENROLLMENT_BASE, id: 'enr-2' }) // PENDING
-    db.invoice.create
-      .mockResolvedValueOnce({ ...RESERVED_INVOICE, id: 'inv-1', status: 'BLOCKED' })
-      .mockResolvedValueOnce({ ...RESERVED_INVOICE, id: 'inv-2', status: 'PENDING' })
+    db.enrollment.findUniqueOrThrow.mockResolvedValue({ ...ENROLLMENT_BASE, id: 'enr-2' })
+    db.invoice.create.mockResolvedValue({ ...RESERVED_INVOICE, id: 'inv-2', status: 'PENDING' })
     db.invoice.update.mockResolvedValue({ ...RESERVED_INVOICE, id: 'inv-2', status: 'PENDING' })
 
     const result = await emitBatchInvoices('unit-1', 'subj-1', '2026-09', 'asaas_key')
 
     expect(db.enrollment.findMany).toHaveBeenCalledWith({
-      where: { subjectId: 'subj-1', status: 'ACTIVE' },
+      where: { subjectId: 'subj-1', status: 'ACTIVE', guardian: { asaasCustomerId: { not: null } } },
       select: { id: true },
     })
-    expect(result).toEqual({ emitted: 1, skipped: 0, blocked: 1, errors: 0 })
+    expect(result).toEqual({ emitted: 1, skipped: 0, errors: 0 })
   })
 
   it('RN-13: uma Enrollment com Invoice ERROR do mesmo mês é re-tentada pelo lote, não pulada', async () => {
@@ -427,23 +419,7 @@ describe('emitBatchInvoices', () => {
     const result = await emitBatchInvoices('unit-1', 'subj-1', '2026-09', 'asaas_key')
 
     expect(mockCreatePayment).toHaveBeenCalled()
-    expect(result).toEqual({ emitted: 1, skipped: 0, blocked: 0, errors: 0 })
-  })
-
-  it('BLOCKED não chama Asaas para nenhuma Enrollment do lote (RN-19)', async () => {
-    const db = forUnit('unit-1') as unknown as MockForUnitDb
-    db.enrollment.findMany.mockResolvedValue([{ id: 'enr-1' }])
-    db.invoice.findUnique.mockResolvedValue(null)
-    db.enrollment.findUniqueOrThrow.mockResolvedValue({
-      ...ENROLLMENT_BASE,
-      id: 'enr-1',
-      guardian: { asaasCustomerId: null },
-    })
-    db.invoice.create.mockResolvedValue({ ...RESERVED_INVOICE, status: 'BLOCKED' })
-
-    await emitBatchInvoices('unit-1', 'subj-1', '2026-09', 'asaas_key')
-
-    expect(mockCreatePayment).not.toHaveBeenCalled()
+    expect(result).toEqual({ emitted: 1, skipped: 0, errors: 0 })
   })
 })
 
@@ -469,10 +445,10 @@ describe('emitUnitInvoices', () => {
     const result = await emitUnitInvoices('unit-1', '2026-09', 'asaas_key')
 
     expect(db.enrollment.findMany).toHaveBeenCalledWith({
-      where: { status: 'ACTIVE' },
+      where: { status: 'ACTIVE', guardian: { asaasCustomerId: { not: null } } },
       select: { id: true },
     })
-    expect(result).toEqual({ emitted: 2, skipped: 0, blocked: 0, errors: 0 })
+    expect(result).toEqual({ emitted: 2, skipped: 0, errors: 0 })
   })
 
   it('não pega Enrollment CANCELLED/SUSPENDED — a query Prisma já filtra por status ACTIVE, o teste confirma que o filtro foi passado corretamente', async () => {
@@ -482,9 +458,9 @@ describe('emitUnitInvoices', () => {
     const result = await emitUnitInvoices('unit-1', '2026-09', 'asaas_key')
 
     expect(db.enrollment.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { status: 'ACTIVE' } })
+      expect.objectContaining({ where: { status: 'ACTIVE', guardian: { asaasCustomerId: { not: null } } } })
     )
-    expect(result).toEqual({ emitted: 0, skipped: 0, blocked: 0, errors: 0 })
+    expect(result).toEqual({ emitted: 0, skipped: 0, errors: 0 })
   })
 
   it('delega corretamente para emitForEnrollments: chama a Asaas para cada enrollment id retornado', async () => {
@@ -570,7 +546,7 @@ describe('emitDueInvoicesForActiveUnits', () => {
     const results = await emitDueInvoicesForActiveUnits('2026-03')
 
     expect(results).toEqual([
-      expect.objectContaining({ unitId: 'unit-1', ok: true, emitted: 1, skipped: 0, blocked: 0, errors: 0 }),
+      expect.objectContaining({ unitId: 'unit-1', ok: true, emitted: 1, skipped: 0, errors: 0 }),
     ])
   })
 
@@ -588,7 +564,7 @@ describe('emitDueInvoicesForActiveUnits', () => {
 
     expect(results).toEqual([
       expect.objectContaining({ unitId: 'unit-falha', ok: false, error: 'Asaas fora do ar' }),
-      expect.objectContaining({ unitId: 'unit-ok', ok: true, emitted: 0, skipped: 0, blocked: 0, errors: 0 }),
+      expect.objectContaining({ unitId: 'unit-ok', ok: true, emitted: 0, skipped: 0, errors: 0 }),
     ])
   })
 })
@@ -640,16 +616,16 @@ describe('listInvoices', () => {
     expect(result.items).toHaveLength(1)
   })
 
-  it('AC2: filters.status = BLOCKED retorna só Invoices BLOCKED', async () => {
+  it('AC2: filters.status = ERROR returns only ERROR Invoices', async () => {
     const { listInvoices } = await import('@/lib/services/billing.service')
     const db = forUnit('unit-1') as unknown as MockForUnitDb
-    db.invoice.findMany.mockResolvedValue([makeInvoiceRow({ status: 'BLOCKED' })])
+    db.invoice.findMany.mockResolvedValue([makeInvoiceRow({ status: 'ERROR' })])
     db.invoice.count.mockResolvedValue(1)
 
-    await listInvoices('unit-1', { status: 'BLOCKED' })
+    await listInvoices('unit-1', { status: 'ERROR' })
 
     expect(db.invoice.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ status: 'BLOCKED' }) })
+      expect.objectContaining({ where: expect.objectContaining({ status: 'ERROR' }) })
     )
   })
 
@@ -692,13 +668,13 @@ describe('listInvoices', () => {
     expect(result.totalPages).toBe(2)
   })
 
-  it('count recebe o mesmo where que findMany — senão totalPages mente sob filtro (ex: status BLOCKED)', async () => {
+  it('count recebe o mesmo where que findMany — senão totalPages mente sob filtro (ex: status ERROR)', async () => {
     const { listInvoices } = await import('@/lib/services/billing.service')
     const db = forUnit('unit-1') as unknown as MockForUnitDb
     db.invoice.findMany.mockResolvedValue([])
     db.invoice.count.mockResolvedValue(0)
 
-    await listInvoices('unit-1', { status: 'BLOCKED' })
+    await listInvoices('unit-1', { status: 'ERROR' })
 
     const findManyWhere = db.invoice.findMany.mock.calls[0][0].where
     const countWhere = db.invoice.count.mock.calls[0][0].where

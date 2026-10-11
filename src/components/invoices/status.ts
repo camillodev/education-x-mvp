@@ -6,7 +6,6 @@ export const INVOICE_STATUS_LABEL: Record<string, string> = {
   PAID: 'Pago',
   OVERDUE: 'Vencida',
   CANCELLED: 'Cancelada',
-  BLOCKED: 'Aguardando cadastro',
   ERROR: 'Erro',
 }
 
@@ -15,6 +14,5 @@ export const INVOICE_STATUS_VARIANT: Record<string, 'success' | 'warning' | 'dan
   PAID: 'success',
   OVERDUE: 'danger',
   CANCELLED: 'neutral',
-  BLOCKED: 'warning',
   ERROR: 'danger',
 }

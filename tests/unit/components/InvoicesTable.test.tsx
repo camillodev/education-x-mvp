@@ -30,13 +30,6 @@ it('renderiza uma linha por item com os dados corretos', () => {
   expect(screen.getByText('R$ 350,00')).toBeInTheDocument()
 })
 
-it('linha com status BLOCKED mostra badge "Aguardando cadastro" cor warning', () => {
-  render(<InvoicesTable items={[makeItem({ status: 'BLOCKED' })]} onReemitir={vi.fn()} />)
-  const badge = screen.getByText('Aguardando cadastro')
-  expect(badge).toBeInTheDocument()
-  expect(badge.className).toMatch(/warning/)
-})
-
 it('linha com status ERROR mostra botão "Reemitir" habilitado', () => {
   render(<InvoicesTable items={[makeItem({ status: 'ERROR' })]} onReemitir={vi.fn()} />)
   expect(screen.getByRole('button', { name: /reemitir/i })).toBeEnabled()

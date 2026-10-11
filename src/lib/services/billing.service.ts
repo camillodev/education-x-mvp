@@ -12,6 +12,14 @@ export class EnrollmentNotStartedError extends Error {
   }
 }
 
+export class GuardianNotRegisteredError extends Error {
+  readonly status = 409
+  constructor() {
+    super('Guardian has no asaasCustomerId yet, cannot issue an Invoice')
+    this.name = 'GuardianNotRegisteredError'
+  }
+}
+
 export class MissingAsaasKeyError extends Error {
   readonly status = 409
   constructor() {
@@ -61,7 +69,7 @@ function nextDueDate(dueDay: number, referenceMonth: string, now: Date): Date {
 }
 
 // Núcleo compartilhado por cron, emissão avulsa e lote (spec .specs/mvp-03-cobranca-automatica.md §5d).
-// Retorna a Invoice existente/BLOCKED/PENDING/ERROR, ou null quando FREE_FIRST_MONTH pula a 1ª competência.
+// Retorna a Invoice existente/PENDING/ERROR, ou null quando FREE_FIRST_MONTH pula a 1ª competência.
 export async function emitInvoice(
   unitId: string,
   enrollmentId: string,
@@ -83,6 +91,8 @@ export async function emitInvoice(
   })
 
   const billingConfig = enrollment.unit.billingConfig!
+  const asaasCustomerId = enrollment.guardian.asaasCustomerId
+  if (!asaasCustomerId) throw new GuardianNotRegisteredError()
   const isFirstCharge = !enrollment.isFirstChargeDone
 
   // RN-15 — 1ª competência isenta: não emite Invoice, só marca a flag
@@ -124,7 +134,7 @@ export async function emitInvoice(
     // ambas pelo findUnique acima como "não existe" e ambas chamariam createPayment.
     try {
       invoice = await db.invoice.create({
-        data: { ...base, status: enrollment.guardian.asaasCustomerId ? 'PENDING' : 'BLOCKED' },
+        data: { ...base, status: 'PENDING' },
       })
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -140,9 +150,6 @@ export async function emitInvoice(
       await db.enrollment.update({ where: { id: enrollmentId }, data: { isFirstChargeDone: true } })
     }
   }
-
-  // RN-02/RN-19 — Guardian sem asaasCustomerId: BLOCKED, nunca chama Asaas
-  if (!enrollment.guardian.asaasCustomerId) return invoice
 
   // Invoice ERROR com asaasPaymentId já preenchido: o createPayment anterior teve sucesso na
   // Asaas, só o update local que grava o vínculo falhou (timeout/erro transitório de rede/DB).
@@ -161,7 +168,7 @@ export async function emitInvoice(
 
   try {
     const payment = await client.createPayment({
-      customer: enrollment.guardian.asaasCustomerId,
+      customer: asaasCustomerId,
       billingType: 'BOLETO',
       value: amountCents / 100,
       dueDate: dueDate.toISOString().slice(0, 10),
@@ -198,7 +205,6 @@ export async function emitInvoice(
 export interface BatchEmitResult {
   emitted: number
   skipped: number
-  blocked: number
   errors: number
 }
 
@@ -211,13 +217,12 @@ async function emitForEnrollments(
   referenceMonth: string,
   asaasApiKey: string
 ): Promise<BatchEmitResult> {
-  const result: BatchEmitResult = { emitted: 0, skipped: 0, blocked: 0, errors: 0 }
+  const result: BatchEmitResult = { emitted: 0, skipped: 0, errors: 0 }
 
   for (const enrollmentId of enrollmentIds) {
     try {
       const invoice = await emitInvoice(unitId, enrollmentId, referenceMonth, asaasApiKey)
       if (!invoice) result.skipped++
-      else if (invoice.status === 'BLOCKED') result.blocked++
       else if (invoice.status === 'ERROR') result.errors++
       else result.emitted++
     } catch {
@@ -237,7 +242,7 @@ export async function emitBatchInvoices(
 ): Promise<BatchEmitResult> {
   const db = forUnit(unitId)
   const enrollments = await db.enrollment.findMany({
-    where: { subjectId, status: 'ACTIVE' },
+    where: { subjectId, status: 'ACTIVE', guardian: { asaasCustomerId: { not: null } } },
     select: { id: true },
   })
   return emitForEnrollments(unitId, enrollments.map((e) => e.id), referenceMonth, asaasApiKey)
@@ -251,14 +256,14 @@ export async function emitUnitInvoices(
 ): Promise<BatchEmitResult> {
   const db = forUnit(unitId)
   const enrollments = await db.enrollment.findMany({
-    where: { status: 'ACTIVE' },
+    where: { status: 'ACTIVE', guardian: { asaasCustomerId: { not: null } } },
     select: { id: true },
   })
   return emitForEnrollments(unitId, enrollments.map((e) => e.id), referenceMonth, asaasApiKey)
 }
 
 export type UnitEmitResult =
-  | { unitId: string; ok: true; emitted: number; skipped: number; blocked: number; errors: number }
+  | { unitId: string; ok: true; emitted: number; skipped: number; errors: number }
   | { unitId: string; ok: false; error: string }
 
 // RN-13 — orquestração do cron diário: seleciona Units com autoBilling ativo, só processa
@@ -287,7 +292,7 @@ export async function emitDueInvoicesForActiveUnits(referenceMonth: string): Pro
     try {
       const asaasApiKey = await decrypt(unit.asaasApiKeyEnc)
       const r = await emitUnitInvoices(unit.id, referenceMonth, asaasApiKey)
-      results.push({ unitId: unit.id, ok: true, emitted: r.emitted, skipped: r.skipped, blocked: r.blocked, errors: r.errors })
+      results.push({ unitId: unit.id, ok: true, emitted: r.emitted, skipped: r.skipped, errors: r.errors })
     } catch (err) {
       console.error(`[emitDueInvoicesForActiveUnits] unit=${unit.id}`, err)
       results.push({ unitId: unit.id, ok: false, error: err instanceof Error ? err.message : 'erro desconhecido' })

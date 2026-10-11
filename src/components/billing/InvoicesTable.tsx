@@ -14,7 +14,6 @@ const STATUS_LABEL: Record<string, string> = {
   PAID: 'Pago',
   OVERDUE: 'Vencida',
   CANCELLED: 'Cancelada',
-  BLOCKED: 'Aguardando cadastro',
   ERROR: 'Erro',
 }
 
@@ -23,7 +22,6 @@ const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'neutral
   PAID: 'success',
   OVERDUE: 'danger',
   CANCELLED: 'neutral',
-  BLOCKED: 'warning',
   ERROR: 'danger',
 }
 

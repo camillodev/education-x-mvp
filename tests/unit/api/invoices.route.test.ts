@@ -59,15 +59,15 @@ it('200 sem query params: chama listInvoices com unitId da sessão e devolve ite
   expect(listInvoices).toHaveBeenCalledWith('unit-1', {})
 })
 
-it('?status=BLOCKED passa o filtro pro service', async () => {
+it('?status=ERROR passa o filtro pro service', async () => {
   const { GET } = await import('@/app/api/invoices/route')
   getUnitContext.mockResolvedValue({ role: 'orientador', unitId: 'unit-1', userId: 'u1' })
   listInvoices.mockResolvedValue({ items: [], page: 1, totalPages: 0, total: 0 })
 
-  const res = await GET(makeRequest('?status=BLOCKED'))
+  const res = await GET(makeRequest('?status=ERROR'))
 
   expect(res.status).toBe(200)
-  expect(listInvoices).toHaveBeenCalledWith('unit-1', expect.objectContaining({ status: 'BLOCKED' }))
+  expect(listInvoices).toHaveBeenCalledWith('unit-1', expect.objectContaining({ status: 'ERROR' }))
 })
 
 it('?referenceMonth=2026-06 passa o filtro pro service', async () => {
@@ -107,9 +107,9 @@ it('?unitId=unit-hacker no query é ignorado — unitId sempre vem da sessão Cl
   getUnitContext.mockResolvedValue({ role: 'orientador', unitId: 'unit-1', userId: 'u1' })
   listInvoices.mockResolvedValue({ items: [], page: 1, totalPages: 0, total: 0 })
 
-  const res = await GET(makeRequest('?unitId=unit-hacker&status=BLOCKED'))
+  const res = await GET(makeRequest('?unitId=unit-hacker&status=ERROR'))
 
   expect(res.status).toBe(200)
-  expect(listInvoices).toHaveBeenCalledWith('unit-1', expect.objectContaining({ status: 'BLOCKED' }))
+  expect(listInvoices).toHaveBeenCalledWith('unit-1', expect.objectContaining({ status: 'ERROR' }))
   expect(listInvoices).not.toHaveBeenCalledWith('unit-hacker', expect.anything())
 })
