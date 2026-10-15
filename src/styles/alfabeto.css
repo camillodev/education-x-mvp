@@ -211,7 +211,14 @@ html, body {
   text-rendering: optimizeLegibility;
 }
 
-button { font-family: inherit; }
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
 
 /* utility */
 .eyebrow {
