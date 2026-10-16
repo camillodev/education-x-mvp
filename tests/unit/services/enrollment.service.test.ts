@@ -283,6 +283,20 @@ describe("submitStudentsStep", () => {
       { studentId: "student-2", subjectIds: ["subj-1"] },
     ]);
   });
+
+  it("stores no encrypted student email when the optional field is blank", async () => {
+    const db = forUnit("unit-1") as unknown as MockForUnitDb;
+    db.student.create.mockResolvedValue({ id: "student-1" });
+
+    await submitStudentsStep("unit-1", "guardian-1", [{
+      ...blocks[0],
+      email: "",
+    }]);
+
+    expect(db.student.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ emailEnc: null }),
+    });
+  });
 });
 
 describe("submitPlanStep", () => {

@@ -148,7 +148,7 @@ export async function submitStudentsStep(
       await Promise.all([
         encrypt(block.name),
         encrypt(block.birthDate.toISOString()),
-        encrypt(block.email),
+        block.email ? encrypt(block.email) : Promise.resolve(null),
         block.cpf ? encrypt(block.cpf) : Promise.resolve(null),
         block.mobilePhone ? encrypt(block.mobilePhone) : Promise.resolve(null),
         block.rg || block.rgIssuer
