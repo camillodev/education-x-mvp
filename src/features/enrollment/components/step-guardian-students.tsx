@@ -6,7 +6,6 @@ import { Card } from "@/components/ui/Card";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Toggle } from "@/components/ui/toggle";
 import { Segmented } from "@/components/ui/segmented";
 import { StudentFields } from "./student-fields";
 import {
@@ -87,7 +86,8 @@ export function StepGuardianStudents(
               options={[
                 { value: "MOTHER", label: "Mãe" },
                 { value: "FATHER", label: "Pai" },
-                { value: "LEGAL_GUARDIAN", label: "Responsável legal" }]}
+                { value: "LEGAL_GUARDIAN", label: "Responsável legal" },
+              ]}
               value={guardian.guardianType ?? "MOTHER"}
               onChange={(value) => setValue("guardian.guardianType", value)}
               aria-label="Tipo de responsável"
@@ -188,7 +188,6 @@ export function StepGuardianStudents(
             />
           </Field>
 
-
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field
               label="CEP"
@@ -211,10 +210,11 @@ export function StepGuardianStudents(
               {postalLookup.message && (
                 <p
                   role="status"
-                  className={`text-xs ${postalLookup.status === "error"
-                    ? "text-(--color-danger-primary)"
-                    : "text-(--color-text-subtle)"
-                    }`}
+                  className={`text-xs ${
+                    postalLookup.status === "error"
+                      ? "text-(--color-danger-primary)"
+                      : "text-(--color-text-subtle)"
+                  }`}
                 >
                   {postalLookup.message}
                 </p>

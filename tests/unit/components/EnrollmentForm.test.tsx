@@ -37,7 +37,7 @@ describe("EnrollmentForm", () => {
       .toBeInTheDocument();
     expect(screen.getByText("Informe um CPF ou CNPJ válido."))
       .toBeInTheDocument();
-    expect(screen.getAllByText("Informe um e-mail válido.")).toHaveLength(2);
+    expect(screen.getByText("Informe um e-mail válido.")).toBeInTheDocument();
     expect(screen.getByText("Informe um celular válido com DDD."))
       .toBeInTheDocument();
     expect(screen.getByText("Informe o nome completo do aluno."))
@@ -123,7 +123,6 @@ describe("EnrollmentForm", () => {
       />,
     );
 
-    await user.click(screen.getByRole("switch"));
     await user.type(
       document.getElementById("guardian-address")!,
       "Rua digitada manualmente",

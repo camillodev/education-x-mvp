@@ -84,7 +84,7 @@ export function useEnrollmentForm({
           ]
         > = [
           ["address", "address"],
-          ["complement", "complement"],
+          // ["complement", "complement"],
           ["province", "province"],
           ["city", "city"],
           ["state", "state"],
