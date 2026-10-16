@@ -1,33 +1,55 @@
-'use client'
+"use client";
 
-import { useActionState, useState } from 'react'
-import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { formatBRL } from '@/lib/format'
-import { submitAcceptanceStepAction, type AcceptanceStepFormState } from './actions'
+import { useActionState, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { formatBRL } from "@/lib/format";
+import {
+  type AcceptanceStepInput,
+  AcceptanceStepSchema,
+} from "@/lib/validations/acceptance";
+import {
+  type AcceptanceStepFormState,
+  submitAcceptanceStepAction,
+} from "./actions";
 
 export interface StudentSummary {
-  name: string
-  subjectNames: string[]
+  name: string;
+  subjectNames: string[];
 }
 
 interface Props {
-  token: string
-  students: StudentSummary[]
-  planLabel: string
-  totalCents: number
-  dueDay: number
-  contractBody: string
+  token: string;
+  students: StudentSummary[];
+  planLabel: string;
+  totalCents: number;
+  dueDay: number;
+  contractBody: string;
 }
 
-const INITIAL_STATE: AcceptanceStepFormState = {}
+const INITIAL_STATE: AcceptanceStepFormState = {};
 
-export function ReviewForm({ token, students, planLabel, totalCents, dueDay, contractBody }: Props) {
-  const action = submitAcceptanceStepAction.bind(null, token)
-  const [state, formAction, pending] = useActionState(action, INITIAL_STATE)
-  const [accepted, setAccepted] = useState(false)
-  const [contractOpen, setContractOpen] = useState(false)
+export function ReviewForm(
+  { token, students, planLabel, totalCents, dueDay, contractBody }: Props,
+) {
+  const action = submitAcceptanceStepAction.bind(null, token);
+  const [state, formAction, pending] = useActionState(action, INITIAL_STATE);
+  const [contractOpen, setContractOpen] = useState(false);
+  const { control, handleSubmit, formState: { errors } } = useForm<
+    AcceptanceStepInput
+  >({
+    resolver: zodResolver(AcceptanceStepSchema),
+    defaultValues: { accepted: false },
+  });
+
+  function submit(values: AcceptanceStepInput) {
+    const data = new FormData();
+    data.set("accepted", String(values.accepted));
+    formAction(data);
+  }
 
   return (
     <Card className="p-6">
@@ -36,20 +58,25 @@ export function ReviewForm({ token, students, planLabel, totalCents, dueDay, con
 
       <div className="mt-5 flex flex-col gap-4">
         <div className="rounded-(--radius-lg) bg-(--color-bg) p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-subtle)">Alunos</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-subtle)">
+            Alunos
+          </p>
           <ul className="mt-2 flex flex-col gap-1">
             {students.map((s, i) => (
               <li key={i} className="text-sm text-(--color-text)">
-                {s.name} — {s.subjectNames.join(', ')}
+                {s.name} — {s.subjectNames.join(", ")}
               </li>
             ))}
           </ul>
         </div>
 
         <div className="rounded-(--radius-lg) bg-(--color-bg) p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-subtle)">Plano</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-subtle)">
+            Plano
+          </p>
           <p className="mt-2 text-sm text-(--color-text)">
-            {planLabel} — {formatBRL(totalCents)} /mês, vencimento todo dia {dueDay}
+            {planLabel} — {formatBRL(totalCents)} /mês, vencimento todo dia{" "}
+            {dueDay}
           </p>
         </div>
 
@@ -60,7 +87,9 @@ export function ReviewForm({ token, students, planLabel, totalCents, dueDay, con
             className="flex w-full items-center justify-between text-left text-sm font-semibold text-(--color-text)"
           >
             Contrato com a escola
-            <span className="text-(--color-text-subtle)">{contractOpen ? '−' : '+'}</span>
+            <span className="text-(--color-text-subtle)">
+              {contractOpen ? "−" : "+"}
+            </span>
           </button>
           {contractOpen && (
             <div className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap text-xs text-(--color-text-subtle)">
@@ -69,31 +98,44 @@ export function ReviewForm({ token, students, planLabel, totalCents, dueDay, con
           )}
         </div>
 
-        <form action={formAction} className="flex flex-col gap-3">
-          <input type="hidden" name="accepted" value={accepted ? 'true' : 'false'} />
+        <form
+          onSubmit={handleSubmit(submit)}
+          noValidate
+          className="flex flex-col gap-3"
+        >
+          <Controller
+            name="accepted"
+            control={control}
+            render={({ field }) => (
+              <label className="flex cursor-pointer items-start gap-2.5">
+                <Checkbox
+                  checked={field.value}
+                  onChange={field.onChange}
+                  aria-label="Li e aceito o contrato"
+                />
+                <span className="text-sm text-(--color-text)">
+                  Li e aceito o contrato acima.
+                </span>
+              </label>
+            )}
+          />
 
-          <div
-            role="button"
-            tabIndex={-1}
-            onClick={() => setAccepted((v) => !v)}
-            className="flex cursor-pointer items-start gap-2.5"
+          {(errors.accepted?.message || state.error) && (
+            <p role="alert" className="text-sm text-(--color-danger)">
+              {errors.accepted?.message ?? state.error}
+            </p>
+          )}
+
+          <Button
+            type="submit"
+            size="lg"
+            disabled={pending}
+            className="mt-2 w-full"
           >
-            <Checkbox
-              checked={accepted}
-              onChange={setAccepted}
-              aria-label="Li e aceito o contrato"
-              className="pointer-events-none"
-            />
-            <span className="text-sm text-(--color-text)">Li e aceito o contrato acima.</span>
-          </div>
-
-          {state.error && <p className="text-sm text-(--color-danger)">{state.error}</p>}
-
-          <Button type="submit" size="lg" disabled={pending || !accepted} className="mt-2 w-full">
-            {pending ? 'Enviando…' : 'Enviar matrícula'}
+            {pending ? "Enviando…" : "Enviar matrícula"}
           </Button>
         </form>
       </div>
     </Card>
-  )
+  );
 }

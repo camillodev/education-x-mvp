@@ -1,313 +1,48 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Ban, Repeat, Wallet } from "lucide-react";
 import { SchoolShell } from "@/components/school/SchoolShell";
-import { StudentCard, emptyStudent, type StudentDraft } from "@/components/school/StudentCard";
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/badge";
-import { Field } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Segmented, type SegmentedOption } from "@/components/ui/segmented";
-import { SectionHead } from "@/components/patterns/SectionHead";
 import { useToast } from "@/components/ui/toast";
 import { useMockResource } from "@/hooks/use-mock-resource";
-import { formatBRL } from "@/lib/format";
-import { computeDiscountedCents, type DiscountType } from "@/lib/pricing";
 import type { EnrollmentPlan } from "@/lib/mock/types";
-import { GuardianForm } from "./GuardianForm";
-
-const MAX_STUDENTS = 5;
-
-type Tab = "cadastro" | "plano";
-
-const TABS: SegmentedOption<Tab>[] = [
-  { value: "cadastro", label: "1 · Cadastro" },
-  { value: "plano", label: "2 · Plano e cobrança" },
-];
+import { createEmptyEnrollmentFormValues } from "@/features/enrollment/enrollment-form.schema";
+import { EnrollmentForm } from "@/features/enrollment/enrollment-form";
 
 export default function NewEnrollmentPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [tab, setTab] = useState<Tab>("cadastro");
-
-  const { data: plansData } = useMockResource<EnrollmentPlan[]>("/api/mock/plans");
-  const plans = useMemo(() => plansData ?? [], [plansData]);
-
-  const [pagante, setPagante] = useState("");
-  const [cpf, setCpf] = useState("");
-  const [email, setEmail] = useState("");
-  const [tel, setTel] = useState("");
-  const [temEndereco, setTemEndereco] = useState(false);
-  const [cep, setCep] = useState("");
-  const [cidade, setCidade] = useState("");
-  const [rua, setRua] = useState("");
-  const [numero, setNumero] = useState("");
-  const [students, setStudents] = useState<StudentDraft[]>([emptyStudent()]);
-  const [plano, setPlano] = useState("Mensal");
-  const [descontoTipo, setDescontoTipo] = useState<DiscountType>("PERCENT");
-  const [descontoVal, setDescontoVal] = useState("0");
-  const [vencimento, setVencimento] = useState("10");
-
-  const goToList = () => router.push("/painel/matriculas");
-
-  const planObj = plans.find((p) => p.nome === plano) ?? plans[0];
-  const monthlyPlan = plans.find((p) => p.id === "mensal") ?? plans[0];
-  const baseMensal = monthlyPlan?.parcela ?? 0;
-  const withPlan = planObj?.parcela ?? 0;
-  const { discountCents, finalCents: totalMensal } = computeDiscountedCents(
-    withPlan,
-    descontoTipo,
-    descontoVal
+  const { data } = useMockResource<EnrollmentPlan[]>("/api/mock/plans");
+  const plans = useMemo(() => data ?? [], [data]);
+  const initialValues = useMemo(
+    () =>
+      createEmptyEnrollmentFormValues(
+        plans.find((plan) => plan.id === "mensal")?.nome ?? plans[0]?.nome ??
+          "Mensal",
+      ),
+    [plans],
   );
-  const economiaAnual = Math.max(0, (baseMensal - totalMensal) * 12);
-
-  const maxed = students.length >= MAX_STUDENTS;
-  const cadastroOk = Boolean(pagante && email && students.every((s) => s.aluno));
-
-  const patchStudent = (i: number, patch: Partial<StudentDraft>) =>
-    setStudents((prev) => prev.map((s, j) => (j === i ? { ...s, ...patch } : s)));
-  const addStudent = () =>
-    setStudents((prev) => (prev.length >= MAX_STUDENTS ? prev : [...prev, emptyStudent()]));
-  const removeStudent = (i: number) => setStudents((prev) => prev.filter((_, j) => j !== i));
+  const goToList = () => router.push("/painel/matriculas");
 
   return (
     <SchoolShell
       title="Nova matrícula"
       subtitle="Preencha os dados — o responsável só confirma e dá o aceite"
       onBack={goToList}
-      maxWidth={760}
     >
-      <div className="flex flex-col gap-[18px]">
-        <div className="overflow-x-auto pb-0.5">
-          <Segmented options={TABS} value={tab} onChange={setTab} />
-        </div>
-        {tab === "cadastro" && (
-          <>
-            <GuardianForm
-              initialValues={{
-                name: pagante,
-                cpf,
-                email,
-                phone: tel,
-                hasAddress: temEndereco,
-                cep,
-                city: cidade,
-                street: rua,
-                number: numero,
-              }}
-              onContinue={(values) => {
-                setPagante(values.name);
-                setCpf(values.cpf);
-                setEmail(values.email);
-                setTel(values.phone);
-                setTemEndereco(values.hasAddress);
-                setCep(values.cep);
-                setCidade(values.city);
-                setRua(values.street);
-                setNumero(values.number);
-                setTab("plano");
-              }}
-            />
-
-            {students.map((student, i) => (
-              <StudentCard
-                key={i}
-                index={i}
-                student={student}
-                plans={plans}
-                hidePlan
-                onChange={(patch) => patchStudent(i, patch)}
-                onRemove={students.length > 1 ? () => removeStudent(i) : undefined}
-              />
-            ))}
-
-            <button
-              type="button"
-              onClick={addStudent}
-              disabled={maxed}
-              className={`flex items-center justify-center gap-2 rounded-(--radius-md) border-[1.5px] border-dashed p-[13px] text-sm font-bold ${
-                maxed
-                  ? "cursor-not-allowed border-(--color-border) text-(--color-text-subtle) opacity-70"
-                  : "cursor-pointer border-(--color-primary) text-(--color-primary)"
-              }`}
-            >
-              {maxed ? <Ban size={17} /> : <Plus size={17} />}
-              {maxed ? "Máximo de alunos" : "Adicionar aluno"}
-            </button>
-
-            <div className="flex justify-between gap-3">
-              <Button variant="tertiary" onClick={goToList}>
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                form="new-enrollment-guardian-form"
-                size="lg"
-                iconRight="arrow-right"
-                disabled={!students.every((student) => student.aluno.trim().length > 0)}
-              >
-                Continuar para plano
-              </Button>
-            </div>
-          </>
-        )}
-
-        {tab === "plano" && (
-          <>
-            <Card className="p-6">
-              <SectionHead title="Plano" sub="Quanto mais longo o período, maior o desconto" />
-              <div className="flex flex-col gap-2.5">
-                {plans.map((p) => {
-                  const active = plano === p.nome;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      onClick={() => setPlano(p.nome)}
-                      className={`flex cursor-pointer items-center gap-3 rounded-(--radius-md) border-2 px-4 py-[15px] text-left transition-all ${
-                        active
-                          ? "border-(--color-primary) bg-(--color-primary-softer)"
-                          : "border-(--color-border-input) bg-(--color-bg)"
-                      }`}
-                    >
-                      <span
-                        className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2 ${
-                          active ? "border-(--color-primary)" : "border-(--color-border-input)"
-                        }`}
-                      >
-                        {active && <span className="h-[11px] w-[11px] rounded-full bg-(--color-primary)" />}
-                      </span>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[15.5px] font-bold">{p.nome}</span>
-                          {p.badge && (
-                            <Badge variant={p.id === "anual" ? "success" : "primary"} size="sm">
-                              {p.badge}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="mt-0.5 text-[13px] text-(--color-text-subtle)">{p.desc}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-base font-bold text-(--color-text)">{formatBRL(p.parcela)}</div>
-                        <div className="text-[11.5px] text-(--color-text-subtle)">/mês</div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="mt-3.5 flex items-start gap-[9px] rounded-(--radius-md) bg-(--color-surface) px-3.5 py-3 text-[12.5px] leading-normal text-(--color-text-muted)">
-                <Repeat size={15} className="mt-px shrink-0 text-(--color-primary)" />
-                <span>
-                  Cobrança recorrente como <strong className="text-(--color-text)">assinatura</strong> —
-                  sem parcelamento. O responsável paga via cartão, boleto ou PIX.
-                </span>
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <SectionHead title="Desconto de negociação" sub="Aplicado sobre a mensalidade total" />
-              <div className="flex items-center gap-2.5">
-                <Segmented
-                  size="sm"
-                  value={descontoTipo}
-                  onChange={setDescontoTipo}
-                  options={[
-                    { value: "PERCENT" as DiscountType, label: "%" },
-                    { value: "FIXED" as DiscountType, label: "R$" },
-                  ]}
-                />
-                <Input
-                  className="flex-1"
-                  value={descontoVal}
-                  onChange={(e) => setDescontoVal(e.target.value)}
-                  inputMode="decimal"
-                  placeholder={descontoTipo === "PERCENT" ? "10" : "50,00"}
-                  trailing={
-                    descontoTipo === "PERCENT" ? (
-                      <span className="text-[13.5px] font-semibold text-(--color-text-muted)">%</span>
-                    ) : undefined
-                  }
-                />
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <SectionHead
-                title="Vencimento da fatura"
-                sub="Vem das configurações da escola — ajuste se precisar"
-              />
-              <Field label="Dia do vencimento" hint="Todo mês o boleto vence neste dia">
-                <Input
-                  className="max-w-[220px]"
-                  value={vencimento}
-                  onChange={(e) => setVencimento(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                  inputMode="numeric"
-                  trailing={
-                    <span className="whitespace-nowrap text-[13.5px] font-semibold text-(--color-text-muted)">
-                      de cada mês
-                    </span>
-                  }
-                />
-              </Field>
-            </Card>
-
-            <Card className="p-6">
-              <SectionHead
-                title="Resumo da cobrança"
-                sub={`${students.length} ${students.length === 1 ? "aluno" : "alunos"} · plano ${plano} · vence dia ${vencimento}`}
-              />
-              <div className="overflow-hidden rounded-(--radius-md) border border-(--color-border)">
-                {[
-                  ["Mensalidade cheia", formatBRL(baseMensal)],
-                  [`Desconto do plano ${plano}`, `− ${formatBRL(Math.max(0, baseMensal - withPlan))}`],
-                  ["Desconto de negociação", `− ${formatBRL(discountCents)}`],
-                  ["Economia anual total", formatBRL(economiaAnual)],
-                ].map(([label, value]) => (
-                  <div
-                    key={label}
-                    className="flex justify-between bg-(--color-bg) px-4 py-3 text-[13.5px]"
-                  >
-                    <span className="text-(--color-text-subtle)">{label}</span>
-                    <span className="font-semibold">{value}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3.5 flex items-center justify-between rounded-(--radius-md) bg-(--color-primary) p-[18px] text-white">
-                <span className="inline-flex items-center gap-[9px]">
-                  <Wallet size={18} />
-                  <span className="text-sm font-semibold opacity-90">Total mensal a pagar</span>
-                </span>
-                <span className="text-[26px] font-extrabold tracking-[-0.02em]">
-                  {formatBRL(totalMensal)}
-                </span>
-              </div>
-            </Card>
-
-            <div className="flex justify-between gap-3">
-              <Button variant="tertiary" iconLeft="arrow-left" onClick={() => setTab("cadastro")}>
-                Voltar
-              </Button>
-              <Button
-                size="lg"
-                iconRight="send"
-                disabled={!cadastroOk}
-                onClick={() => {
-                  toast(`Link de confirmação enviado para ${email}`, "success");
-                  goToList();
-                }}
-              >
-                Enviar para confirmação
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
+      <EnrollmentForm
+        mode="create"
+        initialValues={initialValues}
+        plans={plans}
+        onCancel={goToList}
+        onSave={(values) => {
+          toast(
+            `Link de confirmação enviado para ${values.guardian.email}`,
+            "success",
+          );
+          goToList();
+        }}
+      />
     </SchoolShell>
   );
 }

@@ -1,43 +1,51 @@
-import { prisma, forUnit } from '../db'
-import { encrypt } from '../crypto'
-import { GuardianStepSchema, type GuardianStepInput } from '../validations/guardian'
-import type { StudentBlockOutput } from '../validations/student'
-import { priceCentsForPlan, type EnrollmentPlanValue } from '../validations/plan'
-import { getUnitContract } from './contract.service'
-import type { Guardian } from '@prisma/client'
+import { forUnit, prisma } from "../db";
+import { encrypt } from "../crypto";
+import {
+  type GuardianStepInput,
+  GuardianStepSchema,
+} from "../validations/guardian";
+import type { StudentBlockOutput } from "../validations/student";
+import {
+  type EnrollmentPlanValue,
+  priceCentsForPlan,
+} from "../validations/plan";
+import { getUnitContract } from "./contract.service";
+import type { Guardian } from "@prisma/client";
 
 export class InvalidEnrollmentLinkError extends Error {
-  readonly status = 404
+  readonly status = 404;
   constructor() {
-    super('Link de matrícula inválido ou expirado')
-    this.name = 'InvalidEnrollmentLinkError'
+    super("Link de matrícula inválido ou expirado");
+    this.name = "InvalidEnrollmentLinkError";
   }
 }
 
 export class GuardianOwnershipError extends Error {
-  readonly status = 403
+  readonly status = 403;
   constructor() {
-    super('Guardian não pertence a esta unidade')
-    this.name = 'GuardianOwnershipError'
+    super("Guardian não pertence a esta unidade");
+    this.name = "GuardianOwnershipError";
   }
 }
 
 export interface EnrollmentLinkContext {
-  unitId: string
-  unitName: string
+  unitId: string;
+  unitName: string;
 }
 
 // Resolve o link público e estável de matrícula (/m/[token]) para a Unit correspondente.
 // Nunca escreve no banco — tela B1 é 100% leitura.
-export async function resolveEnrollmentLink(token: string): Promise<EnrollmentLinkContext> {
+export async function resolveEnrollmentLink(
+  token: string,
+): Promise<EnrollmentLinkContext> {
   const unit = await prisma.unit.findUnique({
     where: { enrollmentLinkToken: token },
     select: { id: true, name: true },
-  })
+  });
 
-  if (!unit) throw new InvalidEnrollmentLinkError()
+  if (!unit) throw new InvalidEnrollmentLinkError();
 
-  return { unitId: unit.id, unitName: unit.name }
+  return { unitId: unit.id, unitName: unit.name };
 }
 
 // B2 — cria ou atualiza o Guardian do fluxo de matrícula em andamento.
@@ -47,16 +55,40 @@ export async function resolveEnrollmentLink(token: string): Promise<EnrollmentLi
 export async function submitGuardianStep(
   unitId: string,
   existingGuardianId: string | null,
-  input: GuardianStepInput
+  input: GuardianStepInput,
 ): Promise<Guardian> {
-  const data = GuardianStepSchema.parse(input)
-  const db = forUnit(unitId)
+  const data = GuardianStepSchema.parse(input);
+  const db = forUnit(unitId);
 
-  const [cpfEnc, emailEnc, phoneEnc] = await Promise.all([
-    encrypt(data.cpf),
+  const encryptOptional = (value: string) =>
+    value ? encrypt(value) : Promise.resolve(null);
+  const [
+    cpfEnc,
+    emailEnc,
+    phoneEnc,
+    postalCodeEnc,
+    addressEnc,
+    addressNumberEnc,
+    complementEnc,
+    provinceEnc,
+    cityEnc,
+    stateEnc,
+    landlineEnc,
+    additionalEmailsEnc,
+  ] = await Promise.all([
+    encrypt(data.cpfCnpj),
     encrypt(data.email),
-    encrypt(data.phone),
-  ])
+    encrypt(data.mobilePhone),
+    encryptOptional(data.postalCode),
+    encryptOptional(data.address),
+    encryptOptional(data.addressNumber),
+    encryptOptional(data.complement),
+    encryptOptional(data.province),
+    encryptOptional(data.city),
+    encryptOptional(data.state),
+    encryptOptional(data.phone),
+    encryptOptional(data.additionalEmails),
+  ]);
 
   const guardianData = {
     unitId,
@@ -64,22 +96,36 @@ export async function submitGuardianStep(
     cpfEnc,
     emailEnc,
     phoneEnc,
+    postalCodeEnc,
+    addressEnc,
+    addressNumberEnc,
+    complementEnc,
+    provinceEnc,
+    cityEnc,
+    stateEnc,
+    landlineEnc,
+    additionalEmailsEnc,
     type: data.type,
-  }
+  };
 
   if (!existingGuardianId) {
-    return db.guardian.create({ data: guardianData })
+    return db.guardian.create({ data: guardianData });
   }
 
-  const existing = await db.guardian.findFirst({ where: { id: existingGuardianId } })
-  if (!existing) throw new GuardianOwnershipError()
+  const existing = await db.guardian.findFirst({
+    where: { id: existingGuardianId },
+  });
+  if (!existing) throw new GuardianOwnershipError();
 
-  return db.guardian.update({ where: { id: existingGuardianId }, data: guardianData })
+  return db.guardian.update({
+    where: { id: existingGuardianId },
+    data: guardianData,
+  });
 }
 
 export interface StudentSubjectSelection {
-  studentId: string
-  subjectIds: string[]
+  studentId: string;
+  subjectIds: string[];
 }
 
 // B3 — grava Student(s) vinculados ao Guardian. Estratégia delete-recreate: mudar os
@@ -90,45 +136,63 @@ export interface StudentSubjectSelection {
 export async function submitStudentsStep(
   unitId: string,
   guardianId: string,
-  blocks: StudentBlockOutput[]
+  blocks: StudentBlockOutput[],
 ): Promise<StudentSubjectSelection[]> {
-  const db = forUnit(unitId)
+  const db = forUnit(unitId);
 
-  await db.student.deleteMany({ where: { guardianId } })
+  await db.student.deleteMany({ where: { guardianId } });
 
-  const created: StudentSubjectSelection[] = []
+  const created: StudentSubjectSelection[] = [];
   for (const block of blocks) {
-    const [nameEnc, birthDateEnc] = await Promise.all([
-      encrypt(block.name),
-      encrypt(block.birthDate.toISOString()),
-    ])
+    const [nameEnc, birthDateEnc, emailEnc, cpfEnc, mobilePhoneEnc, rgEnc] =
+      await Promise.all([
+        encrypt(block.name),
+        encrypt(block.birthDate.toISOString()),
+        encrypt(block.email),
+        block.cpf ? encrypt(block.cpf) : Promise.resolve(null),
+        block.mobilePhone ? encrypt(block.mobilePhone) : Promise.resolve(null),
+        block.rg || block.rgIssuer
+          ? encrypt(
+            JSON.stringify({ number: block.rg, issuer: block.rgIssuer }),
+          )
+          : Promise.resolve(null),
+      ]);
     const student = await db.student.create({
-      data: { unitId, guardianId, nameEnc, birthDateEnc },
-    })
-    created.push({ studentId: student.id, subjectIds: block.subjectIds })
+      data: {
+        unitId,
+        guardianId,
+        nameEnc,
+        birthDateEnc,
+        emailEnc,
+        cpfEnc,
+        mobilePhoneEnc,
+        rgEnc,
+      },
+    });
+    created.push({ studentId: student.id, subjectIds: block.subjectIds });
   }
 
-  return created
+  return created;
 }
 
 export class StudentOwnershipError extends Error {
-  readonly status = 403
+  readonly status = 403;
   constructor() {
-    super('Aluno não pertence a esta matrícula')
-    this.name = 'StudentOwnershipError'
+    super("Aluno não pertence a esta matrícula");
+    this.name = "StudentOwnershipError";
   }
 }
 
 export class PlanNotAvailableError extends Error {
-  readonly status = 422
+  readonly status = 422;
   constructor() {
-    super('Plano escolhido não está disponível para uma ou mais matérias')
-    this.name = 'PlanNotAvailableError'
+    super("Plano escolhido não está disponível para uma ou mais matérias");
+    this.name = "PlanNotAvailableError";
   }
 }
 
 export interface PlanStepResult {
-  totalCents: number
+  totalCents: number;
 }
 
 // B4 — cria os Enrollment(s), 1 por (student, subject) do cookie de seleção montado em B3.
@@ -141,28 +205,34 @@ export async function submitPlanStep(
   unitId: string,
   guardianId: string,
   selection: StudentSubjectSelection[],
-  plan: EnrollmentPlanValue
+  plan: EnrollmentPlanValue,
 ): Promise<PlanStepResult> {
-  const db = forUnit(unitId)
+  const db = forUnit(unitId);
 
-  const studentIds = selection.map((s) => s.studentId)
+  const studentIds = selection.map((s) => s.studentId);
   const foundStudents = await db.student.findMany({
     where: { id: { in: studentIds }, guardianId },
-  })
-  if (foundStudents.length !== studentIds.length) throw new StudentOwnershipError()
+  });
+  if (foundStudents.length !== studentIds.length) {
+    throw new StudentOwnershipError();
+  }
 
-  const subjectIds = [...new Set(selection.flatMap((s) => s.subjectIds))]
-  const subjects = await db.subject.findMany({ where: { id: { in: subjectIds } } })
-  const subjectById = new Map(subjects.map((s) => [s.id, s]))
+  const subjectIds = [...new Set(selection.flatMap((s) => s.subjectIds))];
+  const subjects = await db.subject.findMany({
+    where: { id: { in: subjectIds } },
+  });
+  const subjectById = new Map(subjects.map((s) => [s.id, s]));
 
-  await db.enrollment.deleteMany({ where: { guardianId } })
+  await db.enrollment.deleteMany({ where: { guardianId } });
 
-  let totalCents = 0
+  let totalCents = 0;
   for (const { studentId, subjectIds: studentSubjectIds } of selection) {
     for (const subjectId of studentSubjectIds) {
-      const subject = subjectById.get(subjectId)
-      const priceCents = subject ? priceCentsForPlan(subject, plan) : null
-      if (priceCents === null || priceCents === undefined) throw new PlanNotAvailableError()
+      const subject = subjectById.get(subjectId);
+      const priceCents = subject ? priceCentsForPlan(subject, plan) : null;
+      if (priceCents === null || priceCents === undefined) {
+        throw new PlanNotAvailableError();
+      }
 
       await db.enrollment.create({
         data: {
@@ -174,19 +244,19 @@ export async function submitPlanStep(
           agreedPriceCents: priceCents,
           finalPriceCents: priceCents,
         },
-      })
-      totalCents += priceCents
+      });
+      totalCents += priceCents;
     }
   }
 
-  return { totalCents }
+  return { totalCents };
 }
 
 export class NoEnrollmentError extends Error {
-  readonly status = 422
+  readonly status = 422;
   constructor() {
-    super('Nenhuma matrícula pendente encontrada para enviar')
-    this.name = 'NoEnrollmentError'
+    super("Nenhuma matrícula pendente encontrada para enviar");
+    this.name = "NoEnrollmentError";
   }
 }
 
@@ -199,19 +269,19 @@ export class NoEnrollmentError extends Error {
 export async function submitAcceptanceStep(
   unitId: string,
   guardianId: string,
-  ip: string
+  ip: string,
 ): Promise<void> {
-  const contract = await getUnitContract(unitId)
+  const contract = await getUnitContract(unitId);
 
   await prisma.termsAcceptance.create({
     data: { unitId, guardianId, termsVersionId: contract.id, ip },
-  })
+  });
 
-  const db = forUnit(unitId)
+  const db = forUnit(unitId);
   const { count } = await db.enrollment.updateMany({
     where: { guardianId },
-    data: { status: 'PENDING_SCHOOL_APPROVAL' },
-  })
+    data: { status: "PENDING_SCHOOL_APPROVAL" },
+  });
 
-  if (count === 0) throw new NoEnrollmentError()
+  if (count === 0) throw new NoEnrollmentError();
 }

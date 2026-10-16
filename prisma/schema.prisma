@@ -222,6 +222,15 @@ model Guardian {
   cpfEnc   String?
   emailEnc String?
   phoneEnc String?
+  postalCodeEnc String?
+  addressEnc String?
+  addressNumberEnc String?
+  complementEnc String?
+  provinceEnc String?
+  cityEnc String?
+  stateEnc String?
+  landlineEnc String?
+  additionalEmailsEnc String?
 
   asaasCustomerId String?
 
@@ -246,6 +255,10 @@ model Student {
   // PII encrypted with AES-256-GCM — never plaintext in DB
   nameEnc      String
   birthDateEnc String
+  emailEnc     String?
+  cpfEnc       String?
+  mobilePhoneEnc String?
+  rgEnc        String?
   notes        String?
 
   createdAt DateTime @default(now())

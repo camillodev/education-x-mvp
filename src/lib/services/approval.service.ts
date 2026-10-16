@@ -1,13 +1,13 @@
-import { forUnit } from '../db'
-import { decrypt } from '../crypto'
-import { getAsaasClient } from '../integration/asaas/client'
-import type { EnrollmentPlanValue } from '../validations/plan'
+import { forUnit } from "../db";
+import { decrypt } from "../crypto";
+import { getAsaasClient } from "../integration/asaas/client";
+import type { EnrollmentPlanValue } from "../validations/plan";
 
 export class GuardianNotFoundError extends Error {
-  readonly status = 404
+  readonly status = 404;
   constructor() {
-    super('Matrícula não encontrada nesta unidade')
-    this.name = 'GuardianNotFoundError'
+    super("Matrícula não encontrada nesta unidade");
+    this.name = "GuardianNotFoundError";
   }
 }
 
@@ -19,61 +19,92 @@ export class GuardianNotFoundError extends Error {
 export async function approveEnrollment(
   unitId: string,
   guardianId: string,
-  asaasApiKey: string
+  asaasApiKey: string,
 ): Promise<void> {
-  const db = forUnit(unitId)
-  const guardian = await db.guardian.findFirst({ where: { id: guardianId } })
-  if (!guardian) throw new GuardianNotFoundError()
+  const db = forUnit(unitId);
+  const guardian = await db.guardian.findFirst({ where: { id: guardianId } });
+  if (!guardian) throw new GuardianNotFoundError();
 
-  let asaasCustomerId = guardian.asaasCustomerId
+  let asaasCustomerId = guardian.asaasCustomerId;
 
   if (!asaasCustomerId) {
-    const cpf = await decrypt(guardian.cpfEnc!)
-    const client = getAsaasClient(asaasApiKey)
+    const cpfCnpj = await decrypt(guardian.cpfEnc!);
+    const client = getAsaasClient(asaasApiKey);
 
     // Recuperação de escrita perdida: o customer pode já existir no Asaas de uma
     // tentativa anterior cujo asaasCustomerId não chegou a ser persistido no banco.
-    const existing = await client.findCustomerByCpfCnpj(cpf)
+    const existing = await client.findCustomerByCpfCnpj(cpfCnpj);
     if (existing) {
-      asaasCustomerId = existing.id
+      asaasCustomerId = existing.id;
     } else {
       const created = await client.createCustomer({
         name: guardian.name,
-        cpfCnpj: cpf,
+        email: await decrypt(guardian.emailEnc!),
+        cpfCnpj,
+        mobilePhone: await decrypt(guardian.phoneEnc!),
+        ...(guardian.landlineEnc
+          ? { phone: await decrypt(guardian.landlineEnc) }
+          : {}),
+        ...(guardian.postalCodeEnc
+          ? { postalCode: await decrypt(guardian.postalCodeEnc) }
+          : {}),
+        ...(guardian.addressEnc
+          ? { address: await decrypt(guardian.addressEnc) }
+          : {}),
+        ...(guardian.addressNumberEnc
+          ? { addressNumber: await decrypt(guardian.addressNumberEnc) }
+          : {}),
+        ...(guardian.complementEnc
+          ? { complement: await decrypt(guardian.complementEnc) }
+          : {}),
+        ...(guardian.provinceEnc
+          ? { province: await decrypt(guardian.provinceEnc) }
+          : {}),
+        ...(guardian.additionalEmailsEnc
+          ? { additionalEmails: await decrypt(guardian.additionalEmailsEnc) }
+          : {}),
         externalReference: guardian.id,
-      })
-      asaasCustomerId = created.id
+      });
+      asaasCustomerId = created.id;
     }
 
-    await db.guardian.update({ where: { id: guardianId }, data: { asaasCustomerId } })
+    await db.guardian.update({
+      where: { id: guardianId },
+      data: { asaasCustomerId },
+    });
   }
 
   await db.enrollment.updateMany({
     where: { guardianId },
-    data: { status: 'ACTIVE', startedAt: new Date() },
-  })
+    data: { status: "ACTIVE", startedAt: new Date() },
+  });
 }
 
 export interface PendingEnrollmentGroup {
-  guardianId: string
-  guardianName: string
-  plan: EnrollmentPlanValue
-  students: string[]
-  totalCents: number
+  guardianId: string;
+  guardianName: string;
+  plan: EnrollmentPlanValue;
+  students: string[];
+  totalCents: number;
 }
 
 // Lista agrupada por Guardian (1 linha por família pendente), não por Enrollment —
 // mesma unidade de aprovação usada em approveEnrollment/rejectEnrollment.
-export async function listPendingEnrollments(unitId: string): Promise<PendingEnrollmentGroup[]> {
-  const db = forUnit(unitId)
+export async function listPendingEnrollments(
+  unitId: string,
+): Promise<PendingEnrollmentGroup[]> {
+  const db = forUnit(unitId);
   const enrollments = await db.enrollment.findMany({
-    where: { status: 'PENDING_SCHOOL_APPROVAL' },
+    where: { status: "PENDING_SCHOOL_APPROVAL" },
     include: { guardian: true, student: true, subject: true },
-  })
+  });
 
-  const groups = new Map<string, PendingEnrollmentGroup & { studentIds: Set<string> }>()
+  const groups = new Map<
+    string,
+    PendingEnrollmentGroup & { studentIds: Set<string> }
+  >();
   for (const e of enrollments) {
-    let group = groups.get(e.guardianId)
+    let group = groups.get(e.guardianId);
     if (!group) {
       group = {
         guardianId: e.guardianId,
@@ -82,13 +113,13 @@ export async function listPendingEnrollments(unitId: string): Promise<PendingEnr
         students: [],
         totalCents: 0,
         studentIds: new Set(),
-      }
-      groups.set(e.guardianId, group)
+      };
+      groups.set(e.guardianId, group);
     }
-    group.totalCents += e.finalPriceCents
+    group.totalCents += e.finalPriceCents;
     if (!group.studentIds.has(e.studentId)) {
-      group.studentIds.add(e.studentId)
-      group.students.push(await decrypt(e.student.nameEnc))
+      group.studentIds.add(e.studentId);
+      group.students.push(await decrypt(e.student.nameEnc));
     }
   }
 
@@ -98,13 +129,16 @@ export async function listPendingEnrollments(unitId: string): Promise<PendingEnr
     plan: group.plan,
     students: group.students,
     totalCents: group.totalCents,
-  }))
+  }));
 }
 
-export async function rejectEnrollment(unitId: string, guardianId: string): Promise<void> {
-  const db = forUnit(unitId)
+export async function rejectEnrollment(
+  unitId: string,
+  guardianId: string,
+): Promise<void> {
+  const db = forUnit(unitId);
   await db.enrollment.updateMany({
     where: { guardianId },
-    data: { status: 'CANCELLED', cancelledAt: new Date() },
-  })
+    data: { status: "CANCELLED", cancelledAt: new Date() },
+  });
 }

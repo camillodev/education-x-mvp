@@ -7,7 +7,12 @@ export type AsaasMode = "mock" | "live";
 // src/app/api/webhook/route.ts) derivem o schema de validação daqui em vez de duplicar os
 // literais manualmente — regra do projeto "Zod schema = fonte de tipos", aplicada ao inverso
 // aqui porque este arquivo já é a fonte curada desses enums vindos da API Asaas.
-export const ASAAS_BILLING_TYPES = ["BOLETO", "CREDIT_CARD", "PIX", "UNDEFINED"] as const;
+export const ASAAS_BILLING_TYPES = [
+  "BOLETO",
+  "CREDIT_CARD",
+  "PIX",
+  "UNDEFINED",
+] as const;
 export type AsaasBillingType = (typeof ASAAS_BILLING_TYPES)[number];
 
 export const ASAAS_PAYMENT_STATUSES = [
@@ -64,7 +69,7 @@ export interface AsaasWebhookConfig {
 
 export interface AsaasCreateSubAccountPayload {
   name: string;
-  email: string;
+  email?: string;
   cpfCnpj: string;
   companyType?: AsaasCompanyType;
   phone?: string;
@@ -96,6 +101,7 @@ export interface AsaasCreateCustomerPayload {
   complement?: string;
   province?: string;
   postalCode?: string;
+  additionalEmails?: string;
   externalReference?: string;
 }
 
