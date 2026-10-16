@@ -93,6 +93,7 @@ export function PendingEnrollmentsTable({ items, onApprove, onReject }: Props) {
       title="Matrículas pendentes"
       columns={columns}
       data={items}
+      pageSize={10}
       searchPlaceholder="Buscar responsável ou aluno..."
       emptyMessage="Nenhuma matrícula pendente."
     />

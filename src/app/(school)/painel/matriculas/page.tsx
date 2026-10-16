@@ -199,7 +199,7 @@ export default function EnrollmentsPanelPage() {
             filterOptions={filterOptions}
             filterValue={filter}
             onFilterChange={setFilter}
-            pageSize={8}
+            pageSize={10}
             emptyMessage="Nenhuma matrícula encontrada."
           />
         )}
