@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Info, Plus, Ban, Repeat, Wallet } from "lucide-react";
+import { Plus, Ban, Repeat, Wallet } from "lucide-react";
 import { SchoolShell } from "@/components/school/SchoolShell";
 import { StudentCard, emptyStudent, type StudentDraft } from "@/components/school/StudentCard";
 import { Card } from "@/components/ui/Card";
@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Toggle } from "@/components/ui/toggle";
 import { Segmented, type SegmentedOption } from "@/components/ui/segmented";
 import { SectionHead } from "@/components/patterns/SectionHead";
 import { useToast } from "@/components/ui/toast";
@@ -18,6 +17,7 @@ import { useMockResource } from "@/hooks/use-mock-resource";
 import { formatBRL } from "@/lib/format";
 import { computeDiscountedCents, type DiscountType } from "@/lib/pricing";
 import type { EnrollmentPlan } from "@/lib/mock/types";
+import { GuardianForm } from "./GuardianForm";
 
 const MAX_STUDENTS = 5;
 
@@ -84,71 +84,33 @@ export default function NewEnrollmentPage() {
         <div className="overflow-x-auto pb-0.5">
           <Segmented options={TABS} value={tab} onChange={setTab} />
         </div>
-
         {tab === "cadastro" && (
           <>
-            <Card className="flex items-center gap-[11px] border border-(--color-primary-soft) bg-(--color-toast-info-bg) p-4">
-              <Info size={18} className="shrink-0 text-(--color-primary)" />
-              <span className="text-[13.5px] leading-normal text-(--color-text-muted)">
-                Tem processo de matrícula próprio? Cadastre aqui e envie ao pai só para{" "}
-                <strong className="text-(--color-text)">confirmar e aceitar</strong> — sem ele
-                preencher nada.
-              </span>
-            </Card>
-
-            <Card className="p-6">
-              <SectionHead
-                title="Responsável financeiro"
-                sub="Quem recebe o link e autoriza a cobrança"
-              />
-              <div className="flex flex-col gap-4">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Field label="Nome" required>
-                    <Input value={pagante} onChange={(e) => setPagante(e.target.value)} placeholder="Ex.: Maria Silva" />
-                  </Field>
-                  <Field label="CPF">
-                    <Input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="000.000.000-00" inputMode="numeric" />
-                  </Field>
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Field label="E-mail" required hint="Recebe o link de confirmação">
-                    <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@exemplo.com" />
-                  </Field>
-                  <Field label="Celular (WhatsApp)">
-                    <Input value={tel} onChange={(e) => setTel(e.target.value)} inputMode="tel" placeholder="(31) 90000-0000" />
-                  </Field>
-                </div>
-                <div className="flex items-center justify-between pt-0.5">
-                  <div>
-                    <div className="text-[13.5px] font-semibold">Adicionar endereço</div>
-                    <div className="mt-0.5 text-xs text-(--color-text-subtle)">
-                      Opcional — usado na nota fiscal e no contrato
-                    </div>
-                  </div>
-                  <Toggle checked={temEndereco} onChange={setTemEndereco} />
-                </div>
-                {temEndereco && (
-                  <div className="flex flex-col gap-4">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <Field label="CEP">
-                        <Input value={cep} onChange={(e) => setCep(e.target.value)} placeholder="00000-000" inputMode="numeric" />
-                      </Field>
-                      <Field label="Cidade">
-                        <Input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Belo Horizonte" />
-                      </Field>
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <Field label="Rua">
-                        <Input value={rua} onChange={(e) => setRua(e.target.value)} placeholder="Av. Exemplo" />
-                      </Field>
-                      <Field label="Número">
-                        <Input value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="420" inputMode="numeric" />
-                      </Field>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </Card>
+            <GuardianForm
+              initialValues={{
+                name: pagante,
+                cpf,
+                email,
+                phone: tel,
+                hasAddress: temEndereco,
+                cep,
+                city: cidade,
+                street: rua,
+                number: numero,
+              }}
+              onContinue={(values) => {
+                setPagante(values.name);
+                setCpf(values.cpf);
+                setEmail(values.email);
+                setTel(values.phone);
+                setTemEndereco(values.hasAddress);
+                setCep(values.cep);
+                setCidade(values.city);
+                setRua(values.street);
+                setNumero(values.number);
+                setTab("plano");
+              }}
+            />
 
             {students.map((student, i) => (
               <StudentCard
@@ -181,10 +143,11 @@ export default function NewEnrollmentPage() {
                 Cancelar
               </Button>
               <Button
+                type="submit"
+                form="new-enrollment-guardian-form"
                 size="lg"
                 iconRight="arrow-right"
-                disabled={!cadastroOk}
-                onClick={() => setTab("plano")}
+                disabled={!students.every((student) => student.aluno.trim().length > 0)}
               >
                 Continuar para plano
               </Button>

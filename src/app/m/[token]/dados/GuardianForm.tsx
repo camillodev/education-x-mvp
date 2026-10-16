@@ -41,7 +41,7 @@ export function GuardianForm({ token }: Props) {
       <p className="mt-1 text-sm text-(--color-text-subtle)">Passo 1 de 4</p>
 
       <form action={formAction} className="mt-5 flex flex-col gap-4">
-        <Field label="Nome completo" htmlFor="name" required error={state.errors.name}>
+        <Field label="Nome completoX" htmlFor="name" required error={state.errors.name}>
           <Input
             id="name"
             name="name"

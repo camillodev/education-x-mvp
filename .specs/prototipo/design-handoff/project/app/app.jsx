@@ -116,7 +116,6 @@ const Launcher = ({ go }) => {
   );
 };
 
-/* ─── Router ───────────────────────────────────────────────────────────── */
 const App = () => {
   const [screen, setScreen] = useState("home");
   const [sel, setSel] = useState(null);
