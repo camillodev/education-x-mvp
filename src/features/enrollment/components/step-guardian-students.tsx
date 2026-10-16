@@ -84,10 +84,10 @@ export function StepGuardianStudents(
         <div className="flex flex-col gap-4">
           <Field label="Tipo de responsável" htmlFor="guardian-type">
             <Segmented
-              options={[{ value: "FATHER", label: "Pai" }, {
-                value: "MOTHER",
-                label: "Mãe",
-              }, { value: "LEGAL_GUARDIAN", label: "Responsável legal" }]}
+              options={[
+                { value: "MOTHER", label: "Mãe" },
+                { value: "FATHER", label: "Pai" },
+                { value: "LEGAL_GUARDIAN", label: "Responsável legal" }]}
               value={guardian.guardianType ?? "MOTHER"}
               onChange={(value) => setValue("guardian.guardianType", value)}
               aria-label="Tipo de responsável"
@@ -208,18 +208,18 @@ export function StepGuardianStudents(
                   <MapPin size={16} className="text-(--color-text-subtle)" />
                 }
               />
+              {postalLookup.message && (
+                <p
+                  role="status"
+                  className={`text-xs ${postalLookup.status === "error"
+                    ? "text-(--color-danger-primary)"
+                    : "text-(--color-text-subtle)"
+                    }`}
+                >
+                  {postalLookup.message}
+                </p>
+              )}
             </Field>
-            {postalLookup.message && (
-              <p
-                role="status"
-                className={`text-xs ${postalLookup.status === "error"
-                  ? "text-(--color-danger-primary)"
-                  : "text-(--color-text-subtle)"
-                  }`}
-              >
-                {postalLookup.message}
-              </p>
-            )}
             <Field label="Logradouro" htmlFor="guardian-address">
               <Input
                 {...register("guardian.address")}

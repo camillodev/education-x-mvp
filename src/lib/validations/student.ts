@@ -44,7 +44,10 @@ export const StudentBlockSchema = z.object({
       }
       return parsed;
     }),
-  email: z.string().trim().email("Digite um e-mail válido para o aluno."),
+  email: z.string().trim().refine(
+    (value) => !value || z.string().email().safeParse(value).success,
+    "Digite um e-mail válido para o aluno.",
+  ),
   cpf: z.string().transform((value) => value.replace(/\D/g, "")).refine(
     (value) => !value || isValidCpf(value),
     "CPF do aluno inválido.",

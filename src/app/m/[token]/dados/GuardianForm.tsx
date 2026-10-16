@@ -251,12 +251,13 @@ export function GuardianForm({ token }: Props) {
                 inputMode="numeric"
                 maxLength={9}
               />
+              {postalLookupMessage && (
+                <p role="status" className="text-xs text-(--color-text-subtle)">
+                  {postalLookupMessage}
+                </p>
+              )}
             </Field>
-            {postalLookupMessage && (
-              <p role="status" className="text-xs text-(--color-text-subtle)">
-                {postalLookupMessage}
-              </p>
-            )}
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Logradouro" htmlFor="address">
                 <Input {...register("address")} id="address" />

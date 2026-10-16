@@ -72,9 +72,12 @@ describe("StudentBlockSchema", () => {
       .toThrow();
   });
 
-  it("requires student email and validates optional CPF and mobile", () => {
-    expect(() => StudentBlockSchema.parse({ ...validBlock, email: "" }))
-      .toThrow();
+  it("allows an empty student email and validates a provided one", () => {
+    expect(StudentBlockSchema.parse({ ...validBlock, email: "" }).email)
+      .toBe("");
+    expect(() =>
+      StudentBlockSchema.parse({ ...validBlock, email: "not-an-email" })
+    ).toThrow();
     expect(() =>
       StudentBlockSchema.parse({ ...validBlock, cpf: "11144477736" })
     ).toThrow();

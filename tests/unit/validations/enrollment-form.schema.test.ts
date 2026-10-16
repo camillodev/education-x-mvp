@@ -70,9 +70,18 @@ describe("EnrollmentFormSchema", () => {
     },
   );
 
-  it.each(["name", "birthDate", "email"])("requires student %s", (field) => {
+  it.each(["name", "birthDate"])("requires student %s", (field) => {
     const values = validValues();
     Object.assign(values.students[0], { [field]: "" });
+    expect(EnrollmentFormSchema.safeParse(values).success).toBe(false);
+  });
+
+  it("allows an empty student email but rejects an invalid one", () => {
+    const values = validValues();
+    values.students[0].email = "";
+    expect(EnrollmentFormSchema.safeParse(values).success).toBe(true);
+
+    values.students[0].email = "not-an-email";
     expect(EnrollmentFormSchema.safeParse(values).success).toBe(false);
   });
 

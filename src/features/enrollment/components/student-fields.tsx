@@ -115,7 +115,7 @@ export function StudentFields(
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field
-            label="E-mail"
+            label="E-mail (opcional)"
             htmlFor={`student-${index}-email`}
             required
             error={studentErrors?.email?.message}

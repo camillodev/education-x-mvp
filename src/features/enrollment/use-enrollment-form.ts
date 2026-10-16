@@ -103,7 +103,7 @@ export function useEnrollmentForm({
         lastAutoAddress.current = address;
         setPostalLookup({
           status: "success",
-          message: "Endereço preenchido pelo CEP. Você pode editá-lo.",
+          message: "Endereço encontrado. Você pode editá-lo.",
         });
       } catch (error) {
         if (active) {

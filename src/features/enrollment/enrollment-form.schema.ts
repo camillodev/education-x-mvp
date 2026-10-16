@@ -71,7 +71,10 @@ export const StudentEnrollmentSchema = z.object({
     const date = parseBirthDate(value);
     return date !== null && date.getTime() <= Date.now();
   }, "Informe uma data de nascimento válida, não futura."),
-  email: z.string().trim().email("Informe um e-mail válido."),
+  email: z.string().trim().refine(
+    (value) => !value || z.string().email().safeParse(value).success,
+    "Informe um e-mail válido.",
+  ),
   cpf: z.string().refine(
     (value) => !value.trim() || isValidCpf(value.replace(/\D/g, "")),
     "Informe um CPF válido.",
