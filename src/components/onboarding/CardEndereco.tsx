@@ -48,6 +48,7 @@ export function CardEndereco({ dados, onChange, onCepBlur, loadingCep }: Props) 
               placeholder="Rua das Flores"
               aria-required="true"
               autoComplete="address-line1"
+              required
             />
           </Field>
         </div>
@@ -61,6 +62,7 @@ export function CardEndereco({ dados, onChange, onCepBlur, loadingCep }: Props) 
               placeholder="123"
               aria-required="true"
               inputMode="numeric"
+              required
             />
           </Field>
         </div>
@@ -73,6 +75,7 @@ export function CardEndereco({ dados, onChange, onCepBlur, loadingCep }: Props) 
               onChange={(e) => onChange({ neighborhood: e.target.value })}
               placeholder="Centro"
               aria-required="true"
+              required
             />
           </Field>
         </div>
@@ -86,6 +89,7 @@ export function CardEndereco({ dados, onChange, onCepBlur, loadingCep }: Props) 
               placeholder="Belo Horizonte"
               aria-required="true"
               autoComplete="address-level2"
+              required
             />
           </Field>
         </div>
@@ -100,6 +104,7 @@ export function CardEndereco({ dados, onChange, onCepBlur, loadingCep }: Props) 
               maxLength={2}
               aria-required="true"
               autoComplete="address-level1"
+              required
             />
           </Field>
         </div>

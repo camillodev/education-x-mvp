@@ -23,6 +23,25 @@ export default function NewEnrollmentPage() {
     [plans],
   );
   const goToList = () => router.push("/painel/matriculas");
+  const onSave = async (values: any) => {
+    const response = await fetch("/api/mock/enrollments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      toast(body.error ?? "Não foi possível criar a matrícula.", "error");
+      return;
+    }
+
+    toast(
+      `Link de confirmação enviado para ${values.guardian.email}`,
+      "success",
+    );
+    goToList();
+  };
 
   return (
     <SchoolShell
@@ -35,13 +54,7 @@ export default function NewEnrollmentPage() {
         initialValues={initialValues}
         plans={plans}
         onCancel={goToList}
-        onSave={(values) => {
-          toast(
-            `Link de confirmação enviado para ${values.guardian.email}`,
-            "success",
-          );
-          goToList();
-        }}
+        onSave={onSave}
       />
     </SchoolShell>
   );

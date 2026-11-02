@@ -117,7 +117,6 @@ export function StudentFields(
           <Field
             label="E-mail (opcional)"
             htmlFor={`student-${index}-email`}
-            required
             error={studentErrors?.email?.message}
           >
             <Input

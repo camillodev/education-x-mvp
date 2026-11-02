@@ -166,7 +166,6 @@ export function StudentsForm({ token, subjects }: Props) {
                 <Field
                   label="E-mail do aluno"
                   htmlFor={`email-${index}`}
-                  required
                   error={studentErrors?.email?.message}
                 >
                   <Input

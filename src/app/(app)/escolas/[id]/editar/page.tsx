@@ -9,6 +9,7 @@ import { StepFinancial } from '@/components/onboarding/StepFinancial'
 import { StepDocumentos } from '@/components/onboarding/StepDocumentos'
 import { StepReview } from '@/components/onboarding/StepReview'
 import { useToast } from '@/components/ui/toast'
+import { EnrollmentLinkModal } from '@/components/admin/EnrollmentLinkModal'
 import type { SubjectInput, SubjectUpdateInput } from '@/lib/validations/unit'
 
 const STEPS = [
@@ -46,6 +47,8 @@ export default function EditSchoolPage() {
 
   const [loadingStepIdx, setLoadingStepIdx] = useState(0)
   const { toast } = useToast()
+  const [linkModalOpen, setLinkModalOpen] = useState(false)
+  const [enrollmentLinkToken, setEnrollmentLinkToken] = useState<string | null>(null)
 
   useEffect(() => {
     if (state.status !== 'submitting') {
@@ -112,20 +115,28 @@ export default function EditSchoolPage() {
   }
 
   return (
-    <div className="flex flex-col">
-      <div className="mb-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-subtle)">
-          Editar escola
-        </p>
-        <div className="flex items-baseline gap-4">
-          <h1 className="text-2xl font-bold text-(--color-text)">{state.details.name || 'Escola'}</h1>
-          {state.lastSavedAt && (
-            <span className="text-xs text-(--color-text-subtle)">
-              Salvo às {state.lastSavedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
+    <>
+      <div className="flex flex-col">
+        <div className="mb-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-subtle)">
+            Editar escola
+          </p>
+          <div className="flex items-baseline gap-4">
+            <h1 className="text-2xl font-bold text-(--color-text)">{state.details.name || 'Escola'}</h1>
+            <button
+              type="button"
+              onClick={() => setLinkModalOpen(true)}
+              className="ml-3 rounded-md border border-(--color-border-input) px-3 py-1.5 text-xs font-semibold text-(--color-text) hover:bg-(--color-surface)"
+            >
+              Gerar link de matrícula
+            </button>
+            {state.lastSavedAt && (
+              <span className="text-xs text-(--color-text-subtle)">
+                Salvo às {state.lastSavedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
 
       <main className="flex-1">
         <div className="mx-auto max-w-3xl">
@@ -230,5 +241,14 @@ export default function EditSchoolPage() {
         </div>
       </main>
     </div>
+
+    <EnrollmentLinkModal
+      open={linkModalOpen}
+      unitId={unitId}
+      unitName={state.details.name || ''}
+      token={enrollmentLinkToken}
+      onTokenGenerated={setEnrollmentLinkToken}
+      onClose={() => setLinkModalOpen(false)}
+    />
   )
 }
