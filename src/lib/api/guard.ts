@@ -39,9 +39,9 @@ export async function guardAdmin(route: string): Promise<NextResponse | null> {
 export async function guardAdvisor(route: string): Promise<UnitContext | NextResponse> {
   try {
     const ctx = await getUnitContext()
-    if (ctx.role !== 'orientador') {
+    if (ctx.role != 'orientador') {
       return NextResponse.json(
-        { error: 'Apenas a escola pode executar esta ação.', code: 'FORBIDDEN' },
+        { error: 'Apenas orientadores podem executar esta ação.', code: 'FORBIDDEN' },
         { status: 403 }
       )
     }

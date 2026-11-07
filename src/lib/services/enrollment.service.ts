@@ -1,16 +1,198 @@
 import { forUnit, prisma } from "../db";
 import { encrypt } from "../crypto";
-import {
-  type GuardianStepInput,
-  GuardianStepSchema,
-} from "../validations/guardian";
+import { EnrollmentsServiceError } from "./enrollment.errors";
+
 import type { StudentBlockOutput } from "../validations/student";
-import {
-  type EnrollmentPlanValue,
-  priceCentsForPlan,
-} from "../validations/plan";
 import { getUnitContract } from "./contract.service";
 import type { Guardian } from "@prisma/client";
+import { type EnrollmentPlanValue, priceCentsForPlan,
+  } from "../validations/plan";
+import { type GuardianStepInput, GuardianStepSchema,
+  } from "../validations/guardian";
+import { CreateEnrollmentSchema, UpdateEnrollmentSchema } from "../validations/enrollment";
+
+// ── CRUD wrappers (1 route per responsibility) ────────────────────────────────
+// Thin service layer: validation belongs to the route (Zod), persistence here.
+
+export async function listEnrollmentsForUnit(unitId: string) {
+  const db = forUnit(unitId);
+  return db.enrollment.findMany({
+    where: { status: "PENDING_SCHOOL_APPROVAL" },
+    include: { guardian: true, student: true, subject: true },
+    orderBy: { startedAt: "desc" },
+  });
+}
+
+export async function getEnrollmentDetail(unitId: string, id: string) {
+  const db = forUnit(unitId);
+  return db.enrollment.findUnique({
+    where: { id },
+    include: { guardian: true, student: true, subject: true },
+  });
+}
+
+export async function updateEnrollment(
+  unitId: string,
+  id: string,
+  data: Record<string, unknown>,
+) {
+  const db = forUnit(unitId);
+  return db.enrollment.update({ where: { id }, data });
+}
+
+export async function cancelEnrollment(unitId: string, id: string) {
+  const db = forUnit(unitId);
+  return db.enrollment.update({
+    where: { id },
+    data: { cancelledAt: new Date(), status: "CANCELLED" },
+  });
+}
+
+export async function listGuardiansForUnit(unitId: string) {
+  const db = forUnit(unitId);
+  return db.guardian.findMany({
+    where: { enrollments: { some: { status: "PENDING_SCHOOL_APPROVAL" } } },
+    include: { user: true, enrollments: { include: { student: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getGuardianDetail(unitId: string, id: string) {
+  const db = forUnit(unitId);
+  return db.guardian.findUnique({
+    where: { id },
+    include: { user: true, enrollments: { include: { student: true } } },
+  });
+}
+
+export async function updateGuardian(
+  unitId: string,
+  id: string,
+  data: Record<string, unknown>,
+) {
+  const db = forUnit(unitId);
+  return db.guardian.update({ where: { id }, data });
+}
+
+export async function deleteGuardian(unitId: string, id: string) {
+  const db = forUnit(unitId);
+  return db.guardian.delete({ where: { id } });
+}
+
+export async function createStudent(unitId: string, body: {
+  guardianId: string;
+  name: string;
+  birthDate: string | Date;
+  email?: string;
+  cpf?: string;
+  mobilePhone?: string;
+  rg?: string;
+  rgIssuer?: string;
+  notes?: string;
+}) {
+  const db = forUnit(unitId);
+  const encryptOptional = (value: string) =>
+    value ? encrypt(value) : Promise.resolve(null);
+  const [nameEnc, birthDateEnc, emailEnc, cpfEnc, mobilePhoneEnc, rgEnc] =
+    await Promise.all([
+      encrypt(body.name),
+      encrypt(new Date(body.birthDate).toISOString()),
+      encryptOptional(body.email || ''),
+      encryptOptional(body.cpf || ''),
+      encryptOptional(body.mobilePhone || ''),
+      body.rg || body.rgIssuer
+        ? encrypt(JSON.stringify({ number: body.rg, issuer: body.rgIssuer }))
+        : Promise.resolve(null),
+    ]);
+  return db.student.create({
+    data: {
+      unitId,
+      guardianId: body.guardianId,
+      nameEnc,
+      birthDateEnc,
+      emailEnc,
+      cpfEnc,
+      mobilePhoneEnc,
+      rgEnc,
+      notes: body.notes,
+    },
+  });
+}
+
+export async function listStudentsForUnit(unitId: string) {
+  const db = forUnit(unitId);
+  return db.student.findMany({
+    include: { guardian: true, enrollments: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getStudentDetail(unitId: string, id: string) {
+  const db = forUnit(unitId);
+  return db.student.findUnique({
+    where: { id },
+    include: { guardian: true, enrollments: true },
+  });
+}
+
+export async function updateStudent(
+  unitId: string,
+  id: string,
+  data: Record<string, unknown>,
+) {
+  const db = forUnit(unitId);
+  return db.student.update({ where: { id }, data });
+}
+
+export async function deleteStudent(unitId: string, id: string) {
+  const db = forUnit(unitId);
+  return db.student.delete({ where: { id } });
+}
+
+export async function getAvailablePlansForUnit(unitId: string) {
+  const db = forUnit(unitId);
+  const subjects = await db.subject.findMany({ where: { unitId } });
+  return subjects.map((s) => ({
+    id: s.id,
+    name: s.name,
+    nfseServiceCode: s.nfseServiceCode,
+    priceCents: s.priceCents,
+    quarterlyPriceCents: s.quarterlyPriceCents,
+    semiannualPriceCents: s.semiannualPriceCents,
+    annualPriceCents: s.annualPriceCents,
+    isActive: s.isActive,
+  }));
+}
+
+export async function createEnrollment(
+  unitId: string,
+  data: {
+    guardianId: string;
+    studentId: string;
+    subjectId: string;
+    plan: EnrollmentPlanValue;
+  },
+) {
+  const db = forUnit(unitId);
+  const priceCents = priceCentsForPlan(
+    await db.subject.findUnique({ where: { id: data.subjectId } }) as any,
+    data.plan,
+  );
+  if (priceCents === null || priceCents === undefined) {
+    throw new PlanNotAvailableError();
+  }
+  return db.enrollment.create({
+    data: {
+      unitId,
+      guardianId: data.guardianId,
+      studentId: data.studentId,
+      subjectId: data.subjectId,
+      plan: data.plan,
+      agreedPriceCents: priceCents,
+      finalPriceCents: priceCents,
+    },
+  });
+}
 
 export class InvalidEnrollmentLinkError extends Error {
   readonly status = 404;
