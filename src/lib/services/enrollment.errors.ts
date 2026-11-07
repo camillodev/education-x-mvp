@@ -1,7 +1,3 @@
-// Typed error classes for the enrollment service layer
-// These errors are caught by the API route error handling (errorResponse) and
-// mapped to appropriate HTTP status codes.
-
 export class NotFoundError extends Error {
   readonly status = 404;
   constructor(message: string = 'Resource not found') {

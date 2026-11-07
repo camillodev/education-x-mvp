@@ -1,18 +1,13 @@
 import { forUnit, prisma } from "../db";
 import { encrypt } from "../crypto";
-import { EnrollmentsServiceError } from "./enrollment.errors";
-
 import type { StudentBlockOutput } from "../validations/student";
+
 import { getUnitContract } from "./contract.service";
 import type { Guardian } from "@prisma/client";
 import { type EnrollmentPlanValue, priceCentsForPlan,
   } from "../validations/plan";
 import { type GuardianStepInput, GuardianStepSchema,
   } from "../validations/guardian";
-import { CreateEnrollmentSchema, UpdateEnrollmentSchema } from "../validations/enrollment";
-
-// ── CRUD wrappers (1 route per responsibility) ────────────────────────────────
-// Thin service layer: validation belongs to the route (Zod), persistence here.
 
 export async function listEnrollmentsForUnit(unitId: string) {
   const db = forUnit(unitId);

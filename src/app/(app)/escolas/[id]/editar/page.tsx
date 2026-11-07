@@ -250,5 +250,5 @@ export default function EditSchoolPage() {
       onTokenGenerated={setEnrollmentLinkToken}
       onClose={() => setLinkModalOpen(false)}
     />
-  )
-}
+  </>
+)}
