@@ -3,15 +3,12 @@ import { guardAdvisor } from '@/lib/api/guard';
 import { errorResponse } from '@/lib/errors/handle';
 import { listEnrollmentsForUnit, createEnrollment } from '@/lib/services/enrollment.service';
 
-export async function GET(request: Request) {
+export async function GET() {
   const ctx = await guardAdvisor('GET /api/enrollments');
   if (ctx instanceof NextResponse) return ctx;
 
   try {
-    const { searchParams } = new URL(request.url);
-    const unitId = searchParams.get('unitId') || ctx.unitId;
-
-    const enrollments = await listEnrollmentsForUnit(unitId);
+    const enrollments = await listEnrollmentsForUnit(ctx.unitId);
 
     return NextResponse.json({ success: true, data: enrollments }, { status: 200 });
   } catch (error) {

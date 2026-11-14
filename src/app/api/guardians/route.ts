@@ -4,15 +4,12 @@ import { guardAdvisor } from '@/lib/api/guard';
 import { errorResponse } from '@/lib/errors/handle';
 import { encrypt } from '@/lib/crypto';
 
-export async function GET(request: Request) {
+export async function GET() {
   const unitContext = await guardAdvisor('GET /api/guardians');
   if (unitContext instanceof NextResponse) return unitContext;
 
   try {
-    const { searchParams } = new URL(request.url);
-    const unitId = searchParams.get('unitId') || unitContext.unitId;
-
-    const db = forUnit(unitId);
+    const db = forUnit(unitContext.unitId);
     const guardians = await db.guardian.findMany({
       include: { enrollments: { include: { student: true } } },
       orderBy: { createdAt: 'desc' },

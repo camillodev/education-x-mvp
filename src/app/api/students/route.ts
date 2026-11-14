@@ -14,10 +14,9 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const unitId = searchParams.get('unitId') || unitContext.unitId;
     const guardianId = searchParams.get('guardianId');
 
-    const db = forUnit(unitId);
+    const db = forUnit(unitContext.unitId);
     const students = await db.student.findMany({
       where: guardianId ? { guardianId } : undefined,
       include: { guardian: true, enrollments: true },
