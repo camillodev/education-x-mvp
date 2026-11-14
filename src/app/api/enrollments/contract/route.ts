@@ -15,7 +15,8 @@ export async function POST(request: Request) {
     await submitAcceptanceStep(unitId, guardianId, ip);
 
     return NextResponse.json({ success: true }, { status: 200 });
-  } catch (error: any) {
+  } catch (caught) {
+    const error = caught as { status?: number; message?: string };
     console.error('Enrollment contract error:', error);
     const status = error.status || 500;
     return NextResponse.json(

@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const plans = await getAvailablePlansForUnit(unitId);
 
     return NextResponse.json({ success: true, data: plans }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
     return errorResponse(error, { route: 'GET /api/plans', unitId: unitContext.unitId });
   }
 }

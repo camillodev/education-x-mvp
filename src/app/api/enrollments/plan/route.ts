@@ -15,7 +15,8 @@ export async function POST(request: Request) {
     const result = await submitPlanStep(unitId, guardianId, selection, plan);
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });
-  } catch (error: any) {
+  } catch (caught) {
+    const error = caught as { status?: number; message?: string };
     console.error('Enrollment plan error:', error);
     const status = error.status || 500;
     return NextResponse.json(

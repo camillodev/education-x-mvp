@@ -8,6 +8,7 @@ import { useMockResource } from "@/hooks/use-mock-resource";
 import type { EnrollmentPlan } from "@/lib/mock/types";
 import { createEmptyEnrollmentFormValues } from "@/features/enrollment/enrollment-form.schema";
 import { EnrollmentForm } from "@/features/enrollment/enrollment-form";
+import type { EnrollmentFormValues } from "@/features/enrollment/enrollment-form.schema";
 
 export default function NewEnrollmentPage() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function NewEnrollmentPage() {
     [plans],
   );
   const goToList = () => router.push("/painel/matriculas");
-  const onSave = async (values: any) => {
+  const onSave = async (values: EnrollmentFormValues) => {
     const response = await fetch("/api/mock/enrollments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

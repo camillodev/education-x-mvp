@@ -47,7 +47,7 @@ export async function listGuardiansForUnit(unitId: string) {
   const db = forUnit(unitId);
   return db.guardian.findMany({
     where: { enrollments: { some: { status: "PENDING_SCHOOL_APPROVAL" } } },
-    include: { user: true, enrollments: { include: { student: true } } },
+    include: { enrollments: { include: { student: true } } },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -56,7 +56,7 @@ export async function getGuardianDetail(unitId: string, id: string) {
   const db = forUnit(unitId);
   return db.guardian.findUnique({
     where: { id },
-    include: { user: true, enrollments: { include: { student: true } } },
+    include: { enrollments: { include: { student: true } } },
   });
 }
 
@@ -169,10 +169,9 @@ export async function createEnrollment(
   },
 ) {
   const db = forUnit(unitId);
-  const priceCents = priceCentsForPlan(
-    await db.subject.findUnique({ where: { id: data.subjectId } }) as any,
-    data.plan,
-  );
+  const subject = await db.subject.findUnique({ where: { id: data.subjectId } });
+  if (!subject) throw new SubjectNotFoundError();
+  const priceCents = priceCentsForPlan(subject, data.plan);
   if (priceCents === null || priceCents === undefined) {
     throw new PlanNotAvailableError();
   }
@@ -187,6 +186,14 @@ export async function createEnrollment(
       finalPriceCents: priceCents,
     },
   });
+}
+
+export class SubjectNotFoundError extends Error {
+  readonly status = 404;
+  constructor() {
+    super("Matéria não encontrada nesta unidade");
+    this.name = "SubjectNotFoundError";
+  }
 }
 
 export class InvalidEnrollmentLinkError extends Error {

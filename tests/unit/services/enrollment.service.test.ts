@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { forUnit, prisma } from "@/lib/db";
 import {
+  createEnrollment,
   GuardianOwnershipError,
   InvalidEnrollmentLinkError,
   resolveEnrollmentLink,
@@ -27,6 +28,7 @@ vi.mock("@/lib/db", () => {
   const studentCreate = vi.fn();
   const studentFindMany = vi.fn();
   const subjectFindMany = vi.fn();
+  const subjectFindUnique = vi.fn();
   const enrollmentDeleteMany = vi.fn();
   const enrollmentCreate = vi.fn();
   const enrollmentUpdateMany = vi.fn();
@@ -49,6 +51,7 @@ vi.mock("@/lib/db", () => {
       },
       subject: {
         findMany: subjectFindMany,
+        findUnique: subjectFindUnique,
       },
       enrollment: {
         deleteMany: enrollmentDeleteMany,
@@ -76,6 +79,7 @@ type MockForUnitDb = {
   };
   subject: {
     findMany: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
   };
   enrollment: {
     deleteMany: ReturnType<typeof vi.fn>;
@@ -455,5 +459,53 @@ describe("submitAcceptanceStep", () => {
       .rejects.toThrow(
         NoEnrollmentError,
       );
+  });
+});
+
+describe("createEnrollment", () => {
+  const input = {
+    guardianId: "guardian-1",
+    studentId: "student-1",
+    subjectId: "subject-1",
+    plan: "MONTHLY" as const,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("lança SubjectNotFoundError quando a matéria não existe na unidade (nunca TypeError)", async () => {
+    const db = forUnit("unit-1") as unknown as MockForUnitDb;
+    db.subject.findUnique.mockResolvedValue(null);
+
+    const { SubjectNotFoundError } = await import(
+      "@/lib/services/enrollment.service"
+    );
+    await expect(createEnrollment("unit-1", input)).rejects.toThrow(
+      SubjectNotFoundError,
+    );
+    expect(db.enrollment.create).not.toHaveBeenCalled();
+  });
+
+  it("grava o preço do plano como snapshot em centavos", async () => {
+    const db = forUnit("unit-1") as unknown as MockForUnitDb;
+    db.subject.findUnique.mockResolvedValue({
+      id: "subject-1",
+      priceCents: 25000,
+      quarterlyPriceCents: null,
+      semiannualPriceCents: null,
+      annualPriceCents: null,
+    });
+    db.enrollment.create.mockResolvedValue({ id: "e-1" });
+
+    await createEnrollment("unit-1", input);
+
+    expect(db.enrollment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        agreedPriceCents: 25000,
+        finalPriceCents: 25000,
+        plan: "MONTHLY",
+      }),
+    });
   });
 });

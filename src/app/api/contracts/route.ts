@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const contract = await getUnitContract(unitId);
 
     return NextResponse.json({ success: true, data: contract }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
     return errorResponse(error, { route: 'GET /api/contracts', unitId: ctx.unitId });
   }
 }
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     const contract = await saveUnitContract(unitId, body);
 
     return NextResponse.json({ success: true, data: contract }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     return errorResponse(error, { route: 'POST /api/contracts', unitId: ctx.unitId });
   }
 }

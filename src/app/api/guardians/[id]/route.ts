@@ -24,7 +24,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     return NextResponse.json({ success: true, data: guardian }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
     return errorResponse(error, { route: 'GET /api/guardians/[id]', unitId: unitContext.unitId });
   }
 }
@@ -38,7 +38,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const body = await request.json();
 
     const db = forUnit(unitContext.unitId);
-    const encryptedFields: any = {};
+    const encryptedFields: Record<string, string> = {};
 
     if (body.cpfCnpj) encryptedFields.cpfEnc = await encrypt(body.cpfCnpj);
     if (body.email) encryptedFields.emailEnc = await encrypt(body.email);
@@ -59,7 +59,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     });
 
     return NextResponse.json({ success: true, data: result }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
     return errorResponse(error, { route: 'PUT /api/guardians/[id]', unitId: unitContext.unitId });
   }
 }
@@ -74,7 +74,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     await db.guardian.delete({ where: { id } });
 
     return NextResponse.json({ success: true }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
     return errorResponse(error, { route: 'DELETE /api/guardians/[id]', unitId: unitContext.unitId });
   }
 }
