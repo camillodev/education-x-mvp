@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { forUnit, prisma } from "@/lib/db";
 import {
+  createEnrollment,
   GuardianOwnershipError,
   InvalidEnrollmentLinkError,
   resolveEnrollmentLink,
@@ -27,6 +28,7 @@ vi.mock("@/lib/db", () => {
   const studentCreate = vi.fn();
   const studentFindMany = vi.fn();
   const subjectFindMany = vi.fn();
+  const subjectFindUnique = vi.fn();
   const enrollmentDeleteMany = vi.fn();
   const enrollmentCreate = vi.fn();
   const enrollmentUpdateMany = vi.fn();
@@ -49,6 +51,7 @@ vi.mock("@/lib/db", () => {
       },
       subject: {
         findMany: subjectFindMany,
+        findUnique: subjectFindUnique,
       },
       enrollment: {
         deleteMany: enrollmentDeleteMany,
@@ -76,6 +79,7 @@ type MockForUnitDb = {
   };
   subject: {
     findMany: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
   };
   enrollment: {
     deleteMany: ReturnType<typeof vi.fn>;
@@ -89,7 +93,7 @@ describe("resolveEnrollmentLink", () => {
     vi.clearAllMocks();
   });
 
-  it("retorna unitId e nome da unidade para um token válido", async () => {
+  it("returns unitId and unit name for a valid token", async () => {
     const mp = prisma as unknown as MockPrisma;
     mp.unit.findUnique.mockResolvedValue({
       id: "unit-1",
@@ -105,7 +109,7 @@ describe("resolveEnrollmentLink", () => {
     });
   });
 
-  it("lança InvalidEnrollmentLinkError quando o token não resolve nenhuma unidade", async () => {
+  it("throws InvalidEnrollmentLinkError when the token resolves to no unit", async () => {
     const mp = prisma as unknown as MockPrisma;
     mp.unit.findUnique.mockResolvedValue(null);
 
@@ -137,7 +141,7 @@ describe("submitGuardianStep", () => {
     vi.clearAllMocks();
   });
 
-  it("cria um novo Guardian criptografado quando não há guardianId existente (fluxo novo)", async () => {
+  it("creates a new encrypted Guardian when there is no existing guardianId (new flow)", async () => {
     const db = forUnit("unit-1") as unknown as MockForUnitDb;
     db.guardian.create.mockResolvedValue({
       id: "guardian-1",
@@ -172,7 +176,7 @@ describe("submitGuardianStep", () => {
     expect(guardian.id).toBe("guardian-1");
   });
 
-  it("reaproveita o Guardian existente (update) quando guardianId já pertence a esta unidade — idempotência de back-navigation", async () => {
+  it("reuses the existing Guardian (update) when guardianId already belongs to this unit — idempotent on back-navigation", async () => {
     const db = forUnit("unit-1") as unknown as MockForUnitDb;
     db.guardian.findFirst.mockResolvedValue({
       id: "guardian-1",
@@ -211,9 +215,9 @@ describe("submitGuardianStep", () => {
     expect(db.guardian.create).not.toHaveBeenCalled();
   });
 
-  it("lança GuardianOwnershipError quando guardianId do cookie pertence a outra unidade (cria novo em vez de vazar)", async () => {
+  it("throws GuardianOwnershipError when the cookie guardianId belongs to another unit (never leaks)", async () => {
     const db = forUnit("unit-1") as unknown as MockForUnitDb;
-    db.guardian.findFirst.mockResolvedValue(null); // forUnit já filtra por unitId — não encontra em outro tenant
+    db.guardian.findFirst.mockResolvedValue(null); // forUnit already filters by unitId — nothing is found in another tenant
 
     await expect(
       submitGuardianStep(
@@ -255,7 +259,7 @@ describe("submitStudentsStep", () => {
     },
   ];
 
-  it("delete-recreate: apaga Students anteriores do Guardian e cria os novos, retornando studentId->subjectIds", async () => {
+  it("delete-recreate: removes the Guardian's previous Students and creates the new ones, returning studentId->subjectIds", async () => {
     const db = forUnit("unit-1") as unknown as MockForUnitDb;
     db.student.create
       .mockResolvedValueOnce({ id: "student-1" })
@@ -309,7 +313,7 @@ describe("submitPlanStep", () => {
     { studentId: "student-2", subjectIds: ["subj-1"] },
   ];
 
-  it("cria 1 Enrollment por (student, subject) com agreedPriceCents derivado do Subject (R5a)", async () => {
+  it("creates one Enrollment per (student, subject) with agreedPriceCents derived from the Subject (R5a)", async () => {
     const db = forUnit("unit-1") as unknown as MockForUnitDb;
     db.student.findMany.mockResolvedValue([{ id: "student-1" }, {
       id: "student-2",
@@ -357,9 +361,9 @@ describe("submitPlanStep", () => {
     expect(result.totalCents).toBe(24000 + 16000 + 24000); // student-1: subj-1+subj-2, student-2: subj-1
   });
 
-  it("lança StudentOwnershipError se algum studentId do cookie não pertence a este Guardian/unidade", async () => {
+  it("throws StudentOwnershipError when a cookie studentId does not belong to this Guardian/unit", async () => {
     const db = forUnit("unit-1") as unknown as MockForUnitDb;
-    db.student.findMany.mockResolvedValue([{ id: "student-1" }]); // só 1 de 2 encontrado
+    db.student.findMany.mockResolvedValue([{ id: "student-1" }]); // only 1 of 2 found
 
     await expect(submitPlanStep("unit-1", "guardian-1", selection, "ANNUAL"))
       .rejects.toThrow(
@@ -368,7 +372,7 @@ describe("submitPlanStep", () => {
     expect(db.enrollment.create).not.toHaveBeenCalled();
   });
 
-  it("lança erro se algum Subject não tem preço configurado para o plano escolhido (R3)", async () => {
+  it("throws when a Subject has no price configured for the chosen plan (R3)", async () => {
     const db = forUnit("unit-1") as unknown as MockForUnitDb;
     db.student.findMany.mockResolvedValue([{ id: "student-1" }, {
       id: "student-2",
@@ -401,7 +405,7 @@ describe("submitAcceptanceStep", () => {
     vi.clearAllMocks();
   });
 
-  it("registra TermsAcceptance (timestamp+IP+guardianId) e move os Enrollments do Guardian para PENDING_SCHOOL_APPROVAL", async () => {
+  it("records TermsAcceptance (timestamp+IP+guardianId) and moves the Guardian's Enrollments to PENDING_SCHOOL_APPROVAL", async () => {
     const { getUnitContract } = await import("@/lib/services/contract.service");
     vi.mocked(getUnitContract).mockResolvedValue({
       id: "tv-1",
@@ -433,7 +437,7 @@ describe("submitAcceptanceStep", () => {
     });
   });
 
-  it("lança NoEnrollmentError se o Guardian não tem nenhum Enrollment pra enviar", async () => {
+  it("throws NoEnrollmentError when the Guardian has no Enrollment to submit", async () => {
     const { getUnitContract } = await import("@/lib/services/contract.service");
     vi.mocked(getUnitContract).mockResolvedValue({
       id: "tv-1",
@@ -455,5 +459,53 @@ describe("submitAcceptanceStep", () => {
       .rejects.toThrow(
         NoEnrollmentError,
       );
+  });
+});
+
+describe("createEnrollment", () => {
+  const input = {
+    guardianId: "guardian-1",
+    studentId: "student-1",
+    subjectId: "subject-1",
+    plan: "MONTHLY" as const,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("throws SubjectNotFoundError when the subject does not exist in the unit (never a TypeError)", async () => {
+    const db = forUnit("unit-1") as unknown as MockForUnitDb;
+    db.subject.findUnique.mockResolvedValue(null);
+
+    const { SubjectNotFoundError } = await import(
+      "@/lib/services/enrollment.service"
+    );
+    await expect(createEnrollment("unit-1", input)).rejects.toThrow(
+      SubjectNotFoundError,
+    );
+    expect(db.enrollment.create).not.toHaveBeenCalled();
+  });
+
+  it("stores the plan price as a snapshot in cents", async () => {
+    const db = forUnit("unit-1") as unknown as MockForUnitDb;
+    db.subject.findUnique.mockResolvedValue({
+      id: "subject-1",
+      priceCents: 25000,
+      quarterlyPriceCents: null,
+      semiannualPriceCents: null,
+      annualPriceCents: null,
+    });
+    db.enrollment.create.mockResolvedValue({ id: "e-1" });
+
+    await createEnrollment("unit-1", input);
+
+    expect(db.enrollment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        agreedPriceCents: 25000,
+        finalPriceCents: 25000,
+        plan: "MONTHLY",
+      }),
+    });
   });
 });

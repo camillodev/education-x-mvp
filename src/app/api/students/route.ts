@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({ success: true, data: students }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
     return errorResponse(error, { route: 'GET /api/students', unitId: unitContext.unitId });
   }
 }
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const result = await createStudent(unitContext.unitId, body);
     return NextResponse.json({ success: true, data: result }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     return errorResponse(error, { route: 'POST /api/students', unitId: unitContext.unitId });
   }
 }

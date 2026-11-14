@@ -19,7 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return errorResponse(new Error('Student not found'), { route: 'GET /api/students/[id]', unitId: unitContext.unitId });
     }
     return NextResponse.json({ success: true, data: student }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
     return errorResponse(error, { route: 'GET /api/students/[id]', unitId: unitContext.unitId });
   }
 }
@@ -33,7 +33,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const body = await request.json();
     const updated = await updateStudent(unitContext.unitId, id, body);
     return NextResponse.json({ success: true, data: updated }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
     return errorResponse(error, { route: 'PUT /api/students/[id]', unitId: unitContext.unitId });
   }
 }
@@ -46,7 +46,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const { id } = await params;
     await deleteStudent(unitContext.unitId, id);
     return NextResponse.json({ success: true }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
     return errorResponse(error, { route: 'DELETE /api/students/[id]', unitId: unitContext.unitId });
   }
 }

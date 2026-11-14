@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({ success: true, data: guardians }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
     return errorResponse(error, { route: 'GET /api/guardians', unitId: unitContext.unitId });
   }
 }
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const db = forUnit(unitContext.unitId);
 
-    const encryptedFields: any = {};
+    const encryptedFields: Record<string, string> = {};
     if (body.cpfCnpj) encryptedFields.cpfEnc = await encrypt(body.cpfCnpj);
     if (body.email) encryptedFields.emailEnc = await encrypt(body.email);
     if (body.mobilePhone) encryptedFields.phoneEnc = await encrypt(body.mobilePhone);
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true, data: guardian }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     return errorResponse(error, { route: 'POST /api/guardians', unitId: unitContext.unitId });
   }
 }
