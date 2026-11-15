@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { handleError, errorResponse } from '@/lib/errors/handle'
 import { DuplicateCnpjError, DueDayImmutableError, UnitNotFoundError } from '@/lib/services/onboarding.service'
+import { UnauthorizedError, ForbiddenError } from '@/lib/auth/unit-context'
 import { GuardianNotFoundError } from '@/lib/services/approval.service'
 import { EnrollmentNotFoundError, EnrollmentNotCancellableError } from '@/lib/services/subscription.service'
 
@@ -79,5 +80,26 @@ describe('errorResponse', () => {
     const res = errorResponse(new Error('connection refused at 5432'), { route: 'GET /api/schools', exposeDetail: true })
     const body = await res.json()
     expect(body.detail).toBe('connection refused at 5432')
+  })
+})
+
+describe('handleError — authentication errors', () => {
+  beforeEach(() => vi.spyOn(console, 'error').mockImplementation(() => {}))
+  afterEach(() => vi.restoreAllMocks())
+
+  it('maps UnauthorizedError to 401 / UNAUTHORIZED', () => {
+    const out = handleError(new UnauthorizedError(), { route: 'GET /x' })
+    expect(out).toMatchObject({ status: 401, code: 'UNAUTHORIZED' })
+  })
+
+  it('maps ForbiddenError to 403 / FORBIDDEN', () => {
+    const out = handleError(new ForbiddenError(), { route: 'GET /x' })
+    expect(out).toMatchObject({ status: 403, code: 'FORBIDDEN' })
+  })
+
+  it('does not log expected 401/403 responses as errors', () => {
+    handleError(new UnauthorizedError(), { route: 'GET /x' })
+    handleError(new ForbiddenError(), { route: 'GET /x' })
+    expect(console.error).not.toHaveBeenCalled()
   })
 })

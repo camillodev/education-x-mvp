@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server';
 import { forUnit } from '@/lib/db';
-import { guardAdvisor } from '@/lib/api/guard';
+import { requireSchoolAdmin } from '@/lib/auth/unit-context';
 import { errorResponse } from '@/lib/errors/handle';
 import { encrypt } from '@/lib/crypto';
 
 export async function GET() {
-  const unitContext = await guardAdvisor('GET /api/guardians');
-  if (unitContext instanceof NextResponse) return unitContext;
-
   try {
+    const unitContext = await requireSchoolAdmin();
     const db = forUnit(unitContext.unitId);
     const guardians = await db.guardian.findMany({
       include: { enrollments: { include: { student: true } } },
@@ -17,15 +15,13 @@ export async function GET() {
 
     return NextResponse.json({ success: true, data: guardians }, { status: 200 });
   } catch (error) {
-    return errorResponse(error, { route: 'GET /api/guardians', unitId: unitContext.unitId });
+    return errorResponse(error, { route: 'GET /api/guardians' });
   }
 }
 
 export async function POST(request: Request) {
-  const unitContext = await guardAdvisor('POST /api/guardians');
-  if (unitContext instanceof NextResponse) return unitContext;
-
   try {
+    const unitContext = await requireSchoolAdmin();
     const body = await request.json();
     const db = forUnit(unitContext.unitId);
 
@@ -53,6 +49,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: guardian }, { status: 201 });
   } catch (error) {
-    return errorResponse(error, { route: 'POST /api/guardians', unitId: unitContext.unitId });
+    return errorResponse(error, { route: 'POST /api/guardians' });
   }
 }

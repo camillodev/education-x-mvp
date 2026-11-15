@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getUnitContext = vi.fn();
+const requireSchoolAdmin = vi.fn();
 vi.mock("@/lib/auth/unit-context", async () => {
   const actual = await vi.importActual<typeof import("@/lib/auth/unit-context")>(
     "@/lib/auth/unit-context",
@@ -9,6 +10,7 @@ vi.mock("@/lib/auth/unit-context", async () => {
   return {
     ...actual,
     getUnitContext: (...a: unknown[]) => getUnitContext(...a),
+    requireSchoolAdmin: (...a: unknown[]) => requireSchoolAdmin(...a),
   };
 });
 
@@ -59,6 +61,7 @@ const call = (handler: unknown, req: Request) => (handler as Handler)(req);
 beforeEach(() => {
   vi.clearAllMocks();
   getUnitContext.mockResolvedValue(advisorOfUnitA);
+  requireSchoolAdmin.mockResolvedValue(advisorOfUnitA);
   findMany.mockResolvedValue([]);
   forUnit.mockReturnValue({
     student: { findMany },
@@ -122,31 +125,32 @@ describe("tenant id always comes from the Clerk session, never from the request"
   });
 });
 
-describe("auth matrix for the advisor-only enrollment-related routes", () => {
-  const calls: Array<[string, () => Promise<Response>]> = [
-    ["GET /api/enrollments", () => call(getEnrollments, new Request(forgedQuery))],
-    ["GET /api/plans", () => call(getPlans, new Request(forgedQuery))],
-    ["GET /api/students", () => getStudents(new Request(forgedQuery))],
-    ["GET /api/guardians", () => call(getGuardians, new Request(forgedQuery))],
-    ["GET /api/contracts", () => call(getContract, new Request(forgedQuery))],
+// Routes already on requireSchoolAdmin read the session through it; the rest still go through
+// guardAdvisor, which reads getUnitContext.
+describe("auth matrix for the school-admin-only enrollment-related routes", () => {
+  type AuthMock = ReturnType<typeof vi.fn>;
+  const calls: Array<[string, () => Promise<Response>, () => AuthMock]> = [
+    ["GET /api/enrollments", () => call(getEnrollments, new Request(forgedQuery)), () => requireSchoolAdmin],
+    ["GET /api/guardians", () => call(getGuardians, new Request(forgedQuery)), () => requireSchoolAdmin],
+    ["GET /api/contracts", () => call(getContract, new Request(forgedQuery)), () => requireSchoolAdmin],
+    ["GET /api/plans", () => call(getPlans, new Request(forgedQuery)), () => getUnitContext],
+    ["GET /api/students", () => getStudents(new Request(forgedQuery)), () => getUnitContext],
   ];
 
-  it.each(calls)("%s returns 401 without a session", async (_name, call) => {
-    getUnitContext.mockRejectedValue(new UnauthorizedError());
-    expect((await call()).status).toBe(401);
+  it.each(calls)("%s returns 401 without a session", async (_name, run, auth) => {
+    auth().mockRejectedValue(new UnauthorizedError());
+    expect((await run()).status).toBe(401);
   });
 
-  it.each(calls)("%s returns 403 for the platform admin", async (_name, call) => {
-    getUnitContext.mockResolvedValue({
-      role: "admin",
-      unitId: "__admin__",
-      userId: "admin-1",
-    });
-    expect((await call()).status).toBe(403);
+  it.each(calls)("%s returns 403 for the platform admin", async (_name, run, auth) => {
+    const rejection = auth() === requireSchoolAdmin ? new ForbiddenError() : undefined;
+    if (rejection) auth().mockRejectedValue(rejection);
+    else auth().mockResolvedValue({ role: "admin", unitId: "__admin__", userId: "admin-1" });
+    expect((await run()).status).toBe(403);
   });
 
-  it.each(calls)("%s returns 403 for an advisor without unitId", async (_name, call) => {
-    getUnitContext.mockRejectedValue(new ForbiddenError());
-    expect((await call()).status).toBe(403);
+  it.each(calls)("%s returns 403 for a school user without unitId", async (_name, run, auth) => {
+    auth().mockRejectedValue(new ForbiddenError());
+    expect((await run()).status).toBe(403);
   });
 });
