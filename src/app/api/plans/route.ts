@@ -1,20 +1,17 @@
 import { NextResponse } from 'next/server';
-import { guardAdvisor } from '@/lib/api/guard';
+import { requireSchoolAdmin } from '@/lib/auth/unit-context';
 import { errorResponse } from '@/lib/errors/handle';
 import { getAvailablePlansForUnit } from '@/lib/services/enrollment.service';
 
-export async function GET(request: Request) {
-  const unitContext = await guardAdvisor('GET /api/plans');
-  if (unitContext instanceof NextResponse) return unitContext;
-
+export async function GET() {
+  let unitId: string | undefined;
   try {
-    const { searchParams } = new URL(request.url);
-    const unitId = searchParams.get('unitId') || unitContext.unitId;
-
-    const plans = await getAvailablePlansForUnit(unitId);
+    const unitContext = await requireSchoolAdmin();
+    unitId = unitContext.unitId;
+    const plans = await getAvailablePlansForUnit(unitContext.unitId);
 
     return NextResponse.json({ success: true, data: plans }, { status: 200 });
   } catch (error) {
-    return errorResponse(error, { route: 'GET /api/plans', unitId: unitContext.unitId });
+    return errorResponse(error, { route: 'GET /api/plans', unitId });
   }
 }

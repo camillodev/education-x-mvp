@@ -7,6 +7,7 @@ import {
   InvalidPlanError,
   AsaasProvisionError,
 } from '@/lib/services/onboarding.service'
+import { UnauthorizedError, ForbiddenError } from '@/lib/auth/unit-context'
 import { EnrollmentNotFoundError, EnrollmentNotCancellableError } from '@/lib/services/subscription.service'
 import { GuardianNotFoundError } from '@/lib/services/approval.service'
 import { EnrollmentNotStartedError, GuardianNotRegisteredError, MissingAsaasKeyError, SubscriptionManagedError } from '@/lib/services/billing.service'
@@ -58,10 +59,13 @@ export function handleError(error: unknown, ctx: ErrorContext): HandledError {
   const detail = extractDetail(error)
 
   // Log estruturado: contexto + causa real (nunca engolir o erro técnico).
-  console.error(
-    `[${ctx.route}]${ctx.unitId ? ` unit=${ctx.unitId}` : ''} code=${known.code}`,
-    error
-  )
+  // 401/403 are expected responses, not failures, so they stay out of the error log.
+  if (known.status !== 401 && known.status !== 403) {
+    console.error(
+      `[${ctx.route}]${ctx.unitId ? ` unit=${ctx.unitId}` : ''} code=${known.code}`,
+      error
+    )
+  }
 
   return {
     message: ctx.userMessage ?? known.message,
@@ -86,6 +90,12 @@ export function errorResponse(error: unknown, ctx: ErrorContext): NextResponse {
 }
 
 function mapKnown(error: unknown): Omit<HandledError, 'detail'> {
+  if (error instanceof UnauthorizedError) {
+    return { message: 'Sessão expirada. Faça login novamente.', code: 'UNAUTHORIZED', status: 401 }
+  }
+  if (error instanceof ForbiddenError) {
+    return { message: 'Você não tem permissão para esta ação.', code: 'FORBIDDEN', status: 403 }
+  }
   if (error instanceof DuplicateCnpjError) {
     return { message: 'CNPJ já cadastrado.', code: 'DUPLICATE_CNPJ', status: 409 }
   }

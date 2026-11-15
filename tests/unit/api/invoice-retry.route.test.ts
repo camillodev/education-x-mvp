@@ -1,8 +1,11 @@
 import { it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { NextResponse } from 'next/server'
 
-const guardAdvisor = vi.fn()
-vi.mock('@/lib/api/guard', () => ({ guardAdvisor: (...a: unknown[]) => guardAdvisor(...a) }))
+const getUnitContext = vi.fn()
+vi.mock('@/lib/auth/unit-context', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/auth/unit-context')>('@/lib/auth/unit-context')
+  const { withSchoolAdmin } = await import('./_school-admin-mock')
+  return withSchoolAdmin(actual, (...a: unknown[]) => getUnitContext(...a))
+})
 
 const emitInvoice = vi.fn()
 vi.mock('@/lib/services/billing.service', async () => {
@@ -42,7 +45,7 @@ function makeRequest() {
 const CTX = { role: 'orientador', unitId: 'unit-1', userId: 'u1' }
 
 beforeEach(() => {
-  guardAdvisor.mockReset()
+  getUnitContext.mockReset()
   emitInvoice.mockReset()
   findUnique.mockReset()
   invoiceFindUnique.mockReset()
@@ -56,7 +59,7 @@ afterEach(() => {
 })
 
 it('200 reemite Invoice existente via emitInvoice', async () => {
-  guardAdvisor.mockResolvedValue(CTX)
+  getUnitContext.mockResolvedValue(CTX)
   invoiceFindUnique.mockResolvedValue({ enrollmentId: 'enr-1', referenceMonth: '2026-09' })
   findUnique.mockResolvedValue({ asaasApiKeyEnc: 'enc:x' })
   decrypt.mockResolvedValue('chave-real')
@@ -74,7 +77,7 @@ it('200 reemite Invoice existente via emitInvoice', async () => {
 })
 
 it('404 quando Invoice não existe — emitInvoice nunca é chamado', async () => {
-  guardAdvisor.mockResolvedValue(CTX)
+  getUnitContext.mockResolvedValue(CTX)
   invoiceFindUnique.mockResolvedValue(null)
 
   const res = await POST(makeRequest(), makeParams('inv-1'))
@@ -84,7 +87,7 @@ it('404 quando Invoice não existe — emitInvoice nunca é chamado', async () =
 })
 
 it('409 quando Unit não tem asaasApiKeyEnc', async () => {
-  guardAdvisor.mockResolvedValue(CTX)
+  getUnitContext.mockResolvedValue(CTX)
   invoiceFindUnique.mockResolvedValue({ enrollmentId: 'enr-1', referenceMonth: '2026-09' })
   findUnique.mockResolvedValue({ asaasApiKeyEnc: null })
 
@@ -96,13 +99,12 @@ it('409 quando Unit não tem asaasApiKeyEnc', async () => {
   expect(emitInvoice).not.toHaveBeenCalled()
 })
 
-it('guard nega → devolve a resposta do guard direto, sem chamar forUnit', async () => {
-  const denied = NextResponse.json({ error: 'Apenas a escola pode executar esta ação.', code: 'FORBIDDEN' }, { status: 403 })
-  guardAdvisor.mockResolvedValue(denied)
+it('403 for a non-school user — forUnit and emitInvoice are never called', async () => {
+  getUnitContext.mockResolvedValue({ role: 'admin', unitId: '__admin__', userId: 'a1' })
 
   const res = await POST(makeRequest(), makeParams('inv-1'))
 
-  expect(res).toBe(denied)
+  expect(res.status).toBe(403)
   expect(forUnit).not.toHaveBeenCalled()
   expect(emitInvoice).not.toHaveBeenCalled()
 })

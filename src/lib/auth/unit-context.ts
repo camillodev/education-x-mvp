@@ -99,3 +99,16 @@ export async function requireAdmin(): Promise<UnitContext> {
   }
   return ctx
 }
+
+/**
+ * Requires the signed-in user to be a school admin (stored in Clerk as role `orientador`).
+ * The unitId always comes from the session, never from the request.
+ * Throws Unauthorized/ForbiddenError.
+ */
+export async function requireSchoolAdmin(): Promise<UnitContext> {
+  const ctx = await getUnitContext()
+  if (ctx.role !== 'orientador') {
+    throw new ForbiddenError('Apenas administradores da escola podem executar esta ação')
+  }
+  return ctx
+}

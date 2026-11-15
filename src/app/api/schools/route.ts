@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { errorResponse } from '@/lib/errors/handle'
-import { guardAdmin } from '@/lib/api/guard'
+import { requireAdmin } from '@/lib/auth/unit-context'
 
 // Admin-only. Usa prisma cru (NÃO forUnit): o admin tem unitId='__admin__' e
 // forUnit filtraria a lista pra vazio.
 export async function GET(req: NextRequest) {
-  const denied = await guardAdmin('GET /api/schools')
-  if (denied) return denied
-
   try {
+    await requireAdmin()
     const units = await prisma.unit.findMany({
       orderBy: { createdAt: 'desc' },
       select: {

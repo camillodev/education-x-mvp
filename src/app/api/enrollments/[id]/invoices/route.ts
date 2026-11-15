@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { emitInvoice, resolveUnitAsaasKey } from '@/lib/services/billing.service'
 import { errorResponse } from '@/lib/errors/handle'
-import { guardAdvisor } from '@/lib/api/guard'
+import { requireSchoolAdmin } from '@/lib/auth/unit-context'
 import { EmitInvoiceBodySchema } from '@/lib/validations/billing'
 import { currentReferenceMonth } from '@/lib/reference-month'
 
@@ -10,12 +10,12 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const ctx = await guardAdvisor('POST /api/enrollments/[id]/invoices')
-  if (ctx instanceof NextResponse) return ctx
-
-  const { id: enrollmentId } = await params
-
+  let unitId: string | undefined
   try {
+    const ctx = await requireSchoolAdmin()
+    unitId = ctx.unitId
+    const { id: enrollmentId } = await params
+
     const rawBody = await req.json().catch(() => ({}))
     const { referenceMonth = currentReferenceMonth() } = EmitInvoiceBodySchema.parse(rawBody)
 
@@ -23,6 +23,6 @@ export async function POST(
     const invoice = await emitInvoice(ctx.unitId, enrollmentId, referenceMonth, asaasApiKey)
     return NextResponse.json({ invoice }, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'POST /api/enrollments/[id]/invoices', unitId: ctx.unitId })
+    return errorResponse(err, { route: 'POST /api/enrollments/[id]/invoices', unitId })
   }
 }

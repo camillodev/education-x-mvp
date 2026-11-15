@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   getUnitContext,
   requireAdmin,
+  requireSchoolAdmin,
   UnauthorizedError,
   ForbiddenError,
 } from '../../../src/lib/auth/unit-context'
@@ -120,5 +121,46 @@ describe('requireAdmin', () => {
   it('lança UnauthorizedError quando não autenticado', async () => {
     mockAuthReturn({ userId: null, sessionClaims: null })
     await expect(requireAdmin()).rejects.toThrow(UnauthorizedError)
+  })
+})
+
+describe('requireSchoolAdmin', () => {
+  it('returns the context of the school admin, with the unitId from the session', async () => {
+    mockAuthReturn({
+      userId: 'user-school',
+      sessionClaims: { metadata: { role: 'orientador', unitId: 'unit-A' } },
+    })
+
+    await expect(requireSchoolAdmin()).resolves.toEqual({
+      userId: 'user-school',
+      unitId: 'unit-A',
+      role: 'orientador',
+    })
+  })
+
+  it('throws UnauthorizedError without a session', async () => {
+    mockAuthReturn({ userId: null, sessionClaims: null })
+    await expect(requireSchoolAdmin()).rejects.toThrow(UnauthorizedError)
+  })
+
+  it('throws ForbiddenError for the platform admin (not tied to a school)', async () => {
+    mockAuthReturn({
+      userId: 'user-admin',
+      sessionClaims: { metadata: { role: 'admin' } },
+    })
+    await expect(requireSchoolAdmin()).rejects.toThrow(ForbiddenError)
+  })
+
+  it('throws ForbiddenError for a school user without unitId', async () => {
+    mockAuthReturn({
+      userId: 'user-school',
+      sessionClaims: { metadata: { role: 'orientador' } },
+    })
+    await expect(requireSchoolAdmin()).rejects.toThrow(ForbiddenError)
+  })
+
+  it('throws ForbiddenError for a signed-up user with no role', async () => {
+    mockAuthReturn({ userId: 'user-new', sessionClaims: { metadata: {} } })
+    await expect(requireSchoolAdmin()).rejects.toThrow(ForbiddenError)
   })
 })

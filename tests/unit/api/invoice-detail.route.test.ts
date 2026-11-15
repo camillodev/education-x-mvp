@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { NextResponse } from 'next/server'
 
-const guardAdvisor = vi.fn()
-vi.mock('@/lib/api/guard', () => ({ guardAdvisor: (...a: unknown[]) => guardAdvisor(...a) }))
+const getUnitContext = vi.fn()
+vi.mock('@/lib/auth/unit-context', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/auth/unit-context')>('@/lib/auth/unit-context')
+  const { withSchoolAdmin } = await import('./_school-admin-mock')
+  return withSchoolAdmin(actual, (...a: unknown[]) => getUnitContext(...a))
+})
 
 const getInvoiceDetail = vi.fn()
 const cancelInvoice = vi.fn()
@@ -43,7 +46,7 @@ function makeRequest(method: string) {
 const CTX = { role: 'orientador', unitId: 'unit-1', userId: 'u1' }
 
 beforeEach(() => {
-  guardAdvisor.mockReset()
+  getUnitContext.mockReset()
   getInvoiceDetail.mockReset()
   cancelInvoice.mockReset()
   findUnique.mockReset()
@@ -58,7 +61,7 @@ afterEach(() => {
 
 describe('GET /api/invoices/[id]', () => {
   it('200 com { invoice } quando getInvoiceDetail retorna um objeto', async () => {
-    guardAdvisor.mockResolvedValue(CTX)
+    getUnitContext.mockResolvedValue(CTX)
     const invoice = { id: 'inv-1', status: 'PENDING' }
     getInvoiceDetail.mockResolvedValue(invoice)
 
@@ -71,7 +74,7 @@ describe('GET /api/invoices/[id]', () => {
   })
 
   it('404 quando getInvoiceDetail retorna null', async () => {
-    guardAdvisor.mockResolvedValue(CTX)
+    getUnitContext.mockResolvedValue(CTX)
     getInvoiceDetail.mockResolvedValue(null)
 
     const res = await GET(makeRequest('GET'), makeParams('inv-1'))
@@ -79,20 +82,19 @@ describe('GET /api/invoices/[id]', () => {
     expect(res.status).toBe(404)
   })
 
-  it('guard nega → devolve a resposta do guard direto, sem chamar getInvoiceDetail', async () => {
-    const denied = NextResponse.json({ error: 'Apenas a escola pode executar esta ação.', code: 'FORBIDDEN' }, { status: 403 })
-    guardAdvisor.mockResolvedValue(denied)
+  it('403 for a non-school user — getInvoiceDetail is never called', async () => {
+    getUnitContext.mockResolvedValue({ role: 'admin', unitId: '__admin__', userId: 'a1' })
 
     const res = await GET(makeRequest('GET'), makeParams('inv-1'))
 
-    expect(res).toBe(denied)
+    expect(res.status).toBe(403)
     expect(getInvoiceDetail).not.toHaveBeenCalled()
   })
 })
 
 describe('DELETE /api/invoices/[id]', () => {
   it('200 com { invoice } quando cancelInvoice resolve com sucesso', async () => {
-    guardAdvisor.mockResolvedValue(CTX)
+    getUnitContext.mockResolvedValue(CTX)
     findUnique.mockResolvedValue({ asaasApiKeyEnc: 'enc:x' })
     decrypt.mockResolvedValue('chave-real')
     const invoice = { id: 'inv-1', status: 'CANCELLED' }
@@ -107,7 +109,7 @@ describe('DELETE /api/invoices/[id]', () => {
   })
 
   it('409 quando Unit não tem asaasApiKeyEnc — cancelInvoice nunca é chamado', async () => {
-    guardAdvisor.mockResolvedValue(CTX)
+    getUnitContext.mockResolvedValue(CTX)
     findUnique.mockResolvedValue({ asaasApiKeyEnc: null })
 
     const res = await DELETE(makeRequest('DELETE'), makeParams('inv-1'))
@@ -118,7 +120,7 @@ describe('DELETE /api/invoices/[id]', () => {
   })
 
   it('409 quando cancelInvoice lança InvoiceInvalidStateError', async () => {
-    guardAdvisor.mockResolvedValue(CTX)
+    getUnitContext.mockResolvedValue(CTX)
     findUnique.mockResolvedValue({ asaasApiKeyEnc: 'enc:x' })
     decrypt.mockResolvedValue('chave-real')
     const { InvoiceInvalidStateError } = await import('@/lib/services/invoice-detail.service')
@@ -130,7 +132,7 @@ describe('DELETE /api/invoices/[id]', () => {
   })
 
   it('404 quando cancelInvoice lança InvoiceNotFoundError', async () => {
-    guardAdvisor.mockResolvedValue(CTX)
+    getUnitContext.mockResolvedValue(CTX)
     findUnique.mockResolvedValue({ asaasApiKeyEnc: 'enc:x' })
     decrypt.mockResolvedValue('chave-real')
     const { InvoiceNotFoundError } = await import('@/lib/services/invoice-detail.service')

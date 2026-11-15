@@ -4,32 +4,32 @@ import { decrypt } from '@/lib/crypto'
 import { getInvoiceDetail, cancelInvoice, InvoiceNotFoundError } from '@/lib/services/invoice-detail.service'
 import { MissingAsaasKeyError } from '@/lib/services/billing.service'
 import { errorResponse } from '@/lib/errors/handle'
-import { guardAdvisor } from '@/lib/api/guard'
+import { requireSchoolAdmin } from '@/lib/auth/unit-context'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
 export async function GET(_req: Request, { params }: RouteCtx) {
-  const ctx = await guardAdvisor('GET /api/invoices/[id]')
-  if (ctx instanceof NextResponse) return ctx
-
-  const { id } = await params
-
+  let unitId: string | undefined
   try {
+    const ctx = await requireSchoolAdmin()
+    unitId = ctx.unitId
+    const { id } = await params
+
     const invoice = await getInvoiceDetail(ctx.unitId, id)
     if (!invoice) throw new InvoiceNotFoundError()
     return NextResponse.json({ invoice }, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'GET /api/invoices/[id]', unitId: ctx.unitId })
+    return errorResponse(err, { route: 'GET /api/invoices/[id]', unitId })
   }
 }
 
 export async function DELETE(_req: Request, { params }: RouteCtx) {
-  const ctx = await guardAdvisor('DELETE /api/invoices/[id]')
-  if (ctx instanceof NextResponse) return ctx
-
-  const { id } = await params
-
+  let unitId: string | undefined
   try {
+    const ctx = await requireSchoolAdmin()
+    unitId = ctx.unitId
+    const { id } = await params
+
     const unit = await prisma.unit.findUnique({
       where: { id: ctx.unitId },
       select: { asaasApiKeyEnc: true },
@@ -40,6 +40,6 @@ export async function DELETE(_req: Request, { params }: RouteCtx) {
     const invoice = await cancelInvoice(ctx.unitId, id, asaasApiKey)
     return NextResponse.json({ invoice }, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'DELETE /api/invoices/[id]', unitId: ctx.unitId })
+    return errorResponse(err, { route: 'DELETE /api/invoices/[id]', unitId })
   }
 }
