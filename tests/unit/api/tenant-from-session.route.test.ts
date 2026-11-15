@@ -133,7 +133,7 @@ describe("auth matrix for the school-admin-only enrollment-related routes", () =
     ["GET /api/enrollments", () => call(getEnrollments, new Request(forgedQuery)), () => requireSchoolAdmin],
     ["GET /api/guardians", () => call(getGuardians, new Request(forgedQuery)), () => requireSchoolAdmin],
     ["GET /api/contracts", () => call(getContract, new Request(forgedQuery)), () => requireSchoolAdmin],
-    ["GET /api/plans", () => call(getPlans, new Request(forgedQuery)), () => getUnitContext],
+    ["GET /api/plans", () => call(getPlans, new Request(forgedQuery)), () => requireSchoolAdmin],
     ["GET /api/students", () => getStudents(new Request(forgedQuery)), () => getUnitContext],
   ];
 
