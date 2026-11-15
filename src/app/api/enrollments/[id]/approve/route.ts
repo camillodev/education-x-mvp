@@ -9,8 +9,10 @@ export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let unitId: string | undefined
   try {
     const ctx = await requireSchoolAdmin()
+    unitId = ctx.unitId
     const { id: guardianId } = await params
 
     const unit = await prisma.unit.findUnique({
@@ -22,6 +24,6 @@ export async function POST(
     await approveEnrollment(ctx.unitId, guardianId, asaasApiKey)
     return NextResponse.json({ ok: true }, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'POST /api/enrollments/[id]/approve' })
+    return errorResponse(err, { route: 'POST /api/enrollments/[id]/approve', unitId })
   }
 }

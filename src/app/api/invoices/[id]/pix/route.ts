@@ -11,8 +11,10 @@ type RouteCtx = { params: Promise<{ id: string }> }
 
 // EDU-28 — QR PIX é lazy (I/O de terceiro não cacheável): só busca quando a pessoa pede pra pagar por PIX.
 export async function GET(_req: Request, { params }: RouteCtx) {
+  let unitId: string | undefined
   try {
     const ctx = await requireSchoolAdmin()
+    unitId = ctx.unitId
     const { id } = await params
 
     const invoice = await forUnit(ctx.unitId).invoice.findUnique({ where: { id } })
@@ -29,6 +31,6 @@ export async function GET(_req: Request, { params }: RouteCtx) {
     const pix = await client.getPixQrCode(invoice.asaasPaymentId)
     return NextResponse.json({ pix }, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'GET /api/invoices/[id]/pix' })
+    return errorResponse(err, { route: 'GET /api/invoices/[id]/pix', unitId })
   }
 }

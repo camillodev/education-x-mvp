@@ -141,3 +141,18 @@ describe("auth matrix for the school-admin-only enrollment-related routes", () =
     expect((await run()).status).toBe(403);
   });
 });
+
+describe("error log", () => {
+  it("includes the session unit when a school route fails unexpectedly", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    listEnrollmentsForUnit.mockRejectedValue(new Error("db down"));
+
+    const res = await call(getEnrollments, new Request(forgedQuery));
+
+    expect(res.status).toBe(500);
+    const logged = errorSpy.mock.calls.map((c) => c.join(" ")).join(" ");
+    expect(logged).toContain("unit=unit-A");
+    expect(logged).not.toContain("unit-B");
+    errorSpy.mockRestore();
+  });
+});

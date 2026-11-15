@@ -46,4 +46,13 @@ describe("API route authentication pattern", () => {
       expect(source).toMatch(/requireSchoolAdmin\(|requireAdmin\(/);
     },
   );
+
+  it.each(
+    files.filter((f) => /requireSchoolAdmin\(/.test(f.source)).map((f) => [f.file, f.source]),
+  )("%s keeps the session unit outside the try, for the error log", (_file, source) => {
+    const sessionReads = source.match(/await requireSchoolAdmin\(/g)?.length ?? 0;
+    const unitKept = source.match(/\bunitId = \w+\.unitId/g)?.length ?? 0;
+    expect(unitKept).toBe(sessionReads);
+  });
 });
+

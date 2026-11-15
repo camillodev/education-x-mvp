@@ -4,23 +4,27 @@ import { errorResponse } from '@/lib/errors/handle';
 import { listEnrollmentsForUnit, createEnrollment } from '@/lib/services/enrollment.service';
 
 export async function GET() {
+  let unitId: string | undefined;
   try {
     const ctx = await requireSchoolAdmin();
+    unitId = ctx.unitId;
     const enrollments = await listEnrollmentsForUnit(ctx.unitId);
 
     return NextResponse.json({ success: true, data: enrollments }, { status: 200 });
   } catch (error) {
-    return errorResponse(error, { route: 'GET /api/enrollments' });
+    return errorResponse(error, { route: 'GET /api/enrollments', unitId });
   }
 }
 
 export async function POST(request: Request) {
+  let unitId: string | undefined;
   try {
     const ctx = await requireSchoolAdmin();
+    unitId = ctx.unitId;
     const body = await request.json();
     const result = await createEnrollment(ctx.unitId, body);
     return NextResponse.json({ success: true, data: result }, { status: 201 });
   } catch (error) {
-    return errorResponse(error, { route: 'POST /api/enrollments' });
+    return errorResponse(error, { route: 'POST /api/enrollments', unitId });
   }
 }

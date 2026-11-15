@@ -10,8 +10,10 @@ type RouteCtx = { params: Promise<{ id: string }> }
 
 // EDU-28 — botão "Reemitir" no detalhe: reusa emitInvoice, que já re-tenta Invoice ERROR (RN-13).
 export async function POST(_req: Request, { params }: RouteCtx) {
+  let unitId: string | undefined
   try {
     const ctx = await requireSchoolAdmin()
+    unitId = ctx.unitId
     const { id } = await params
 
     const existing = await forUnit(ctx.unitId).invoice.findUnique({ where: { id } })
@@ -27,6 +29,6 @@ export async function POST(_req: Request, { params }: RouteCtx) {
     const invoice = await emitInvoice(ctx.unitId, existing.enrollmentId, existing.referenceMonth, asaasApiKey)
     return NextResponse.json({ invoice }, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'POST /api/invoices/[id]/retry' })
+    return errorResponse(err, { route: 'POST /api/invoices/[id]/retry', unitId })
   }
 }

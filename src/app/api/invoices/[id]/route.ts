@@ -9,21 +9,25 @@ import { requireSchoolAdmin } from '@/lib/auth/unit-context'
 type RouteCtx = { params: Promise<{ id: string }> }
 
 export async function GET(_req: Request, { params }: RouteCtx) {
+  let unitId: string | undefined
   try {
     const ctx = await requireSchoolAdmin()
+    unitId = ctx.unitId
     const { id } = await params
 
     const invoice = await getInvoiceDetail(ctx.unitId, id)
     if (!invoice) throw new InvoiceNotFoundError()
     return NextResponse.json({ invoice }, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'GET /api/invoices/[id]' })
+    return errorResponse(err, { route: 'GET /api/invoices/[id]', unitId })
   }
 }
 
 export async function DELETE(_req: Request, { params }: RouteCtx) {
+  let unitId: string | undefined
   try {
     const ctx = await requireSchoolAdmin()
+    unitId = ctx.unitId
     const { id } = await params
 
     const unit = await prisma.unit.findUnique({
@@ -36,6 +40,6 @@ export async function DELETE(_req: Request, { params }: RouteCtx) {
     const invoice = await cancelInvoice(ctx.unitId, id, asaasApiKey)
     return NextResponse.json({ invoice }, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'DELETE /api/invoices/[id]' })
+    return errorResponse(err, { route: 'DELETE /api/invoices/[id]', unitId })
   }
 }

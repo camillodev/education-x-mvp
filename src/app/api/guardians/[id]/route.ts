@@ -5,8 +5,10 @@ import { errorResponse } from '@/lib/errors/handle';
 import { encrypt } from '@/lib/crypto';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let unitId: string | undefined;
   try {
     const unitContext = await requireSchoolAdmin();
+    unitId = unitContext.unitId;
     const { id } = await params;
     const db = forUnit(unitContext.unitId);
     const guardian = await db.guardian.findUnique({
@@ -23,13 +25,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     return NextResponse.json({ success: true, data: guardian }, { status: 200 });
   } catch (error) {
-    return errorResponse(error, { route: 'GET /api/guardians/[id]' });
+    return errorResponse(error, { route: 'GET /api/guardians/[id]', unitId });
   }
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let unitId: string | undefined;
   try {
     const unitContext = await requireSchoolAdmin();
+    unitId = unitContext.unitId;
     const { id } = await params;
     const body = await request.json();
 
@@ -56,19 +60,21 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     return NextResponse.json({ success: true, data: result }, { status: 200 });
   } catch (error) {
-    return errorResponse(error, { route: 'PUT /api/guardians/[id]' });
+    return errorResponse(error, { route: 'PUT /api/guardians/[id]', unitId });
   }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let unitId: string | undefined;
   try {
     const unitContext = await requireSchoolAdmin();
+    unitId = unitContext.unitId;
     const { id } = await params;
     const db = forUnit(unitContext.unitId);
     await db.guardian.delete({ where: { id } });
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    return errorResponse(error, { route: 'DELETE /api/guardians/[id]' });
+    return errorResponse(error, { route: 'DELETE /api/guardians/[id]', unitId });
   }
 }

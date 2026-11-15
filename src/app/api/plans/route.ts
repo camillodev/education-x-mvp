@@ -4,12 +4,14 @@ import { errorResponse } from '@/lib/errors/handle';
 import { getAvailablePlansForUnit } from '@/lib/services/enrollment.service';
 
 export async function GET() {
+  let unitId: string | undefined;
   try {
     const unitContext = await requireSchoolAdmin();
+    unitId = unitContext.unitId;
     const plans = await getAvailablePlansForUnit(unitContext.unitId);
 
     return NextResponse.json({ success: true, data: plans }, { status: 200 });
   } catch (error) {
-    return errorResponse(error, { route: 'GET /api/plans' });
+    return errorResponse(error, { route: 'GET /api/plans', unitId });
   }
 }

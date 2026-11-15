@@ -5,8 +5,10 @@ import { errorResponse } from '@/lib/errors/handle';
 import { encrypt } from '@/lib/crypto';
 
 export async function GET() {
+  let unitId: string | undefined;
   try {
     const unitContext = await requireSchoolAdmin();
+    unitId = unitContext.unitId;
     const db = forUnit(unitContext.unitId);
     const guardians = await db.guardian.findMany({
       include: { enrollments: { include: { student: true } } },
@@ -15,13 +17,15 @@ export async function GET() {
 
     return NextResponse.json({ success: true, data: guardians }, { status: 200 });
   } catch (error) {
-    return errorResponse(error, { route: 'GET /api/guardians' });
+    return errorResponse(error, { route: 'GET /api/guardians', unitId });
   }
 }
 
 export async function POST(request: Request) {
+  let unitId: string | undefined;
   try {
     const unitContext = await requireSchoolAdmin();
+    unitId = unitContext.unitId;
     const body = await request.json();
     const db = forUnit(unitContext.unitId);
 
@@ -49,6 +53,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: guardian }, { status: 201 });
   } catch (error) {
-    return errorResponse(error, { route: 'POST /api/guardians' });
+    return errorResponse(error, { route: 'POST /api/guardians', unitId });
   }
 }

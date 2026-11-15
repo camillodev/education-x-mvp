@@ -8,8 +8,10 @@ import { currentReferenceMonth } from '@/lib/reference-month'
 // RN-18 — emissão em lote por matéria: mesma idempotência de emitInvoice,
 // resposta agrega { emitted, skipped, errors }.
 export async function POST(req: Request) {
+  let unitId: string | undefined
   try {
     const ctx = await requireSchoolAdmin()
+    unitId = ctx.unitId
     const rawBody = await req.json().catch(() => ({}))
     const { subjectId, referenceMonth = currentReferenceMonth() } = EmitBatchBodySchema.parse(rawBody)
 
@@ -17,6 +19,6 @@ export async function POST(req: Request) {
     const result = await emitBatchInvoices(ctx.unitId, subjectId, referenceMonth, asaasApiKey)
     return NextResponse.json(result, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'POST /api/billing/batch' })
+    return errorResponse(err, { route: 'POST /api/billing/batch', unitId })
   }
 }
