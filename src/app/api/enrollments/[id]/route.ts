@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { guardAdvisor } from '@/lib/api/guard';
+import { requireSchoolAdmin } from '@/lib/auth/unit-context';
 import { errorResponse } from '@/lib/errors/handle';
 import {
   getEnrollmentDetail,
@@ -8,10 +8,8 @@ import {
 } from '@/lib/services/enrollment.service';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const ctx = await guardAdvisor('GET /api/enrollments/[id]');
-  if (ctx instanceof NextResponse) return ctx;
-
   try {
+    const ctx = await requireSchoolAdmin();
     const { id } = await params;
     const enrollment = await getEnrollmentDetail(ctx.unitId, id);
     if (!enrollment) {
@@ -19,33 +17,29 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
     return NextResponse.json({ success: true, data: enrollment }, { status: 200 });
   } catch (error) {
-    return errorResponse(error, { route: 'GET /api/enrollments/[id]', unitId: ctx.unitId });
+    return errorResponse(error, { route: 'GET /api/enrollments/[id]' });
   }
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const ctx = await guardAdvisor('PUT /api/enrollments/[id]');
-  if (ctx instanceof NextResponse) return ctx;
-
   try {
+    const ctx = await requireSchoolAdmin();
     const { id } = await params;
     const body = await request.json();
     const updated = await updateEnrollment(ctx.unitId, id, body);
     return NextResponse.json({ success: true, data: updated }, { status: 200 });
   } catch (error) {
-    return errorResponse(error, { route: 'PUT /api/enrollments/[id]', unitId: ctx.unitId });
+    return errorResponse(error, { route: 'PUT /api/enrollments/[id]' });
   }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const ctx = await guardAdvisor('DELETE /api/enrollments/[id]');
-  if (ctx instanceof NextResponse) return ctx;
-
   try {
+    const ctx = await requireSchoolAdmin();
     const { id } = await params;
     await cancelEnrollment(ctx.unitId, id);
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    return errorResponse(error, { route: 'DELETE /api/enrollments/[id]', unitId: ctx.unitId });
+    return errorResponse(error, { route: 'DELETE /api/enrollments/[id]' });
   }
 }

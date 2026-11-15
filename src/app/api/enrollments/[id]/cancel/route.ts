@@ -3,18 +3,16 @@ import { prisma } from '@/lib/db'
 import { decrypt } from '@/lib/crypto'
 import { cancelActiveEnrollment } from '@/lib/services/subscription.service'
 import { errorResponse } from '@/lib/errors/handle'
-import { guardAdvisor } from '@/lib/api/guard'
+import { requireSchoolAdmin } from '@/lib/auth/unit-context'
 
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const ctx = await guardAdvisor('POST /api/enrollments/[id]/cancel')
-  if (ctx instanceof NextResponse) return ctx
-
-  const { id: enrollmentId } = await params
-
   try {
+    const ctx = await requireSchoolAdmin()
+    const { id: enrollmentId } = await params
+
     const unit = await prisma.unit.findUnique({
       where: { id: ctx.unitId },
       select: { asaasApiKeyEnc: true },
@@ -24,6 +22,6 @@ export async function POST(
     await cancelActiveEnrollment(ctx.unitId, enrollmentId, asaasApiKey)
     return NextResponse.json({ ok: true }, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'POST /api/enrollments/[id]/cancel', unitId: ctx.unitId })
+    return errorResponse(err, { route: 'POST /api/enrollments/[id]/cancel' })
   }
 }

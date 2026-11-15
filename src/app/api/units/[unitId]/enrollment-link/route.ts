@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'node:crypto'
 import { prisma } from '@/lib/db'
-import { guardAdmin } from '@/lib/api/guard'
+import { requireAdmin } from '@/lib/auth/unit-context'
 import { errorResponse } from '@/lib/errors/handle'
 
 type RouteCtx = { params: Promise<{ unitId: string }> }
 
 export async function POST(_req: NextRequest, { params }: RouteCtx) {
-  const denied = await guardAdmin('POST /api/units/[unitId]/enrollment-link')
-  if (denied) return denied
   const { unitId } = await params
 
   try {
+    await requireAdmin()
     const unit = await prisma.$transaction(async (tx) => {
       let existing = await tx.unit.findUnique({
         where: { id: unitId },

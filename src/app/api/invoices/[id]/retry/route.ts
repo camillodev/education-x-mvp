@@ -4,18 +4,16 @@ import { decrypt } from '@/lib/crypto'
 import { emitInvoice, MissingAsaasKeyError } from '@/lib/services/billing.service'
 import { InvoiceNotFoundError } from '@/lib/services/invoice-detail.service'
 import { errorResponse } from '@/lib/errors/handle'
-import { guardAdvisor } from '@/lib/api/guard'
+import { requireSchoolAdmin } from '@/lib/auth/unit-context'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
 // EDU-28 — botão "Reemitir" no detalhe: reusa emitInvoice, que já re-tenta Invoice ERROR (RN-13).
 export async function POST(_req: Request, { params }: RouteCtx) {
-  const ctx = await guardAdvisor('POST /api/invoices/[id]/retry')
-  if (ctx instanceof NextResponse) return ctx
-
-  const { id } = await params
-
   try {
+    const ctx = await requireSchoolAdmin()
+    const { id } = await params
+
     const existing = await forUnit(ctx.unitId).invoice.findUnique({ where: { id } })
     if (!existing) throw new InvoiceNotFoundError()
 
@@ -29,6 +27,6 @@ export async function POST(_req: Request, { params }: RouteCtx) {
     const invoice = await emitInvoice(ctx.unitId, existing.enrollmentId, existing.referenceMonth, asaasApiKey)
     return NextResponse.json({ invoice }, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'POST /api/invoices/[id]/retry', unitId: ctx.unitId })
+    return errorResponse(err, { route: 'POST /api/invoices/[id]/retry' })
   }
 }

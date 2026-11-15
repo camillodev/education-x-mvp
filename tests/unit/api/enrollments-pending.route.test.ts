@@ -4,7 +4,8 @@ import { NextRequest } from 'next/server'
 const getUnitContext = vi.fn()
 vi.mock('@/lib/auth/unit-context', async () => {
   const actual = await vi.importActual<typeof import('@/lib/auth/unit-context')>('@/lib/auth/unit-context')
-  return { ...actual, getUnitContext: (...a: unknown[]) => getUnitContext(...a) }
+  const { withSchoolAdmin } = await import('./_school-admin-mock')
+  return withSchoolAdmin(actual, (...a: unknown[]) => getUnitContext(...a))
 })
 
 const listPendingEnrollments = vi.fn()

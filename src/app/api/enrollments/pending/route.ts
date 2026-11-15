@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server'
 import { listPendingEnrollments } from '@/lib/services/approval.service'
 import { errorResponse } from '@/lib/errors/handle'
-import { guardAdvisor } from '@/lib/api/guard'
+import { requireSchoolAdmin } from '@/lib/auth/unit-context'
 
 export async function GET() {
-  const ctx = await guardAdvisor('GET /api/enrollments/pending')
-  if (ctx instanceof NextResponse) return ctx
-
   try {
+    const ctx = await requireSchoolAdmin()
     const list = await listPendingEnrollments(ctx.unitId)
     return NextResponse.json(list, { status: 200 })
   } catch (err) {

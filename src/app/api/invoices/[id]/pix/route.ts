@@ -5,18 +5,16 @@ import { getAsaasClient } from '@/lib/integration/asaas/client'
 import { MissingAsaasKeyError } from '@/lib/services/billing.service'
 import { InvoiceNotFoundError } from '@/lib/services/invoice-detail.service'
 import { errorResponse } from '@/lib/errors/handle'
-import { guardAdvisor } from '@/lib/api/guard'
+import { requireSchoolAdmin } from '@/lib/auth/unit-context'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
 // EDU-28 — QR PIX é lazy (I/O de terceiro não cacheável): só busca quando a pessoa pede pra pagar por PIX.
 export async function GET(_req: Request, { params }: RouteCtx) {
-  const ctx = await guardAdvisor('GET /api/invoices/[id]/pix')
-  if (ctx instanceof NextResponse) return ctx
-
-  const { id } = await params
-
   try {
+    const ctx = await requireSchoolAdmin()
+    const { id } = await params
+
     const invoice = await forUnit(ctx.unitId).invoice.findUnique({ where: { id } })
     if (!invoice?.asaasPaymentId) throw new InvoiceNotFoundError()
 
@@ -31,6 +29,6 @@ export async function GET(_req: Request, { params }: RouteCtx) {
     const pix = await client.getPixQrCode(invoice.asaasPaymentId)
     return NextResponse.json({ pix }, { status: 200 })
   } catch (err) {
-    return errorResponse(err, { route: 'GET /api/invoices/[id]/pix', unitId: ctx.unitId })
+    return errorResponse(err, { route: 'GET /api/invoices/[id]/pix' })
   }
 }
